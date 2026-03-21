@@ -1,0 +1,28 @@
+{
+  "name": "@mybizos/db",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "studio": "drizzle-kit studio",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.0",
+    "@mybizos/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

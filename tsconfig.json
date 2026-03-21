@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "paths": {
+      "@mybizos/db": ["./packages/db/src"],
+      "@mybizos/shared": ["./packages/shared/src"],
+      "@mybizos/ui": ["./packages/ui/src"],
+      "@mybizos/ai": ["./packages/ai/src"],
+      "@mybizos/email": ["./packages/email/src"],
+      "@mybizos/integrations": ["./packages/integrations/src"]
+    }
+  }
+}

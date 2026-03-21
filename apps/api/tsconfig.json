@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@mybizos/db": ["../../packages/db/src"],
+      "@mybizos/shared": ["../../packages/shared/src"],
+      "@mybizos/ai": ["../../packages/ai/src"],
+      "@mybizos/email": ["../../packages/email/src"],
+      "@mybizos/integrations": ["../../packages/integrations/src"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
