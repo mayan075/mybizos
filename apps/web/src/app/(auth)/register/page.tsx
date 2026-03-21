@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Zap,
@@ -11,20 +12,105 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
+  ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { storeToken } from "@/lib/auth";
+import { apiClient, ApiRequestError } from "@/lib/api-client";
+
+const VERTICALS = [
+  { value: "plumbing", label: "Plumbing" },
+  { value: "hvac", label: "HVAC" },
+  { value: "electrical", label: "Electrical" },
+  { value: "roofing", label: "Roofing" },
+  { value: "landscaping", label: "Landscaping" },
+  { value: "pest_control", label: "Pest Control" },
+  { value: "cleaning", label: "Cleaning" },
+  { value: "general_contractor", label: "General Contractor" },
+] as const;
+
+interface RegisterResponse {
+  data: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+    };
+    org: {
+      id: string;
+      name: string;
+      slug: string;
+      vertical: string;
+    };
+    token: string;
+  };
+}
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: "",
-    company: "",
+    businessName: "",
     email: "",
     password: "",
+    vertical: "",
   });
 
-  const update = (field: string, value: string) =>
+  const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // Clear field-specific error when user edits
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setFieldErrors({});
+    setIsLoading(true);
+
+    try {
+      const response = await apiClient.post<RegisterResponse>(
+        "/auth/register",
+        {
+          name: form.name,
+          businessName: form.businessName,
+          email: form.email,
+          password: form.password,
+          vertical: form.vertical,
+        },
+      );
+
+      storeToken(response.data.token);
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        if (err.details) {
+          const errors: Record<string, string> = {};
+          for (const detail of err.details) {
+            errors[detail.field] = detail.message;
+          }
+          setFieldErrors(errors);
+        }
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -77,13 +163,13 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <form
-            className="space-y-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              // TODO: integrate Better Auth
-            }}
-          >
+          {error && !Object.keys(fieldErrors).length && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label
@@ -100,14 +186,25 @@ export default function RegisterPage() {
                     value={form.name}
                     onChange={(e) => update("name", e.target.value)}
                     placeholder="John Smith"
-                    className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                    className={cn(
+                      "h-11 w-full rounded-lg border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                      fieldErrors["name"]
+                        ? "border-destructive"
+                        : "border-input",
+                    )}
                     required
+                    disabled={isLoading}
                   />
                 </div>
+                {fieldErrors["name"] && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors["name"]}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label
-                  htmlFor="company"
+                  htmlFor="businessName"
                   className="text-sm font-medium text-foreground"
                 >
                   Business name
@@ -115,16 +212,68 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input
-                    id="company"
+                    id="businessName"
                     type="text"
-                    value={form.company}
-                    onChange={(e) => update("company", e.target.value)}
+                    value={form.businessName}
+                    onChange={(e) => update("businessName", e.target.value)}
                     placeholder="Acme HVAC"
-                    className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                    className={cn(
+                      "h-11 w-full rounded-lg border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                      fieldErrors["businessName"]
+                        ? "border-destructive"
+                        : "border-input",
+                    )}
                     required
+                    disabled={isLoading}
                   />
                 </div>
+                {fieldErrors["businessName"] && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors["businessName"]}
+                  </p>
+                )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="vertical"
+                className="text-sm font-medium text-foreground"
+              >
+                Business type
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  id="vertical"
+                  value={form.vertical}
+                  onChange={(e) => update("vertical", e.target.value)}
+                  className={cn(
+                    "h-11 w-full appearance-none rounded-lg border bg-background pl-10 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                    !form.vertical && "text-muted-foreground",
+                    fieldErrors["vertical"]
+                      ? "border-destructive"
+                      : "border-input",
+                  )}
+                  required
+                  disabled={isLoading}
+                >
+                  <option value="" disabled>
+                    Select your industry
+                  </option>
+                  {VERTICALS.map((v) => (
+                    <option key={v.value} value={v.value}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+              {fieldErrors["vertical"] && (
+                <p className="text-xs text-destructive">
+                  {fieldErrors["vertical"]}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -142,10 +291,21 @@ export default function RegisterPage() {
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   placeholder="john@acmehvac.com"
-                  className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                  className={cn(
+                    "h-11 w-full rounded-lg border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                    fieldErrors["email"]
+                      ? "border-destructive"
+                      : "border-input",
+                  )}
                   required
+                  disabled={isLoading}
                 />
               </div>
+              {fieldErrors["email"] && (
+                <p className="text-xs text-destructive">
+                  {fieldErrors["email"]}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -163,8 +323,15 @@ export default function RegisterPage() {
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
                   placeholder="Create a strong password"
-                  className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                  className={cn(
+                    "h-11 w-full rounded-lg border bg-background pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                    fieldErrors["password"]
+                      ? "border-destructive"
+                      : "border-input",
+                  )}
                   required
+                  minLength={8}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -178,19 +345,38 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+              {fieldErrors["password"] && (
+                <p className="text-xs text-destructive">
+                  {fieldErrors["password"]}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Must be at least 8 characters
+              </p>
             </div>
 
             <button
               type="submit"
+              disabled={isLoading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
                 "bg-primary text-primary-foreground font-medium text-sm",
                 "hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                 "transition-all duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              Create account
-              <ArrowRight className="h-4 w-4" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Zap,
@@ -10,13 +11,61 @@ import {
   EyeOff,
   ArrowRight,
   Phone,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { storeToken } from "@/lib/auth";
+import { apiClient, ApiRequestError } from "@/lib/api-client";
+
+interface LoginResponse {
+  data: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+    };
+    org: {
+      id: string;
+      name: string;
+      slug: string;
+      vertical: string;
+    };
+    token: string;
+  };
+}
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const response = await apiClient.post<LoginResponse>("/auth/login", {
+        email,
+        password,
+      });
+
+      storeToken(response.data.token);
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -81,13 +130,13 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form
-            className="space-y-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              // TODO: integrate Better Auth
-            }}
-          >
+          {error && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label
                 htmlFor="email"
@@ -105,6 +154,7 @@ export default function LoginPage() {
                   placeholder="you@company.com"
                   className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -134,6 +184,7 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                   required
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -151,15 +202,26 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              disabled={isLoading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
                 "bg-primary text-primary-foreground font-medium text-sm",
                 "hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                 "transition-all duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              Sign in
-              <ArrowRight className="h-4 w-4" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 

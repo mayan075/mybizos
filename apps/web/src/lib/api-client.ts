@@ -1,19 +1,44 @@
 /**
- * API client stub — will connect to the Hono backend.
- * All API calls will go through this module for consistent
+ * API client for the Hono backend.
+ * All API calls go through this module for consistent
  * error handling, auth headers, and response parsing.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { getToken } from "./auth";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 interface ApiError {
   error: string;
   code: string;
   status: number;
+  details?: Array<{ field: string; message: string }>;
 }
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>;
+}
+
+class ApiRequestError extends Error {
+  code: string;
+  status: number;
+  details?: Array<{ field: string; message: string }>;
+
+  constructor(data: ApiError) {
+    super(data.error);
+    this.name = "ApiRequestError";
+    this.code = data.code;
+    this.status = data.status;
+    this.details = data.details;
+  }
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = getToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 }
 
 async function request<T>(
@@ -32,13 +57,14 @@ async function request<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
       ...init.headers,
     },
   });
 
   if (!response.ok) {
     const errorData = (await response.json()) as ApiError;
-    throw new Error(errorData.error ?? `API Error: ${response.status}`);
+    throw new ApiRequestError(errorData);
   }
 
   return response.json() as Promise<T>;
@@ -65,3 +91,5 @@ export const apiClient = {
   delete: <T>(endpoint: string, options?: RequestOptions) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };
+
+export { ApiRequestError };

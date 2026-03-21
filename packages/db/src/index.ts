@@ -1,3 +1,6 @@
+// Database client
+export { db, type Database } from "./client.js";
+
 // Schema exports
 export * from "./schema/auth.js";
 export * from "./schema/organizations.js";

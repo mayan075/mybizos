@@ -11,19 +11,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.7.0",
     "@hono/node-server": "^1.14.0",
-    "zod": "^3.24.0",
-    "@mybizos/db": "workspace:*",
-    "@mybizos/shared": "workspace:*",
     "@mybizos/ai": "workspace:*",
+    "@mybizos/db": "workspace:*",
     "@mybizos/email": "workspace:*",
-    "@mybizos/integrations": "workspace:*"
+    "@mybizos/integrations": "workspace:*",
+    "@mybizos/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "vitest": "^3.1.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^3.1.0"
   }
 }

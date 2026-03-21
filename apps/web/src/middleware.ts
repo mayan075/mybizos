@@ -1,0 +1,104 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+/**
+ * Next.js edge middleware for route protection.
+ *
+ * Checks for a JWT token in cookies (mybizos_token) or the Authorization header.
+ * - Protected routes (/dashboard/*) redirect to /login if no valid token.
+ * - Public routes (/login, /register, /book/*, /review/*) are always accessible.
+ * - Auth routes redirect to /dashboard if already authenticated.
+ */
+
+const PUBLIC_PATHS = ["/login", "/register", "/book", "/review"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
+function isAuthPage(pathname: string): boolean {
+  return pathname === "/login" || pathname === "/register";
+}
+
+function isProtectedPath(pathname: string): boolean {
+  return pathname.startsWith("/dashboard");
+}
+
+/**
+ * Minimal JWT expiration check without crypto verification.
+ * Full verification happens server-side; this just prevents
+ * obvious expired-token redirects at the edge.
+ */
+function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    const payload = parts[1];
+    if (!payload) return true;
+
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(atob(base64)) as { exp?: number };
+
+    if (!decoded.exp) return true;
+
+    const now = Math.floor(Date.now() / 1000);
+    return decoded.exp <= now;
+  } catch {
+    return true;
+  }
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip non-page routes (static files, api, _next)
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Get token from cookie or Authorization header
+  const cookieToken = request.cookies.get("mybizos_token")?.value;
+  const authHeader = request.headers.get("Authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : undefined;
+
+  const token = cookieToken ?? bearerToken;
+  const hasValidToken = token ? !isTokenExpired(token) : false;
+
+  // If user is on an auth page and already logged in, redirect to dashboard
+  if (isAuthPage(pathname) && hasValidToken) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // If route is public, allow access
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // If route is protected and no valid token, redirect to login
+  if (isProtectedPath(pathname) && !hasValidToken) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
+};

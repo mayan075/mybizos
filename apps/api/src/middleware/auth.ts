@@ -1,26 +1,23 @@
-import type { Context, MiddlewareHandler } from 'hono';
-import { config } from '../config.js';
+import type { MiddlewareHandler } from 'hono';
+import { validateToken, type JwtPayload } from '../services/auth-service.js';
 
 export interface AuthUser {
   id: string;
   email: string;
-  name: string;
   orgId: string;
-  role: 'owner' | 'admin' | 'member';
+  role: 'owner' | 'admin' | 'manager' | 'member';
 }
 
 declare module 'hono' {
   interface ContextVariableMap {
     user: AuthUser;
+    token: string;
   }
 }
 
 /**
  * Auth middleware: extracts and validates the JWT from the Authorization header,
  * then sets the authenticated user on the Hono context.
- *
- * Until Better Auth is fully integrated, this uses a simplified JWT decode.
- * The production version will validate against Better Auth sessions.
  */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authorization = c.req.header('Authorization');
@@ -43,8 +40,16 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const token = parts[1] as string;
 
   try {
-    const user = await verifyToken(token);
-    c.set('user', user);
+    const payload: JwtPayload = validateToken(token);
+
+    c.set('user', {
+      id: payload.userId,
+      email: payload.email,
+      orgId: payload.orgId,
+      role: payload.role,
+    });
+    c.set('token', token);
+
     await next();
   } catch {
     return c.json(
@@ -53,52 +58,6 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     );
   }
 };
-
-/**
- * Verify and decode a JWT token.
- *
- * STUB: This currently decodes a base64-encoded JSON payload for development.
- * Production will use Better Auth session validation with proper cryptographic verification.
- */
-async function verifyToken(token: string): Promise<AuthUser> {
-  // In development mode, accept a base64-encoded JSON user payload
-  // Format: base64({ id, email, name, orgId, role })
-  // Production will validate via Better Auth
-  if (config.NODE_ENV === 'development') {
-    try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8')) as Record<string, unknown>;
-
-      if (
-        typeof decoded['id'] !== 'string' ||
-        typeof decoded['email'] !== 'string' ||
-        typeof decoded['name'] !== 'string' ||
-        typeof decoded['orgId'] !== 'string' ||
-        typeof decoded['role'] !== 'string'
-      ) {
-        throw new Error('Invalid token payload shape');
-      }
-
-      const role = decoded['role'] as string;
-      if (role !== 'owner' && role !== 'admin' && role !== 'member') {
-        throw new Error('Invalid role in token');
-      }
-
-      return {
-        id: decoded['id'] as string,
-        email: decoded['email'] as string,
-        name: decoded['name'] as string,
-        orgId: decoded['orgId'] as string,
-        role,
-      };
-    } catch {
-      throw new Error('Failed to decode development token');
-    }
-  }
-
-  // Production: validate with Better Auth
-  // TODO: Replace with Better Auth session verification once the auth package is ready
-  throw new Error('Production auth not yet configured');
-}
 
 /**
  * Require a specific role for a route.

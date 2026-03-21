@@ -1,181 +1,247 @@
-import { withOrgScope } from '../middleware/org-scope.js';
+import {
+  db,
+  conversations,
+  messages,
+  contacts,
+  withOrgScope,
+} from '@mybizos/db';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
-
-export interface Conversation {
-  id: string;
-  orgId: string;
-  contactId: string;
-  contactName: string;
-  channel: 'sms' | 'email' | 'phone' | 'webchat';
-  status: 'open' | 'closed' | 'snoozed';
-  lastMessageAt: string;
-  unreadCount: number;
-  assignedTo: string | null;
-  createdAt: string;
-}
-
-export interface Message {
-  id: string;
-  conversationId: string;
-  direction: 'inbound' | 'outbound';
-  channel: 'sms' | 'email' | 'phone' | 'webchat';
-  content: string;
-  sender: string;
-  isAi: boolean;
-  metadata: Record<string, unknown>;
-  createdAt: string;
-}
-
-// ── Mock data ──
-const mockConversations: Conversation[] = [
-  {
-    id: 'conv_01',
-    orgId: 'org_01',
-    contactId: 'cnt_01',
-    contactName: 'Sarah Johnson',
-    channel: 'sms',
-    status: 'open',
-    lastMessageAt: '2026-03-20T16:45:00Z',
-    unreadCount: 2,
-    assignedTo: null,
-    createdAt: '2026-03-15T14:30:00Z',
-  },
-  {
-    id: 'conv_02',
-    orgId: 'org_01',
-    contactId: 'cnt_02',
-    contactName: 'Michael Chen',
-    channel: 'email',
-    status: 'open',
-    lastMessageAt: '2026-03-19T09:00:00Z',
-    unreadCount: 0,
-    assignedTo: null,
-    createdAt: '2026-03-10T08:00:00Z',
-  },
-  {
-    id: 'conv_03',
-    orgId: 'org_01',
-    contactId: 'cnt_01',
-    contactName: 'Sarah Johnson',
-    channel: 'phone',
-    status: 'closed',
-    lastMessageAt: '2026-03-15T14:30:00Z',
-    unreadCount: 0,
-    assignedTo: null,
-    createdAt: '2026-03-15T14:25:00Z',
-  },
-];
-
-const mockMessages: Message[] = [
-  {
-    id: 'msg_01',
-    conversationId: 'conv_01',
-    direction: 'inbound',
-    channel: 'sms',
-    content: 'Hi, I wanted to follow up on the furnace repair quote',
-    sender: 'Sarah Johnson',
-    isAi: false,
-    metadata: {},
-    createdAt: '2026-03-20T16:40:00Z',
-  },
-  {
-    id: 'msg_02',
-    conversationId: 'conv_01',
-    direction: 'outbound',
-    channel: 'sms',
-    content: 'Hi Sarah! Thanks for reaching out. Your technician visit is confirmed for March 20. The repair typically starts around $150-250 depending on the issue. Would you like to confirm this appointment?',
-    sender: 'AI Assistant',
-    isAi: true,
-    metadata: { aiModel: 'claude-3.5-sonnet' },
-    createdAt: '2026-03-20T16:40:30Z',
-  },
-  {
-    id: 'msg_03',
-    conversationId: 'conv_01',
-    direction: 'inbound',
-    channel: 'sms',
-    content: 'Yes, that works. See you then!',
-    sender: 'Sarah Johnson',
-    isAi: false,
-    metadata: {},
-    createdAt: '2026-03-20T16:45:00Z',
-  },
-];
 
 export const conversationService = {
   async list(
     orgId: string,
-    filters: { channel?: string; status?: string },
-  ): Promise<Conversation[]> {
-    const scope = withOrgScope(orgId);
-    let results = mockConversations.filter((c) => c.orgId === scope.orgId);
+    filters: {
+      channel?: typeof conversations.channel.enumValues[number];
+      status?: typeof conversations.status.enumValues[number];
+    },
+  ) {
+    const conditions = [withOrgScope(conversations.orgId, orgId)];
 
     if (filters.channel) {
-      results = results.filter((c) => c.channel === filters.channel);
+      conditions.push(eq(conversations.channel, filters.channel));
     }
 
     if (filters.status) {
-      results = results.filter((c) => c.status === filters.status);
+      conditions.push(eq(conversations.status, filters.status));
     }
 
-    return results.sort(
-      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
-    );
+    const rows = await db
+      .select({
+        conversation: conversations,
+        contactFirstName: contacts.firstName,
+        contactLastName: contacts.lastName,
+        contactEmail: contacts.email,
+        contactPhone: contacts.phone,
+      })
+      .from(conversations)
+      .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+      .where(and(...conditions))
+      .orderBy(desc(conversations.lastMessageAt));
+
+    return rows;
   },
 
-  async getMessages(orgId: string, conversationId: string): Promise<Message[]> {
-    const scope = withOrgScope(orgId);
-    const conversation = mockConversations.find(
-      (c) => c.id === conversationId && c.orgId === scope.orgId,
-    );
+  async getById(orgId: string, conversationId: string) {
+    const [result] = await db
+      .select({
+        conversation: conversations,
+        contactFirstName: contacts.firstName,
+        contactLastName: contacts.lastName,
+      })
+      .from(conversations)
+      .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ));
+
+    if (!result) {
+      throw Errors.notFound('Conversation');
+    }
+
+    return result;
+  },
+
+  async getMessages(orgId: string, conversationId: string) {
+    // Verify conversation belongs to org
+    const [conversation] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ));
 
     if (!conversation) {
       throw Errors.notFound('Conversation');
     }
 
-    return mockMessages
-      .filter((m) => m.conversationId === conversationId)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const rows = await db
+      .select()
+      .from(messages)
+      .where(and(
+        withOrgScope(messages.orgId, orgId),
+        eq(messages.conversationId, conversationId),
+      ))
+      .orderBy(asc(messages.createdAt));
+
+    return rows;
   },
 
-  async sendMessage(
+  async createMessage(
     orgId: string,
     conversationId: string,
-    data: { content: string; channel: 'sms' | 'email' },
-  ): Promise<Message> {
-    const scope = withOrgScope(orgId);
-    const conversation = mockConversations.find(
-      (c) => c.id === conversationId && c.orgId === scope.orgId,
-    );
+    data: {
+      direction: typeof messages.direction.enumValues[number];
+      channel: typeof messages.channel.enumValues[number];
+      senderType: typeof messages.senderType.enumValues[number];
+      senderId?: string | null;
+      body: string;
+      mediaUrls?: unknown[];
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    // Verify conversation belongs to org
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ));
 
     if (!conversation) {
       throw Errors.notFound('Conversation');
     }
 
-    const now = new Date().toISOString();
-    const message: Message = {
-      id: `msg_${Date.now()}`,
-      conversationId,
-      direction: 'outbound',
-      channel: data.channel,
-      content: data.content,
-      sender: 'User',
-      isAi: false,
-      metadata: {},
-      createdAt: now,
-    };
+    const now = new Date();
 
-    mockMessages.push(message);
+    const [created] = await db
+      .insert(messages)
+      .values({
+        conversationId,
+        orgId,
+        direction: data.direction,
+        channel: data.channel,
+        senderType: data.senderType,
+        senderId: data.senderId ?? null,
+        body: data.body,
+        mediaUrls: data.mediaUrls ?? [],
+        metadata: data.metadata ?? {},
+        status: 'sent',
+      })
+      .returning();
 
-    // Update conversation's last message timestamp
-    const convIdx = mockConversations.findIndex((c) => c.id === conversationId);
-    if (convIdx !== -1) {
-      const existing = mockConversations[convIdx] as Conversation;
-      mockConversations[convIdx] = { ...existing, lastMessageAt: now };
+    if (!created) {
+      throw Errors.internal('Failed to create message');
     }
 
-    logger.info('Message sent', { orgId, conversationId, channel: data.channel });
-    return message;
+    // Update conversation last message time and unread count
+    const unreadIncrement = data.direction === 'inbound' ? 1 : 0;
+
+    await db
+      .update(conversations)
+      .set({
+        lastMessageAt: now,
+        unreadCount: sql`${conversations.unreadCount} + ${unreadIncrement}`,
+        // Reopen conversation if it was closed/snoozed and we got an inbound message
+        ...(data.direction === 'inbound' && conversation.status !== 'open'
+          ? { status: 'open' as const }
+          : {}),
+      })
+      .where(eq(conversations.id, conversationId));
+
+    logger.info('Message created', {
+      orgId,
+      conversationId,
+      direction: data.direction,
+      channel: data.channel,
+    });
+
+    return created;
+  },
+
+  async markAsRead(orgId: string, conversationId: string) {
+    const [updated] = await db
+      .update(conversations)
+      .set({ unreadCount: 0 })
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('Conversation');
+    }
+
+    return updated;
+  },
+
+  async close(orgId: string, conversationId: string) {
+    const [updated] = await db
+      .update(conversations)
+      .set({ status: 'closed' })
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('Conversation');
+    }
+
+    logger.info('Conversation closed', { orgId, conversationId });
+    return updated;
+  },
+
+  async snooze(orgId: string, conversationId: string) {
+    const [updated] = await db
+      .update(conversations)
+      .set({ status: 'snoozed' })
+      .where(and(
+        withOrgScope(conversations.orgId, orgId),
+        eq(conversations.id, conversationId),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('Conversation');
+    }
+
+    logger.info('Conversation snoozed', { orgId, conversationId });
+    return updated;
+  },
+
+  async create(
+    orgId: string,
+    data: {
+      contactId: string;
+      channel: typeof conversations.channel.enumValues[number];
+      assignedTo?: string | null;
+    },
+  ) {
+    const [created] = await db
+      .insert(conversations)
+      .values({
+        orgId,
+        contactId: data.contactId,
+        channel: data.channel,
+        status: 'open',
+        assignedTo: data.assignedTo ?? null,
+        aiHandled: false,
+        unreadCount: 0,
+      })
+      .returning();
+
+    if (!created) {
+      throw Errors.internal('Failed to create conversation');
+    }
+
+    logger.info('Conversation created', { orgId, conversationId: created.id });
+    return created;
   },
 };

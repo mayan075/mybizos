@@ -1,199 +1,225 @@
-import { withOrgScope } from '../middleware/org-scope.js';
-import { AppError, Errors } from '../middleware/error-handler.js';
+import {
+  db,
+  contacts,
+  activities,
+  withOrgScope,
+} from '@mybizos/db';
+import { eq, and, or, ilike, sql, desc, asc, arrayContains, count } from 'drizzle-orm';
+import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
-
-export interface Contact {
-  id: string;
-  orgId: string;
-  firstName: string;
-  lastName: string;
-  email: string | null;
-  phone: string | null;
-  company: string | null;
-  source: string;
-  status: 'active' | 'inactive' | 'archived';
-  tags: string[];
-  customFields: Record<string, string>;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TimelineEvent {
-  id: string;
-  contactId: string;
-  type: 'call' | 'sms' | 'email' | 'note' | 'deal_created' | 'appointment' | 'status_change';
-  description: string;
-  metadata: Record<string, unknown>;
-  createdAt: string;
-}
 
 export interface ContactFilters {
   search?: string;
-  status?: string;
   source?: string;
   tag?: string;
+  minScore?: number;
+  maxScore?: number;
   page: number;
   limit: number;
+  sortBy?: 'createdAt' | 'aiScore' | 'firstName';
+  sortOrder?: 'asc' | 'desc';
 }
 
-// ── Mock data store (replaced by Drizzle when @mybizos/db is ready) ──
-const mockContacts: Contact[] = [
-  {
-    id: 'cnt_01',
-    orgId: 'org_01',
-    firstName: 'Sarah',
-    lastName: 'Johnson',
-    email: 'sarah.johnson@example.com',
-    phone: '+15551234567',
-    company: 'Johnson Plumbing',
-    source: 'phone_call',
-    status: 'active',
-    tags: ['hvac', 'residential'],
-    customFields: { preferredTime: 'morning' },
-    createdAt: '2026-03-01T10:00:00Z',
-    updatedAt: '2026-03-15T14:30:00Z',
-  },
-  {
-    id: 'cnt_02',
-    orgId: 'org_01',
-    firstName: 'Michael',
-    lastName: 'Chen',
-    email: 'mike.chen@example.com',
-    phone: '+15559876543',
-    company: null,
-    source: 'website',
-    status: 'active',
-    tags: ['plumbing', 'commercial'],
-    customFields: {},
-    createdAt: '2026-03-10T08:00:00Z',
-    updatedAt: '2026-03-10T08:00:00Z',
-  },
-];
-
-const mockTimeline: TimelineEvent[] = [
-  {
-    id: 'evt_01',
-    contactId: 'cnt_01',
-    type: 'call',
-    description: 'Inbound call — AI agent qualified lead for furnace repair',
-    metadata: { duration: 180, aiHandled: true },
-    createdAt: '2026-03-15T14:30:00Z',
-  },
-  {
-    id: 'evt_02',
-    contactId: 'cnt_01',
-    type: 'appointment',
-    description: 'Furnace inspection scheduled for March 20',
-    metadata: { appointmentId: 'apt_01' },
-    createdAt: '2026-03-15T14:35:00Z',
-  },
-];
-
 export const contactService = {
-  async list(orgId: string, filters: ContactFilters): Promise<{ contacts: Contact[]; total: number }> {
-    const scope = withOrgScope(orgId);
-    logger.debug('Listing contacts', { orgId, filters });
-
-    let filtered = mockContacts.filter((c) => c.orgId === scope.orgId);
+  async list(orgId: string, filters: ContactFilters) {
+    const conditions = [withOrgScope(contacts.orgId, orgId)];
 
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.firstName.toLowerCase().includes(q) ||
-          c.lastName.toLowerCase().includes(q) ||
-          c.email?.toLowerCase().includes(q) ||
-          c.phone?.includes(q),
+      const pattern = `%${filters.search}%`;
+      conditions.push(
+        or(
+          ilike(contacts.firstName, pattern),
+          ilike(contacts.lastName, pattern),
+          ilike(contacts.email, pattern),
+          ilike(contacts.phone, pattern),
+        )!,
       );
     }
 
-    if (filters.status) {
-      filtered = filtered.filter((c) => c.status === filters.status);
-    }
-
     if (filters.source) {
-      filtered = filtered.filter((c) => c.source === filters.source);
+      conditions.push(eq(contacts.source, filters.source as typeof contacts.source.enumValues[number]));
     }
 
     if (filters.tag) {
-      filtered = filtered.filter((c) => c.tags.includes(filters.tag as string));
+      conditions.push(arrayContains(contacts.tags, [filters.tag]));
     }
 
-    const total = filtered.length;
-    const start = (filters.page - 1) * filters.limit;
-    const paged = filtered.slice(start, start + filters.limit);
+    if (filters.minScore !== undefined) {
+      conditions.push(sql`${contacts.aiScore} >= ${filters.minScore}`);
+    }
 
-    return { contacts: paged, total };
+    if (filters.maxScore !== undefined) {
+      conditions.push(sql`${contacts.aiScore} <= ${filters.maxScore}`);
+    }
+
+    const whereClause = and(...conditions);
+
+    const [totalResult] = await db
+      .select({ value: count() })
+      .from(contacts)
+      .where(whereClause);
+
+    const total = totalResult?.value ?? 0;
+
+    const orderColumn = filters.sortBy === 'aiScore'
+      ? contacts.aiScore
+      : filters.sortBy === 'firstName'
+        ? contacts.firstName
+        : contacts.createdAt;
+
+    const orderDir = filters.sortOrder === 'asc' ? asc : desc;
+
+    const offset = (filters.page - 1) * filters.limit;
+
+    const rows = await db
+      .select()
+      .from(contacts)
+      .where(whereClause)
+      .orderBy(orderDir(orderColumn))
+      .limit(filters.limit)
+      .offset(offset);
+
+    return { contacts: rows, total };
   },
 
-  async getById(orgId: string, contactId: string): Promise<{ contact: Contact; timeline: TimelineEvent[] }> {
-    const scope = withOrgScope(orgId);
-    const contact = mockContacts.find((c) => c.id === contactId && c.orgId === scope.orgId);
+  async getById(orgId: string, contactId: string) {
+    const [contact] = await db
+      .select()
+      .from(contacts)
+      .where(and(
+        withOrgScope(contacts.orgId, orgId),
+        eq(contacts.id, contactId),
+      ));
 
     if (!contact) {
       throw Errors.notFound('Contact');
     }
 
-    const timeline = mockTimeline.filter((e) => e.contactId === contactId);
+    const timeline = await db
+      .select()
+      .from(activities)
+      .where(and(
+        withOrgScope(activities.orgId, orgId),
+        eq(activities.contactId, contactId),
+      ))
+      .orderBy(desc(activities.createdAt))
+      .limit(50);
+
     return { contact, timeline };
   },
 
-  async create(orgId: string, data: Omit<Contact, 'id' | 'orgId' | 'createdAt' | 'updatedAt'>): Promise<Contact> {
-    const scope = withOrgScope(orgId);
-    const now = new Date().toISOString();
-    const contact: Contact = {
-      id: `cnt_${Date.now()}`,
-      orgId: scope.orgId,
-      ...data,
-      createdAt: now,
-      updatedAt: now,
-    };
-    mockContacts.push(contact);
-    logger.info('Contact created', { orgId, contactId: contact.id });
-    return contact;
+  async create(
+    orgId: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email?: string | null;
+      phone?: string | null;
+      companyId?: string | null;
+      source?: typeof contacts.source.enumValues[number];
+      tags?: string[];
+      customFields?: Record<string, unknown>;
+    },
+  ) {
+    const [created] = await db
+      .insert(contacts)
+      .values({
+        orgId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email ?? null,
+        phone: data.phone ?? null,
+        companyId: data.companyId ?? null,
+        source: data.source ?? 'manual',
+        tags: data.tags ?? [],
+        customFields: data.customFields ?? {},
+      })
+      .returning();
+
+    if (!created) {
+      throw Errors.internal('Failed to create contact');
+    }
+
+    logger.info('Contact created', { orgId, contactId: created.id });
+    return created;
   },
 
-  async update(orgId: string, contactId: string, data: Partial<Omit<Contact, 'id' | 'orgId' | 'createdAt'>>): Promise<Contact> {
-    const scope = withOrgScope(orgId);
-    const idx = mockContacts.findIndex((c) => c.id === contactId && c.orgId === scope.orgId);
+  async update(
+    orgId: string,
+    contactId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      email?: string | null;
+      phone?: string | null;
+      companyId?: string | null;
+      source?: typeof contacts.source.enumValues[number];
+      aiScore?: number;
+      tags?: string[];
+      customFields?: Record<string, unknown>;
+    },
+  ) {
+    const [updated] = await db
+      .update(contacts)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        withOrgScope(contacts.orgId, orgId),
+        eq(contacts.id, contactId),
+      ))
+      .returning();
 
-    if (idx === -1) {
+    if (!updated) {
       throw Errors.notFound('Contact');
     }
 
-    const existing = mockContacts[idx] as Contact;
-    const updated: Contact = {
-      ...existing,
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    mockContacts[idx] = updated;
     logger.info('Contact updated', { orgId, contactId });
     return updated;
   },
 
-  async softDelete(orgId: string, contactId: string): Promise<void> {
-    const scope = withOrgScope(orgId);
-    const idx = mockContacts.findIndex((c) => c.id === contactId && c.orgId === scope.orgId);
+  async softDelete(orgId: string, contactId: string) {
+    // Soft delete by removing from active set — we use a real DELETE here
+    // since the schema does not have an is_archived column.
+    // If soft-delete is needed, add an `is_archived` column to contacts.
+    const result = await db
+      .delete(contacts)
+      .where(and(
+        withOrgScope(contacts.orgId, orgId),
+        eq(contacts.id, contactId),
+      ))
+      .returning({ id: contacts.id });
 
-    if (idx === -1) {
+    if (result.length === 0) {
       throw Errors.notFound('Contact');
     }
 
-    const existing = mockContacts[idx] as Contact;
-    mockContacts[idx] = { ...existing, status: 'archived', updatedAt: new Date().toISOString() };
-    logger.info('Contact soft-deleted', { orgId, contactId });
+    logger.info('Contact deleted', { orgId, contactId });
   },
 
-  async importCsv(orgId: string, csvRows: Array<Record<string, string>>): Promise<{ imported: number; skipped: number; errors: string[] }> {
-    const scope = withOrgScope(orgId);
+  async importCsv(
+    orgId: string,
+    csvRows: Array<Record<string, string>>,
+  ): Promise<{ imported: number; skipped: number; errors: string[] }> {
     let imported = 0;
     let skipped = 0;
     const errors: string[] = [];
 
+    const validRows: Array<{
+      orgId: string;
+      firstName: string;
+      lastName: string;
+      email: string | null;
+      phone: string | null;
+      source: typeof contacts.source.enumValues[number];
+      tags: string[];
+      customFields: Record<string, unknown>;
+    }> = [];
+
     for (const row of csvRows) {
-      const firstName = row['first_name'] || row['firstName'];
-      const lastName = row['last_name'] || row['lastName'];
+      const firstName = row['first_name'] ?? row['firstName'];
+      const lastName = row['last_name'] ?? row['lastName'];
 
       if (!firstName || !lastName) {
         skipped++;
@@ -201,24 +227,26 @@ export const contactService = {
         continue;
       }
 
-      const now = new Date().toISOString();
-      const contact: Contact = {
-        id: `cnt_${Date.now()}_${imported}`,
-        orgId: scope.orgId,
+      validRows.push({
+        orgId,
         firstName,
         lastName,
-        email: row['email'] || null,
-        phone: row['phone'] || null,
-        company: row['company'] || null,
-        source: 'csv_import',
-        status: 'active',
+        email: row['email'] ?? null,
+        phone: row['phone'] ?? null,
+        source: 'import',
         tags: row['tags'] ? row['tags'].split(',').map((t) => t.trim()) : [],
         customFields: {},
-        createdAt: now,
-        updatedAt: now,
-      };
-      mockContacts.push(contact);
-      imported++;
+      });
+    }
+
+    if (validRows.length > 0) {
+      // Batch insert in chunks of 100
+      const chunkSize = 100;
+      for (let i = 0; i < validRows.length; i += chunkSize) {
+        const chunk = validRows.slice(i, i + chunkSize);
+        await db.insert(contacts).values(chunk);
+        imported += chunk.length;
+      }
     }
 
     logger.info('CSV import completed', { orgId, imported, skipped });

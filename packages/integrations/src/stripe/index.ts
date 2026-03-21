@@ -1,105 +1,382 @@
 import Stripe from "stripe";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 export interface StripeConfig {
   secretKey: string;
-  webhookSecret: string;
+}
+
+export interface CreateConnectAccountOptions {
+  email: string;
+  businessName: string;
+  metadata?: Record<string, string>;
+}
+
+export interface CreateConnectAccountResult {
+  accountId: string;
+  email: string;
+  type: string;
+}
+
+export interface CreateAccountLinkResult {
+  url: string;
+  expiresAt: number;
+}
+
+export interface ConnectAccountStatus {
+  id: string;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  email: string;
+  businessProfile: {
+    name: string | null;
+  };
 }
 
 export interface CreateCustomerOptions {
   email: string;
   name: string;
-  phone?: string;
   metadata?: Record<string, string>;
+  phone?: string;
+}
+
+export interface CustomerResult {
+  id: string;
+  email: string;
+  name: string;
+  metadata: Record<string, string>;
+}
+
+export interface InvoiceLineItem {
+  description: string;
+  amount: number; // in cents
+  quantity: number;
+}
+
+export interface CreateInvoiceOptions {
+  customerId: string;
+  lineItems: InvoiceLineItem[];
+  dueDate?: Date;
+  metadata?: Record<string, string>;
+  stripeAccountId?: string;
+}
+
+export interface InvoiceResult {
+  id: string;
+  status: string;
+  amountDue: number;
+  amountPaid: number;
+  currency: string;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+  dueDate: number | null;
+  customerEmail: string | null;
 }
 
 export interface CreatePaymentLinkOptions {
   amount: number; // in cents
   currency?: string;
   description: string;
-  customerEmail?: string;
+  stripeAccountId?: string;
   metadata?: Record<string, string>;
-  successUrl: string;
-  cancelUrl: string;
 }
 
+export interface PaymentLinkResult {
+  id: string;
+  url: string;
+  active: boolean;
+}
+
+// ─── Client ──────────────────────────────────────────────────────────────────
+
 /**
- * Stripe client wrapper for payment processing.
- * Uses Stripe Connect for multi-tenant payment handling.
+ * Stripe client wrapper for payment processing with Stripe Connect.
+ * Supports multi-tenant payment handling where each business (org) has
+ * their own Stripe Connect Express account.
  */
 export class StripeClient {
   private stripe: Stripe;
-  private webhookSecret: string;
 
   constructor(config: StripeConfig) {
-    this.stripe = new Stripe(config.secretKey);
-    this.webhookSecret = config.webhookSecret;
+    this.stripe = new Stripe(config.secretKey, {
+      apiVersion: "2025-02-24.acacia",
+      typescript: true,
+    });
   }
+
+  // ─── Stripe Connect ────────────────────────────────────────────────────
+
+  /**
+   * Create a Stripe Connect Express account for a business.
+   * Each org in MyBizOS gets their own Connect account.
+   */
+  async createConnectAccount(
+    options: CreateConnectAccountOptions,
+  ): Promise<CreateConnectAccountResult> {
+    const account = await this.stripe.accounts.create({
+      type: "express",
+      email: options.email,
+      business_profile: {
+        name: options.businessName,
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      metadata: options.metadata,
+    });
+
+    return {
+      accountId: account.id,
+      email: account.email ?? options.email,
+      type: account.type ?? "express",
+    };
+  }
+
+  /**
+   * Create an account link for Connect onboarding.
+   * Redirect the business owner to this URL to complete Stripe setup.
+   */
+  async createAccountLink(
+    accountId: string,
+    returnUrl: string,
+    refreshUrl: string,
+  ): Promise<CreateAccountLinkResult> {
+    const link = await this.stripe.accountLinks.create({
+      account: accountId,
+      return_url: returnUrl,
+      refresh_url: refreshUrl,
+      type: "account_onboarding",
+    });
+
+    return {
+      url: link.url,
+      expiresAt: link.expires_at,
+    };
+  }
+
+  /**
+   * Get the status of a Stripe Connect account.
+   * Check chargesEnabled and payoutsEnabled to know if the account is fully set up.
+   */
+  async getAccount(accountId: string): Promise<ConnectAccountStatus> {
+    const account = await this.stripe.accounts.retrieve(accountId);
+
+    return {
+      id: account.id,
+      chargesEnabled: account.charges_enabled ?? false,
+      payoutsEnabled: account.payouts_enabled ?? false,
+      detailsSubmitted: account.details_submitted ?? false,
+      email: account.email ?? "",
+      businessProfile: {
+        name: account.business_profile?.name ?? null,
+      },
+    };
+  }
+
+  // ─── Customers ─────────────────────────────────────────────────────────
 
   /**
    * Create a Stripe customer for a contact.
    */
-  async createCustomer(options: CreateCustomerOptions): Promise<Stripe.Customer> {
-    return this.stripe.customers.create({
+  async createCustomer(options: CreateCustomerOptions): Promise<CustomerResult> {
+    const customer = await this.stripe.customers.create({
       email: options.email,
       name: options.name,
       phone: options.phone,
       metadata: options.metadata,
     });
-  }
 
-  /**
-   * Create a payment link for invoicing.
-   */
-  async createPaymentLink(options: CreatePaymentLinkOptions): Promise<string> {
-    const price = await this.stripe.prices.create({
-      unit_amount: options.amount,
-      currency: options.currency ?? "usd",
-      product_data: {
-        name: options.description,
-      },
-    });
-
-    const session = await this.stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [{ price: price.id, quantity: 1 }],
-      customer_email: options.customerEmail,
-      metadata: options.metadata,
-      success_url: options.successUrl,
-      cancel_url: options.cancelUrl,
-    });
-
-    return session.url ?? "";
-  }
-
-  /**
-   * Verify and construct a Stripe webhook event.
-   */
-  constructWebhookEvent(
-    payload: string | Buffer,
-    signature: string,
-  ): Stripe.Event {
-    return this.stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      this.webhookSecret,
-    );
+    return {
+      id: customer.id,
+      email: customer.email ?? options.email,
+      name: customer.name ?? options.name,
+      metadata: (customer.metadata as Record<string, string>) ?? {},
+    };
   }
 
   /**
    * Retrieve a customer by ID.
    */
-  async getCustomer(customerId: string): Promise<Stripe.Customer | Stripe.DeletedCustomer> {
-    return this.stripe.customers.retrieve(customerId);
+  async getCustomer(
+    customerId: string,
+  ): Promise<CustomerResult> {
+    const customer = await this.stripe.customers.retrieve(customerId);
+
+    if (customer.deleted) {
+      throw new Error(`Customer ${customerId} has been deleted`);
+    }
+
+    return {
+      id: customer.id,
+      email: customer.email ?? "",
+      name: customer.name ?? "",
+      metadata: (customer.metadata as Record<string, string>) ?? {},
+    };
+  }
+
+  // ─── Invoices ──────────────────────────────────────────────────────────
+
+  /**
+   * Create a draft invoice with line items.
+   * Optionally create on behalf of a connected account.
+   */
+  async createInvoice(options: CreateInvoiceOptions): Promise<InvoiceResult> {
+    const stripeOptions: Stripe.RequestOptions = options.stripeAccountId
+      ? { stripeAccount: options.stripeAccountId }
+      : {};
+
+    // Create the invoice
+    const invoice = await this.stripe.invoices.create(
+      {
+        customer: options.customerId,
+        collection_method: "send_invoice",
+        due_date: options.dueDate
+          ? Math.floor(options.dueDate.getTime() / 1000)
+          : Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days default
+        metadata: options.metadata,
+        auto_advance: false,
+      },
+      stripeOptions,
+    );
+
+    // Add line items to the invoice
+    for (const item of options.lineItems) {
+      await this.stripe.invoiceItems.create(
+        {
+          customer: options.customerId,
+          invoice: invoice.id,
+          description: item.description,
+          unit_amount: item.amount,
+          quantity: item.quantity,
+          currency: "usd",
+        },
+        stripeOptions,
+      );
+    }
+
+    // Retrieve the updated invoice with line items totaled
+    const updatedInvoice = await this.stripe.invoices.retrieve(
+      invoice.id,
+      stripeOptions,
+    );
+
+    return this.formatInvoice(updatedInvoice);
   }
 
   /**
-   * List payments for a customer.
+   * Finalize a draft invoice and send it to the customer.
    */
-  async listPayments(customerId: string, limit = 10): Promise<Stripe.PaymentIntent[]> {
-    const result = await this.stripe.paymentIntents.list({
-      customer: customerId,
-      limit,
-    });
-    return result.data;
+  async finalizeInvoice(
+    invoiceId: string,
+    stripeAccountId?: string,
+  ): Promise<InvoiceResult> {
+    const stripeOptions: Stripe.RequestOptions = stripeAccountId
+      ? { stripeAccount: stripeAccountId }
+      : {};
+
+    const invoice = await this.stripe.invoices.finalizeInvoice(
+      invoiceId,
+      {},
+      stripeOptions,
+    );
+
+    // Send the invoice
+    const sentInvoice = await this.stripe.invoices.sendInvoice(
+      invoiceId,
+      stripeOptions,
+    );
+
+    return this.formatInvoice(sentInvoice);
+  }
+
+  /**
+   * Void an open invoice. Cannot be undone.
+   */
+  async voidInvoice(
+    invoiceId: string,
+    stripeAccountId?: string,
+  ): Promise<InvoiceResult> {
+    const stripeOptions: Stripe.RequestOptions = stripeAccountId
+      ? { stripeAccount: stripeAccountId }
+      : {};
+
+    const invoice = await this.stripe.invoices.voidInvoice(
+      invoiceId,
+      stripeOptions,
+    );
+
+    return this.formatInvoice(invoice);
+  }
+
+  // ─── Payment Links ────────────────────────────────────────────────────
+
+  /**
+   * Create a reusable payment link for a fixed amount.
+   * Useful for quick payment collection without a full invoice.
+   */
+  async createPaymentLink(
+    options: CreatePaymentLinkOptions,
+  ): Promise<PaymentLinkResult> {
+    const stripeOptions: Stripe.RequestOptions = options.stripeAccountId
+      ? { stripeAccount: options.stripeAccountId }
+      : {};
+
+    // Create a one-time price for the payment link
+    const price = await this.stripe.prices.create(
+      {
+        unit_amount: options.amount,
+        currency: options.currency ?? "usd",
+        product_data: {
+          name: options.description,
+        },
+      },
+      stripeOptions,
+    );
+
+    const paymentLink = await this.stripe.paymentLinks.create(
+      {
+        line_items: [{ price: price.id, quantity: 1 }],
+        metadata: options.metadata,
+      },
+      stripeOptions,
+    );
+
+    return {
+      id: paymentLink.id,
+      url: paymentLink.url,
+      active: paymentLink.active,
+    };
+  }
+
+  // ─── Webhooks ──────────────────────────────────────────────────────────
+
+  /**
+   * Verify a Stripe webhook signature and construct the event.
+   * Call this in your webhook handler to ensure the payload is authentic.
+   */
+  constructEvent(
+    body: string | Buffer,
+    signature: string,
+    secret: string,
+  ): Stripe.Event {
+    return this.stripe.webhooks.constructEvent(body, signature, secret);
+  }
+
+  // ─── Private Helpers ─────────────────────────────────────────────────────
+
+  private formatInvoice(invoice: Stripe.Invoice): InvoiceResult {
+    return {
+      id: invoice.id,
+      status: invoice.status ?? "draft",
+      amountDue: invoice.amount_due,
+      amountPaid: invoice.amount_paid,
+      currency: invoice.currency,
+      hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+      invoicePdf: invoice.invoice_pdf ?? null,
+      dueDate: invoice.due_date,
+      customerEmail: invoice.customer_email ?? null,
+    };
   }
 }

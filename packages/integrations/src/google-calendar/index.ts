@@ -1,7 +1,13 @@
 /**
  * Google Calendar integration for appointment syncing.
  * Manages two-way sync between MyBizOS appointments and Google Calendar.
+ * Uses the googleapis npm package for proper client support.
  */
+
+import { google, type calendar_v3 } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface GoogleCalendarConfig {
   clientId: string;
@@ -15,6 +21,12 @@ export interface CalendarTokens {
   expiresAt: Date;
 }
 
+export interface CalendarEventAttendee {
+  email: string;
+  name?: string;
+  responseStatus?: "needsAction" | "declined" | "tentative" | "accepted";
+}
+
 export interface CalendarEvent {
   id?: string;
   summary: string;
@@ -22,7 +34,8 @@ export interface CalendarEvent {
   location?: string;
   startTime: Date;
   endTime: Date;
-  attendees?: Array<{ email: string; name?: string }>;
+  timeZone?: string;
+  attendees?: CalendarEventAttendee[];
   reminders?: Array<{ method: "email" | "popup"; minutes: number }>;
 }
 
@@ -30,122 +43,138 @@ export interface CalendarEventResult {
   id: string;
   htmlLink: string;
   status: string;
+  summary: string;
+  start: string;
+  end: string;
+  attendees: CalendarEventAttendee[];
 }
+
+export interface ListEventsResult {
+  events: CalendarEventResult[];
+  nextPageToken?: string;
+}
+
+// ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
  * Google Calendar client for appointment syncing.
- * Handles OAuth flow and event CRUD operations.
+ * Handles OAuth flow and event CRUD operations via the googleapis library.
  */
 export class GoogleCalendarClient {
+  private oauth2Client: OAuth2Client;
   private config: GoogleCalendarConfig;
-  private tokens: CalendarTokens | null = null;
 
   constructor(config: GoogleCalendarConfig) {
     this.config = config;
+    this.oauth2Client = new google.auth.OAuth2(
+      config.clientId,
+      config.clientSecret,
+      config.redirectUri,
+    );
   }
+
+  // ─── OAuth ─────────────────────────────────────────────────────────────
 
   /**
    * Generate the OAuth2 authorization URL.
+   * Redirect the user to this URL to grant calendar access.
    */
   getAuthUrl(state: string): string {
-    const params = new URLSearchParams({
-      client_id: this.config.clientId,
-      redirect_uri: this.config.redirectUri,
-      response_type: "code",
-      scope: "https://www.googleapis.com/auth/calendar",
+    return this.oauth2Client.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
+      scope: ["https://www.googleapis.com/auth/calendar"],
       state,
     });
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
   /**
-   * Exchange an authorization code for tokens.
+   * Exchange an authorization code for access and refresh tokens.
    */
   async exchangeCode(code: string): Promise<CalendarTokens> {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
-        redirect_uri: this.config.redirectUri,
-        grant_type: "authorization_code",
-      }),
+    const { tokens } = await this.oauth2Client.getToken(code);
+
+    this.oauth2Client.setCredentials(tokens);
+
+    return {
+      accessToken: tokens.access_token ?? "",
+      refreshToken: tokens.refresh_token ?? "",
+      expiresAt: new Date(tokens.expiry_date ?? Date.now() + 3600 * 1000),
+    };
+  }
+
+  /**
+   * Refresh the access token using a refresh token.
+   * Returns the new token set.
+   */
+  async refreshAccessToken(refreshToken: string): Promise<CalendarTokens> {
+    this.oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    const { credentials } = await this.oauth2Client.refreshAccessToken();
+
+    return {
+      accessToken: credentials.access_token ?? "",
+      refreshToken: credentials.refresh_token ?? refreshToken,
+      expiresAt: new Date(
+        credentials.expiry_date ?? Date.now() + 3600 * 1000,
+      ),
+    };
+  }
+
+  // ─── Events ────────────────────────────────────────────────────────────
+
+  /**
+   * List events within a time range.
+   */
+  async listEvents(
+    accessToken: string,
+    calendarId: string,
+    timeMin: Date,
+    timeMax: Date,
+  ): Promise<ListEventsResult> {
+    const calendar = this.getCalendarApi(accessToken);
+
+    const response = await calendar.events.list({
+      calendarId,
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 250,
     });
 
-    const data = (await response.json()) as {
-      access_token: string;
-      refresh_token: string;
-      expires_in: number;
-    };
+    const events = (response.data.items ?? []).map((item) =>
+      this.formatEvent(item),
+    );
 
-    this.tokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: new Date(Date.now() + data.expires_in * 1000),
+    return {
+      events,
+      nextPageToken: response.data.nextPageToken ?? undefined,
     };
-
-    return this.tokens;
   }
 
   /**
-   * Set tokens directly (e.g., loaded from database).
-   */
-  setTokens(tokens: CalendarTokens): void {
-    this.tokens = tokens;
-  }
-
-  /**
-   * Refresh the access token using the refresh token.
-   */
-  async refreshAccessToken(): Promise<CalendarTokens> {
-    if (!this.tokens?.refreshToken) {
-      throw new Error("No refresh token available. Re-authenticate.");
-    }
-
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        refresh_token: this.tokens.refreshToken,
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    const data = (await response.json()) as {
-      access_token: string;
-      expires_in: number;
-    };
-
-    this.tokens = {
-      ...this.tokens,
-      accessToken: data.access_token,
-      expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    };
-
-    return this.tokens;
-  }
-
-  /**
-   * Create a calendar event.
+   * Create a new calendar event.
    */
   async createEvent(
+    accessToken: string,
     calendarId: string,
     event: CalendarEvent,
   ): Promise<CalendarEventResult> {
-    const accessToken = await this.getValidAccessToken();
+    const calendar = this.getCalendarApi(accessToken);
 
-    const body = {
+    const requestBody: calendar_v3.Schema$Event = {
       summary: event.summary,
       description: event.description,
       location: event.location,
-      start: { dateTime: event.startTime.toISOString() },
-      end: { dateTime: event.endTime.toISOString() },
+      start: {
+        dateTime: event.startTime.toISOString(),
+        timeZone: event.timeZone,
+      },
+      end: {
+        dateTime: event.endTime.toISOString(),
+        timeZone: event.timeZone,
+      },
       attendees: event.attendees?.map((a) => ({
         email: a.email,
         displayName: a.name,
@@ -155,92 +184,108 @@ export class GoogleCalendarClient {
         : { useDefault: true },
     };
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      },
-    );
+    const response = await calendar.events.insert({
+      calendarId,
+      requestBody,
+      sendUpdates: "all",
+    });
 
-    const data = (await response.json()) as {
-      id: string;
-      htmlLink: string;
-      status: string;
-    };
-
-    return { id: data.id, htmlLink: data.htmlLink, status: data.status };
+    return this.formatEvent(response.data);
   }
 
   /**
-   * Update an existing calendar event.
+   * Update an existing calendar event. Only provided fields are changed.
    */
   async updateEvent(
+    accessToken: string,
     calendarId: string,
     eventId: string,
-    event: Partial<CalendarEvent>,
+    updates: Partial<CalendarEvent>,
   ): Promise<CalendarEventResult> {
-    const accessToken = await this.getValidAccessToken();
+    const calendar = this.getCalendarApi(accessToken);
 
-    const body: Record<string, unknown> = {};
-    if (event.summary) body["summary"] = event.summary;
-    if (event.description) body["description"] = event.description;
-    if (event.location) body["location"] = event.location;
-    if (event.startTime) body["start"] = { dateTime: event.startTime.toISOString() };
-    if (event.endTime) body["end"] = { dateTime: event.endTime.toISOString() };
+    const requestBody: calendar_v3.Schema$Event = {};
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      },
-    );
+    if (updates.summary !== undefined) {
+      requestBody.summary = updates.summary;
+    }
+    if (updates.description !== undefined) {
+      requestBody.description = updates.description;
+    }
+    if (updates.location !== undefined) {
+      requestBody.location = updates.location;
+    }
+    if (updates.startTime !== undefined) {
+      requestBody.start = {
+        dateTime: updates.startTime.toISOString(),
+        timeZone: updates.timeZone,
+      };
+    }
+    if (updates.endTime !== undefined) {
+      requestBody.end = {
+        dateTime: updates.endTime.toISOString(),
+        timeZone: updates.timeZone,
+      };
+    }
+    if (updates.attendees !== undefined) {
+      requestBody.attendees = updates.attendees.map((a) => ({
+        email: a.email,
+        displayName: a.name,
+      }));
+    }
 
-    const data = (await response.json()) as {
-      id: string;
-      htmlLink: string;
-      status: string;
-    };
+    const response = await calendar.events.patch({
+      calendarId,
+      eventId,
+      requestBody,
+      sendUpdates: "all",
+    });
 
-    return { id: data.id, htmlLink: data.htmlLink, status: data.status };
+    return this.formatEvent(response.data);
   }
 
   /**
    * Delete a calendar event.
    */
-  async deleteEvent(calendarId: string, eventId: string): Promise<void> {
-    const accessToken = await this.getValidAccessToken();
+  async deleteEvent(
+    accessToken: string,
+    calendarId: string,
+    eventId: string,
+  ): Promise<void> {
+    const calendar = this.getCalendarApi(accessToken);
 
-    await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      },
-    );
+    await calendar.events.delete({
+      calendarId,
+      eventId,
+      sendUpdates: "all",
+    });
   }
 
-  /**
-   * Get a valid access token, refreshing if expired.
-   */
-  private async getValidAccessToken(): Promise<string> {
-    if (!this.tokens) {
-      throw new Error("Not authenticated. Call exchangeCode() or setTokens() first.");
-    }
+  // ─── Private Helpers ─────────────────────────────────────────────────────
 
-    if (this.tokens.expiresAt <= new Date()) {
-      await this.refreshAccessToken();
-    }
+  private getCalendarApi(accessToken: string): calendar_v3.Calendar {
+    const auth = new google.auth.OAuth2(
+      this.config.clientId,
+      this.config.clientSecret,
+      this.config.redirectUri,
+    );
+    auth.setCredentials({ access_token: accessToken });
+    return google.calendar({ version: "v3", auth });
+  }
 
-    return this.tokens!.accessToken;
+  private formatEvent(item: calendar_v3.Schema$Event): CalendarEventResult {
+    return {
+      id: item.id ?? "",
+      htmlLink: item.htmlLink ?? "",
+      status: item.status ?? "",
+      summary: item.summary ?? "",
+      start: item.start?.dateTime ?? item.start?.date ?? "",
+      end: item.end?.dateTime ?? item.end?.date ?? "",
+      attendees: (item.attendees ?? []).map((a) => ({
+        email: a.email ?? "",
+        name: a.displayName ?? undefined,
+        responseStatus: a.responseStatus as CalendarEventAttendee["responseStatus"],
+      })),
+    };
   }
 }
