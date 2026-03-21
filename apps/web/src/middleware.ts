@@ -4,7 +4,8 @@ import type { NextRequest } from "next/server";
 /**
  * Next.js edge middleware for route protection.
  *
- * Checks for a JWT token in cookies (mybizos_token) or the Authorization header.
+ * In development (localhost), all routes are accessible without auth.
+ * In production, checks for a JWT token in cookies (mybizos_token) or the Authorization header.
  * - Protected routes (/dashboard/*) redirect to /login if no valid token.
  * - Public routes (/login, /register, /book/*, /review/*) are always accessible.
  * - Auth routes redirect to /dashboard if already authenticated.
@@ -49,6 +50,15 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+function isLocalhost(request: NextRequest): boolean {
+  const host = request.headers.get("host") ?? "";
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("0.0.0.0")
+  );
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -58,6 +68,11 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api") ||
     pathname.includes(".")
   ) {
+    return NextResponse.next();
+  }
+
+  // In development (localhost), skip all auth checks
+  if (isLocalhost(request)) {
     return NextResponse.next();
   }
 

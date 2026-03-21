@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import {
   Users,
   CalendarCheck,
@@ -7,45 +10,50 @@ import {
   ArrowUpRight,
   Clock,
   MessageSquare,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const stats = [
   {
     label: "Leads Today",
-    value: "0",
-    change: "+0%",
+    value: "12",
+    change: "+18%",
     trend: "up" as const,
     icon: Users,
     color: "text-info",
     bg: "bg-info/10",
+    href: "/dashboard/contacts",
   },
   {
     label: "Appointments Booked",
-    value: "0",
-    change: "+0%",
+    value: "8",
+    change: "+25%",
     trend: "up" as const,
     icon: CalendarCheck,
     color: "text-success",
     bg: "bg-success/10",
+    href: "/dashboard/scheduling",
   },
   {
     label: "AI Calls Answered",
-    value: "0",
-    change: "+0%",
+    value: "47",
+    change: "+34%",
     trend: "up" as const,
     icon: Phone,
     color: "text-primary",
     bg: "bg-primary/10",
+    href: "/dashboard/inbox",
   },
   {
     label: "Revenue This Month",
-    value: "$0",
-    change: "+0%",
+    value: "$12,400",
+    change: "+12%",
     trend: "up" as const,
     icon: DollarSign,
     color: "text-warning",
     bg: "bg-warning/10",
+    href: "/dashboard/pipeline",
   },
 ];
 
@@ -86,6 +94,24 @@ const recentActivity = [
     time: "2 hr ago",
     color: "text-warning",
   },
+  {
+    id: "5",
+    type: "call",
+    icon: Phone,
+    title: "AI answered call from (555) 987-6543",
+    description: "Plumbing emergency — routed to on-call tech",
+    time: "3 hr ago",
+    color: "text-primary",
+  },
+  {
+    id: "6",
+    type: "alert",
+    icon: AlertTriangle,
+    title: "Emergency keyword detected — Gas leak",
+    description: "AI escalated to owner. Customer: Emily Davis",
+    time: "4 hr ago",
+    color: "text-destructive",
+  },
 ];
 
 const upcomingAppointments = [
@@ -116,6 +142,8 @@ const upcomingAppointments = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -129,9 +157,10 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div
+          <button
             key={stat.label}
-            className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md"
+            onClick={() => router.push(stat.href)}
+            className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md text-left cursor-pointer"
           >
             <div className="flex items-center justify-between">
               <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", stat.bg)}>
@@ -148,7 +177,7 @@ export default function DashboardPage() {
                 {stat.label}
               </p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -160,7 +189,10 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-foreground">
               Recent Activity
             </h2>
-            <button className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+            <button
+              onClick={() => router.push("/dashboard/inbox")}
+              className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
               View all
             </button>
           </div>
@@ -168,7 +200,14 @@ export default function DashboardPage() {
             {recentActivity.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors"
+                className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => {
+                  if (item.type === "call") router.push("/dashboard/inbox");
+                  else if (item.type === "appointment") router.push("/dashboard/scheduling");
+                  else if (item.type === "message") router.push("/dashboard/inbox");
+                  else if (item.type === "lead") router.push("/dashboard/contacts");
+                  else router.push("/dashboard/inbox");
+                }}
               >
                 <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted", item.color)}>
                   <item.icon className="h-4 w-4" />
@@ -196,7 +235,10 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-foreground">
               Upcoming Appointments
             </h2>
-            <button className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+            <button
+              onClick={() => router.push("/dashboard/scheduling")}
+              className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
               View all
             </button>
           </div>
@@ -204,7 +246,8 @@ export default function DashboardPage() {
             {upcomingAppointments.map((apt) => (
               <div
                 key={apt.id}
-                className="px-5 py-4 hover:bg-muted/30 transition-colors"
+                className="px-5 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => router.push("/dashboard/scheduling")}
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-foreground">

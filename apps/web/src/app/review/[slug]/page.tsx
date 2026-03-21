@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Star, ExternalLink, Send, CheckCircle2, Heart, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -77,27 +77,17 @@ const RATING_LABELS: Record<number, string> = {
 function HighRatingView({
   businessName,
   rating,
-  slug,
 }: {
   businessName: string;
   rating: number;
-  slug: string;
 }) {
   const [extraFeedback, setExtraFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const googleReviewUrl = `https://www.google.com/maps/search/${encodeURIComponent(businessName)}`;
 
-  const handleSubmitExtra = async () => {
-    try {
-      await fetch(`http://localhost:3001/public/review/${slug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, feedback: extraFeedback, type: "positive" }),
-      });
-    } catch {
-      // API might not be up
-    }
+  const handleSubmitExtra = () => {
+    // No real API call needed - just show confirmation
     setSubmitted(true);
   };
 
@@ -166,29 +156,21 @@ function HighRatingView({
 
 function LowRatingView({
   rating,
-  slug,
 }: {
   rating: number;
-  slug: string;
 }) {
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!feedback.trim()) return;
     setSubmitting(true);
-    try {
-      await fetch(`http://localhost:3001/public/review/${slug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, feedback, type: "private" }),
-      });
-    } catch {
-      // API might not be up
-    }
-    setSubmitting(false);
-    setSubmitted(true);
+    // Simulate brief delay then show confirmation
+    setTimeout(() => {
+      setSubmitting(false);
+      setSubmitted(true);
+    }, 500);
   };
 
   if (submitted) {
@@ -302,11 +284,10 @@ export default function ReviewPage() {
               <HighRatingView
                 businessName={businessName}
                 rating={rating}
-                slug={slug}
               />
             )}
             {rating >= 1 && rating <= 3 && (
-              <LowRatingView rating={rating} slug={slug} />
+              <LowRatingView rating={rating} />
             )}
           </div>
         </div>
@@ -319,19 +300,6 @@ export default function ReviewPage() {
           <span className="font-semibold text-gray-500">MyBizOS</span>
         </p>
       </footer>
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

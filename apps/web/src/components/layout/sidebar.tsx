@@ -17,12 +17,12 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Contacts", href: "/dashboard/contacts", icon: Users },
-  { label: "Pipeline", href: "/dashboard/pipeline", icon: Kanban },
-  { label: "Inbox", href: "/dashboard/inbox", icon: Inbox },
-  { label: "Scheduling", href: "/dashboard/scheduling", icon: CalendarDays },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
+  { label: "Contacts", href: "/dashboard/contacts", icon: Users, badge: null },
+  { label: "Pipeline", href: "/dashboard/pipeline", icon: Kanban, badge: null },
+  { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "3" },
+  { label: "Scheduling", href: "/dashboard/scheduling", icon: CalendarDays, badge: null },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
 ] as const;
 
 export function Sidebar() {
@@ -78,7 +78,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -87,7 +87,21 @@ export function Sidebar() {
               title={collapsed ? item.label : undefined}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <>
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                      {item.badge}
+                    </span>
+                  )}
+                </>
+              )}
+              {collapsed && item.badge && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

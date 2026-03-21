@@ -19,21 +19,22 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 function loadConfig(): Env {
-  const parsed = envSchema.safeParse(process.env);
+  // In development, merge dev defaults BEFORE validation
+  const isDev = !process.env['NODE_ENV'] || process.env['NODE_ENV'] === 'development';
+  // Filter out empty/undefined env vars so dev defaults aren't overridden
+  const cleanEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([, v]) => v !== undefined && v !== '')
+  );
+  const envToValidate = isDev
+    ? { ...getDevDefaults(), ...cleanEnv }
+    : process.env;
+
+  const parsed = envSchema.safeParse(envToValidate);
 
   if (!parsed.success) {
     const missing = parsed.error.issues
       .map((issue) => `  ${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
-
-    // In development, allow partial config for local testing with mocks
-    if (process.env['NODE_ENV'] === 'development' || process.env['NODE_ENV'] === undefined) {
-      return envSchema.parse({
-        ...getDevDefaults(),
-        ...process.env,
-      });
-    }
-
     throw new Error(`Invalid environment configuration:\n${missing}`);
   }
 

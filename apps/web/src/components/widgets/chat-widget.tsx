@@ -281,36 +281,37 @@ export function ChatWidget({
         </div>
       )}
 
-      {/* Floating action button */}
-      <button
-        type="button"
-        onClick={toggleOpen}
-        className={cn(
-          "flex h-[60px] w-[60px] items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-105 active:scale-95",
-          isOpen ? "rotate-0" : "animate-[pulse_3s_ease-in-out_infinite]",
-        )}
-        style={{ backgroundColor: accentColor }}
-        aria-label={isOpen ? "Close chat" : "Open chat"}
-      >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <MessageCircle className="h-6 w-6" />
-        )}
-      </button>
+      {/* Minimized bar */}
+      {isOpen && isMinimized && (
+        <button
+          type="button"
+          onClick={() => setIsMinimized(false)}
+          className="flex items-center gap-2 rounded-full px-4 py-2.5 text-white text-sm font-medium shadow-lg transition-all hover:scale-105"
+          style={{ backgroundColor: accentColor }}
+        >
+          <MessageCircle className="h-4 w-4" />
+          {businessName} Chat
+        </button>
+      )}
 
-      <style jsx global>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(16px) scale(0.96);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
+      {/* Floating action button */}
+      {!isMinimized && (
+        <button
+          type="button"
+          onClick={toggleOpen}
+          className={cn(
+            "flex h-[60px] w-[60px] items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-105 active:scale-95",
+          )}
+          style={{ backgroundColor: accentColor }}
+          aria-label={isOpen ? "Close chat" : "Open chat"}
+        >
+          {isOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <MessageCircle className="h-6 w-6" />
+          )}
+        </button>
+      )}
     </div>
   );
 }

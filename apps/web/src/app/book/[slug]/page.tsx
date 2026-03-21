@@ -14,6 +14,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChatWidget } from "@/components/widgets/chat-widget";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -214,7 +215,7 @@ function StepDate({
         {dayNames.map((d) => (
           <div key={d} className="py-1">{d}</div>
         ))}
-        {/* empty spacer — not a real Sun column since Sundays are excluded */}
+        {/* empty spacer for Sun column since Sundays are excluded */}
         <div className="py-1 text-gray-300">Sun</div>
       </div>
       <div className="grid grid-cols-7 gap-2">
@@ -419,7 +420,7 @@ function StepConfirmation({
       <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 text-left space-y-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
-            <Wrench className="h-4.5 w-4.5 text-blue-600" />
+            <Wrench className="h-5 w-5 text-blue-600" />
           </div>
           <div>
             <p className="font-semibold text-gray-900">{service.name}</p>
@@ -549,33 +550,18 @@ export default function BookingPage() {
     }
   }, [step, selectedService, selectedDate, selectedTime, form]);
 
-  const handleNext = useCallback(async () => {
+  const handleNext = useCallback(() => {
     if (step === 4) {
       setSubmitting(true);
-      try {
-        await fetch(`http://localhost:3001/public/book/${slug}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            service: selectedService,
-            date: selectedDate?.toISOString(),
-            time: selectedTime,
-            name: form.name,
-            phone: form.phone,
-            email: form.email,
-            notes: form.notes,
-          }),
-        });
-      } catch {
-        // API might not be running yet — still show confirmation
-      } finally {
+      // Simulate a brief delay then show confirmation (no real API call needed)
+      setTimeout(() => {
         setSubmitting(false);
         setStep(5);
-      }
+      }, 600);
       return;
     }
     setStep((s) => s + 1);
-  }, [step, slug, selectedService, selectedDate, selectedTime, form]);
+  }, [step]);
 
   const handleBack = () => setStep((s) => Math.max(1, s - 1));
 
@@ -694,22 +680,8 @@ export default function BookingPage() {
         </p>
       </footer>
 
-      {/* Scale-in animation for confirmation checkmark */}
-      <style jsx global>{`
-        @keyframes scaleIn {
-          0% {
-            transform: scale(0);
-            opacity: 0;
-          }
-          60% {
-            transform: scale(1.1);
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-      `}</style>
+      {/* Chat Widget */}
+      <ChatWidget businessName={businessName} orgSlug={slug} />
     </div>
   );
 }

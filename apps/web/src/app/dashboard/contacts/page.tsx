@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -11,10 +11,24 @@ import {
   ArrowUpDown,
   Phone,
   Mail,
+  X,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const mockContacts = [
+interface Contact {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  score: number;
+  lastActivity: string;
+  tags: string[];
+  source: string;
+}
+
+const initialContacts: Contact[] = [
   {
     id: "c1",
     name: "Sarah Johnson",
@@ -23,7 +37,7 @@ const mockContacts = [
     score: 92,
     lastActivity: "2 hours ago",
     tags: ["Hot Lead", "HVAC"],
-    source: "Phone" as const,
+    source: "Phone",
   },
   {
     id: "c2",
@@ -33,7 +47,7 @@ const mockContacts = [
     score: 78,
     lastActivity: "5 hours ago",
     tags: ["Plumbing"],
-    source: "Web Form" as const,
+    source: "Web Form",
   },
   {
     id: "c3",
@@ -43,7 +57,7 @@ const mockContacts = [
     score: 85,
     lastActivity: "1 day ago",
     tags: ["Hot Lead", "Furnace"],
-    source: "AI Call" as const,
+    source: "AI Call",
   },
   {
     id: "c4",
@@ -53,7 +67,7 @@ const mockContacts = [
     score: 64,
     lastActivity: "2 days ago",
     tags: ["Maintenance"],
-    source: "Referral" as const,
+    source: "Referral",
   },
   {
     id: "c5",
@@ -63,7 +77,7 @@ const mockContacts = [
     score: 45,
     lastActivity: "3 days ago",
     tags: ["HVAC", "Commercial"],
-    source: "Google Ads" as const,
+    source: "Google Ads",
   },
   {
     id: "c6",
@@ -73,7 +87,7 @@ const mockContacts = [
     score: 91,
     lastActivity: "30 min ago",
     tags: ["Hot Lead", "Emergency"],
-    source: "Phone" as const,
+    source: "Phone",
   },
   {
     id: "c7",
@@ -83,7 +97,7 @@ const mockContacts = [
     score: 56,
     lastActivity: "4 days ago",
     tags: ["Plumbing"],
-    source: "Yelp" as const,
+    source: "Yelp",
   },
   {
     id: "c8",
@@ -93,7 +107,27 @@ const mockContacts = [
     score: 73,
     lastActivity: "1 day ago",
     tags: ["HVAC", "Residential"],
-    source: "SMS" as const,
+    source: "SMS",
+  },
+  {
+    id: "c9",
+    name: "Carlos Hernandez",
+    phone: "(555) 012-3456",
+    email: "carlos.h@gmail.com",
+    score: 88,
+    lastActivity: "6 hours ago",
+    tags: ["Hot Lead", "Plumbing"],
+    source: "AI Call",
+  },
+  {
+    id: "c10",
+    name: "Karen Thompson",
+    phone: "(555) 123-4568",
+    email: "kthompson@mail.com",
+    score: 35,
+    lastActivity: "1 week ago",
+    tags: ["HVAC"],
+    source: "Google Ads",
   },
 ];
 
@@ -101,7 +135,7 @@ function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 80
       ? "bg-success/10 text-success"
-      : score >= 60
+      : score >= 50
         ? "bg-warning/10 text-warning"
         : "bg-muted text-muted-foreground";
   return (
@@ -140,27 +174,216 @@ function TagBadge({ tag }: { tag: string }) {
   );
 }
 
+type SortKey = "name" | "score";
+type SortDir = "asc" | "desc";
+
 export default function ContactsPage() {
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showModal, setShowModal] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const filtered = mockContacts.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search),
-  );
+  // New contact form state
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newSource, setNewSource] = useState("Phone");
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    const result = contacts.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.phone.includes(search),
+    );
+
+    result.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name") {
+        cmp = a.name.localeCompare(b.name);
+      } else if (sortKey === "score") {
+        cmp = a.score - b.score;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [contacts, search, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((c) => c.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function handleAddContact() {
+    if (!newName.trim()) return;
+    const id = `c${Date.now()}`;
+    const initials = newName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+    const newContact: Contact = {
+      id,
+      name: newName.trim(),
+      phone: newPhone.trim() || "(555) 000-0000",
+      email: newEmail.trim() || `${newName.trim().toLowerCase().replace(/\s/g, ".")}@email.com`,
+      score: Math.floor(Math.random() * 40) + 30,
+      lastActivity: "Just now",
+      tags: [],
+      source: newSource,
+    };
+    setContacts((prev) => [newContact, ...prev]);
+    setShowModal(false);
+    setNewName("");
+    setNewPhone("");
+    setNewEmail("");
+    setNewSource("Phone");
+    showToast(`Contact "${newContact.name}" added successfully`);
+  }
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
+          {toast}
+        </div>
+      )}
+
+      {/* Add Contact Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-foreground">Add Contact</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Full Name *</label>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="John Smith"
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Phone</label>
+                <input
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="(555) 000-0000"
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Email</label>
+                <input
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="john@example.com"
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Source</label>
+                <select
+                  value={newSource}
+                  onChange={(e) => setNewSource(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                >
+                  <option value="Phone">Phone</option>
+                  <option value="Web Form">Web Form</option>
+                  <option value="AI Call">AI Call</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="Yelp">Yelp</option>
+                  <option value="SMS">SMS</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex h-9 items-center rounded-lg border border-input px-4 text-sm text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddContact}
+                disabled={!newName.trim()}
+                className={cn(
+                  "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
+                  newName.trim()
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-muted-foreground cursor-not-allowed",
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                Add Contact
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {mockContacts.length} total contacts
+            {contacts.length} total contacts
+            {selected.size > 0 && ` · ${selected.size} selected`}
           </p>
         </div>
         <button
+          onClick={() => setShowModal(true)}
           className={cn(
             "flex h-9 items-center gap-2 rounded-lg px-4",
             "bg-primary text-primary-foreground text-sm font-medium",
@@ -183,11 +406,17 @@ export default function ContactsPage() {
             className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
-        <button className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors">
+        <button
+          onClick={() => showToast("Filters coming soon")}
+          className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
+        >
           <Filter className="h-4 w-4" />
           Filter
         </button>
-        <button className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors">
+        <button
+          onClick={() => showToast("Export started — CSV download will begin shortly")}
+          className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
+        >
           <Download className="h-4 w-4" />
           Export
         </button>
@@ -202,13 +431,18 @@ export default function ContactsPage() {
                 <th className="px-5 py-3 text-left">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-input"
+                    checked={filtered.length > 0 && selected.size === filtered.length}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
                   />
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <button className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggleSort("name")}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
                     Name
-                    <ArrowUpDown className="h-3 w-3" />
+                    <SortIcon col="name" />
                   </button>
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -218,9 +452,12 @@ export default function ContactsPage() {
                   Email
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <button className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggleSort("score")}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
                     Score
-                    <ArrowUpDown className="h-3 w-3" />
+                    <SortIcon col="score" />
                   </button>
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -238,12 +475,17 @@ export default function ContactsPage() {
               {filtered.map((contact) => (
                 <tr
                   key={contact.id}
-                  className="hover:bg-muted/20 transition-colors"
+                  className={cn(
+                    "hover:bg-muted/20 transition-colors",
+                    selected.has(contact.id) && "bg-accent/30",
+                  )}
                 >
                   <td className="px-5 py-3">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-input"
+                      checked={selected.has(contact.id)}
+                      onChange={() => toggleSelect(contact.id)}
+                      className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
                     />
                   </td>
                   <td className="px-5 py-3">
@@ -293,12 +535,22 @@ export default function ContactsPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ml-auto">
+                    <button
+                      onClick={() => showToast(`Actions for ${contact.name}`)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ml-auto"
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    No contacts found matching &ldquo;{search}&rdquo;
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
