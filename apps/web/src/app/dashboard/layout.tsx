@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { FloatingDialer } from "@/components/dialer/floating-dialer";
 
 export default function DashboardLayout({
   children,
@@ -40,6 +41,7 @@ export default function DashboardLayout({
         open={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
       />
+      <FloatingDialer />
     </div>
   );
 }
