@@ -17,6 +17,9 @@ import {
   Zap,
   Receipt,
   FileText,
+  BarChart3,
+  Star,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +52,8 @@ const navSections: NavSection[] = [
       { label: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, badge: null },
       { label: "Sequences", href: "/dashboard/sequences", icon: GitBranch, badge: null },
       { label: "Automations", href: "/dashboard/automations", icon: Zap, badge: null },
+      { label: "Reviews", href: "/dashboard/reviews", icon: Star, badge: null },
+      { label: "Social", href: "/dashboard/social", icon: Share2, badge: null },
     ],
   },
   {
@@ -61,6 +66,7 @@ const navSections: NavSection[] = [
   {
     title: null,
     items: [
+      { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: null },
       { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
     ],
   },
