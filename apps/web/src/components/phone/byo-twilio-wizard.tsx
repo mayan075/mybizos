@@ -14,11 +14,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SetupWizard, SuccessCelebration } from "@/app/dashboard/settings/phone/setup-wizard";
-import { apiClient, tryFetch, ApiRequestError } from "@/lib/api-client";
+import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { buildPath } from "@/lib/hooks/use-api";
 import { DemoBanner, SectionCard, Tooltip } from "./shared-ui";
 import {
-  MOCK_NUMBERS,
   formatPhoneNumber,
   type PhoneNumber,
 } from "./pricing-data";
@@ -39,7 +38,6 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
   const [showToken, setShowToken] = useState(false);
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [isLive, setIsLive] = useState(false);
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [numbersLoading, setNumbersLoading] = useState(false);
   const [selectedNumbers, setSelectedNumbers] = useState<Set<string>>(new Set());
@@ -59,29 +57,52 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
 
   const fetchNumbers = useCallback(async () => {
     setNumbersLoading(true);
-    const path = buildPath("/orgs/:orgId/phone-system/numbers");
-    const result = await tryFetch(() => apiClient.get<{ numbers: PhoneNumber[] }>(path));
-    if (result !== null) { setPhoneNumbers(result.numbers); setIsLive(true); }
-    else { setPhoneNumbers(MOCK_NUMBERS); setIsLive(false); }
-    setNumbersLoading(false);
+    try {
+      const path = buildPath("/orgs/:orgId/phone-system/numbers");
+      const result = await apiClient.get<{ numbers: PhoneNumber[] }>(path);
+      setPhoneNumbers(result.numbers);
+      // Auto-select all numbers by default
+      setSelectedNumbers(new Set(result.numbers.map((n) => n.sid)));
+    } catch (err) {
+      const message = err instanceof ApiRequestError
+        ? err.message
+        : "Failed to load phone numbers from Twilio. Please try again.";
+      setConnectError(message);
+      setPhoneNumbers([]);
+    } finally {
+      setNumbersLoading(false);
+    }
   }, []);
 
   const handleConnect = useCallback(async () => {
     setConnectLoading(true);
     setConnectError(null);
-    const path = buildPath("/orgs/:orgId/phone-system/connect");
+
     try {
-      const result = await tryFetch(() =>
-        apiClient.post<{ success: boolean; accountName: string }>(path, {
-          accountSid, authToken, provider: "byo-twilio",
-        }),
-      );
-      if (result !== null) { setIsLive(true); setStep(1); await fetchNumbers(); }
-      else { setIsLive(false); setPhoneNumbers(MOCK_NUMBERS); setStep(1); }
+      const path = buildPath("/orgs/:orgId/phone-system/connect");
+      await apiClient.post<{ success: boolean; accountName: string }>(path, {
+        accountSid,
+        authToken,
+        provider: "byo-twilio",
+      });
+
+      // Credentials validated — move to step 2 and fetch real numbers
+      setStep(1);
+      await fetchNumbers();
     } catch (err) {
-      if (err instanceof ApiRequestError) setConnectError(err.message);
-      else setConnectError("Failed to connect. Please check your credentials and try again.");
-    } finally { setConnectLoading(false); }
+      if (err instanceof ApiRequestError) {
+        setConnectError(err.message);
+      } else if (err instanceof TypeError) {
+        // Network error — API server not running
+        setConnectError(
+          "Cannot reach the API server. Make sure the backend is running on http://localhost:3001",
+        );
+      } else {
+        setConnectError("Failed to connect. Please check your credentials and try again.");
+      }
+    } finally {
+      setConnectLoading(false);
+    }
   }, [accountSid, authToken, fetchNumbers]);
 
   return (
@@ -112,6 +133,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
               <p className="text-sm font-medium text-foreground">How it works</p>
               <p className="text-sm text-muted-foreground">
                 Connect your Twilio account so MyBizOS can manage your phone numbers.
+                Your credentials are validated live against the Twilio API.
                 You keep full control and pay Twilio directly for usage.
               </p>
             </div>
@@ -166,7 +188,6 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
         {/* Step 2: Your Numbers */}
         {step === 1 && (
           <div className="space-y-4">
-            {!isLive && <DemoBanner />}
             {numbersLoading ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -204,6 +225,12 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
                     );
                   })}
                 </div>
+              </div>
+            )}
+            {connectError && (
+              <div className="flex items-start gap-2 rounded-lg bg-red-500/5 border border-red-500/20 p-3 animate-in fade-in duration-200">
+                <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-red-700 dark:text-red-400">{connectError}</p>
               </div>
             )}
           </div>

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { apiClient, tryFetch } from "@/lib/api-client";
+import { ArrowLeft, CheckCircle2, Loader2, WifiOff } from "lucide-react";
+import { apiClient, tryFetch, ApiRequestError } from "@/lib/api-client";
 import { buildPath } from "@/lib/hooks/use-api";
 import { ModelSelector } from "@/components/phone/model-selector";
 import { MyBizOSWizard } from "@/components/phone/mybizos-wizard";
@@ -11,7 +11,6 @@ import { BYOTwilioWizard } from "@/components/phone/byo-twilio-wizard";
 import { NumberList } from "@/components/phone/number-list";
 import { NumberConfig, type NumberConfigPayload } from "@/components/phone/number-config";
 import {
-  MOCK_NUMBERS,
   type PhoneModel,
   type PhoneNumber,
   type PhoneSystemStatus,
@@ -30,6 +29,7 @@ export default function PhoneSettingsPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [disconnectLoading, setDisconnectLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [apiOffline, setApiOffline] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -39,8 +39,10 @@ export default function PhoneSettingsPage() {
   const fetchStatus = useCallback(async () => {
     const path = buildPath("/orgs/:orgId/phone-system/status");
     const result = await tryFetch(() => apiClient.get<PhoneSystemStatus>(path));
+
     if (result !== null) {
       setIsLive(true);
+      setApiOffline(false);
       if (result.connected) {
         setConnectedProvider(result.provider ?? "byo-twilio");
         setAccountName(result.accountName ?? null);
@@ -48,7 +50,9 @@ export default function PhoneSettingsPage() {
         return;
       }
     } else {
+      // API unreachable
       setIsLive(false);
+      setApiOffline(true);
     }
     setView("model-select");
   }, []);
@@ -56,9 +60,14 @@ export default function PhoneSettingsPage() {
   const fetchNumbers = useCallback(async () => {
     setNumbersLoading(true);
     const path = buildPath("/orgs/:orgId/phone-system/numbers");
-    const result = await tryFetch(() => apiClient.get<{ numbers: PhoneNumber[] }>(path));
-    if (result !== null) { setPhoneNumbers(result.numbers); setIsLive(true); }
-    else { setPhoneNumbers(MOCK_NUMBERS); setIsLive(false); }
+    try {
+      const result = await apiClient.get<{ numbers: PhoneNumber[] }>(path);
+      setPhoneNumbers(result.numbers);
+      setIsLive(true);
+    } catch {
+      // If numbers fail to load, show empty state
+      setPhoneNumbers([]);
+    }
     setNumbersLoading(false);
   }, []);
 
@@ -66,8 +75,11 @@ export default function PhoneSettingsPage() {
     setDisconnectLoading(true);
     const path = buildPath("/orgs/:orgId/phone-system/disconnect");
     await tryFetch(() => apiClient.delete<{ success: boolean }>(path));
-    setConnectedProvider(null); setAccountName(null); setPhoneNumbers([]);
-    setDisconnectLoading(false); setView("model-select");
+    setConnectedProvider(null);
+    setAccountName(null);
+    setPhoneNumbers([]);
+    setDisconnectLoading(false);
+    setView("model-select");
     showToast("Phone system disconnected");
   }, []);
 
@@ -75,7 +87,7 @@ export default function PhoneSettingsPage() {
     setSaveLoading(true);
     const path = buildPath(`/orgs/:orgId/phone-system/numbers/${numberSid}/configure`);
     const result = await tryFetch(() => apiClient.post<{ success: boolean }>(path, config));
-    showToast(result !== null ? "Phone number settings saved!" : "Settings saved locally (API offline)");
+    showToast(result !== null ? "Phone number settings saved!" : "Failed to save settings. Please try again.");
     setSaveLoading(false);
     setTimeout(() => { setConfiguringNumberSid(null); setView("connected"); }, 800);
   }, []);
@@ -113,6 +125,14 @@ export default function PhoneSettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       {toastEl}
+      {apiOffline && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+          <WifiOff className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            API server not reachable. Start the backend with <code className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-xs">cd apps/api && npx tsx src/index.ts</code> to connect your real Twilio account.
+          </p>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/settings" className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></Link>
         <div><h1 className="text-2xl font-bold text-foreground">Phone System</h1><p className="text-sm text-muted-foreground mt-0.5">Choose how you want to set up your business phone</p></div>
