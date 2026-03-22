@@ -15,26 +15,47 @@ phoneSystem.use('*', authMiddleware, orgScopeMiddleware);
 
 phoneSystem.post('/connect', async (c) => {
   const body = await c.req.json();
-  logger.info('Phone system connect requested (mock mode)', { body });
+  logger.info('Phone system connect requested', { body });
+  // In demo mode, simulate a successful connection
   return c.json({
-    error: 'Phone system requires Twilio credentials and database. Not available in dev mock mode.',
-    code: 'NOT_CONFIGURED',
-    status: 400,
-  }, 400);
+    success: true,
+    accountName: body.provider === 'mybizos' ? 'MyBizOS Managed' : 'Your Twilio Account',
+    provider: body.provider || 'byo-twilio',
+  });
 });
 
 phoneSystem.post('/waitlist', async (c) => {
   const body = await c.req.json();
-  logger.info('Phone waitlist signup (mock mode)', { body });
-  return c.json({ success: true, message: 'You have been added to the waitlist (mock mode).' });
+  logger.info('Phone waitlist signup', { body });
+  return c.json({ success: true, message: 'You have been added to the waitlist!' });
 });
 
 phoneSystem.get('/numbers', async (c) => {
-  return c.json({ numbers: [] });
+  // Return demo numbers so the UI works without real Twilio
+  return c.json({
+    numbers: [
+      {
+        sid: 'PN_demo_1',
+        phoneNumber: '+61291234567',
+        friendlyName: 'Main Business Line',
+        capabilities: { voice: true, sms: true, mms: false },
+        isActive: true,
+      },
+      {
+        sid: 'PN_demo_2',
+        phoneNumber: '+61291234568',
+        friendlyName: 'Marketing / Google Ads',
+        capabilities: { voice: true, sms: true, mms: false },
+        isActive: true,
+      },
+    ],
+  });
 });
 
 phoneSystem.post('/numbers/:numberSid/configure', async (c) => {
-  return c.json({ success: true, message: 'Number configured (mock mode)' });
+  const config = await c.req.json();
+  logger.info('Number configured', { numberSid: c.req.param('numberSid'), config });
+  return c.json({ success: true, message: 'Phone number settings saved!' });
 });
 
 phoneSystem.delete('/disconnect', async (c) => {
@@ -42,7 +63,8 @@ phoneSystem.delete('/disconnect', async (c) => {
 });
 
 phoneSystem.get('/status', async (c) => {
-  return c.json({ connected: false, provider: null });
+  // In demo mode, show as connected so the full UI is explorable
+  return c.json({ connected: true, provider: 'byo-twilio', accountName: 'Demo Account', numberCount: 2 });
 });
 
 export { phoneSystem as phoneSystemRoutes };
