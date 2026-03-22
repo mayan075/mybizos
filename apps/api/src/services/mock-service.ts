@@ -740,6 +740,216 @@ export function getMockAuthResult() {
   };
 }
 
+// ── Frontend-compatible data transforms ──
+// These functions return data matching the shapes expected by the
+// frontend hooks (apps/web/src/lib/mock-data.ts types).
+
+/**
+ * Returns contacts in the shape the frontend useContacts hook expects.
+ */
+export function getFrontendContacts(filters?: {
+  search?: string;
+  status?: string;
+  source?: string;
+  tag?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const { contacts, total } = getMockContacts(filters);
+  return {
+    data: contacts.map((c) => ({
+      id: c.id,
+      name: `${c.firstName} ${c.lastName}`,
+      phone: c.phone ?? '(555) 000-0000',
+      email: c.email ?? '',
+      score: c.leadScore,
+      lastActivity: getRelativeTime(c.updatedAt),
+      tags: c.tags.map((t) => t.charAt(0).toUpperCase() + t.slice(1)),
+      source: c.source.charAt(0).toUpperCase() + c.source.slice(1).replace(/_/g, ' '),
+    })),
+    total,
+  };
+}
+
+/**
+ * Returns a single contact with timeline in the shape useContact expects.
+ */
+export function getFrontendContactById(id: string) {
+  const c = getMockContactById(id);
+  if (!c) return null;
+  return {
+    contact: {
+      id: c.id,
+      name: `${c.firstName} ${c.lastName}`,
+      phone: c.phone ?? '(555) 000-0000',
+      email: c.email ?? '',
+      score: c.leadScore,
+      lastActivity: getRelativeTime(c.updatedAt),
+      tags: c.tags.map((t) => t.charAt(0).toUpperCase() + t.slice(1)),
+      source: c.source.charAt(0).toUpperCase() + c.source.slice(1).replace(/_/g, ' '),
+      company: c.company ?? '',
+      address: 'Springfield, IL',
+      createdAt: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    },
+    timeline: [],
+  };
+}
+
+/**
+ * Returns deals grouped by stage ID, matching the frontend useDeals hook.
+ */
+export function getFrontendDeals() {
+  const grouped: Record<string, Array<{
+    id: string;
+    title: string;
+    contact: string;
+    value: number;
+    daysInStage: number;
+    score: number;
+    tags: string[];
+  }>> = {};
+
+  // Use pipeline stages as keys
+  const pipelines = getMockPipelines();
+  const defaultPipeline = pipelines[0];
+  if (defaultPipeline) {
+    for (const stage of defaultPipeline.stages) {
+      grouped[stage.slug] = [];
+    }
+  }
+
+  for (const deal of mockDeals) {
+    const pipeline = defaultPipeline;
+    const stage = pipeline?.stages.find((s) => s.id === deal.stageId);
+    const slug = stage?.slug ?? 'new_lead';
+
+    if (!grouped[slug]) grouped[slug] = [];
+    const daysInStage = Math.floor((Date.now() - new Date(deal.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+    grouped[slug].push({
+      id: deal.id,
+      title: deal.title.split(' — ')[0] ?? deal.title,
+      contact: deal.contactName,
+      value: Number(deal.value),
+      daysInStage,
+      score: 75 + Math.floor(Math.random() * 20),
+      tags: [],
+    });
+  }
+
+  return grouped;
+}
+
+/**
+ * Returns pipeline columns matching the frontend usePipelines hook.
+ */
+export function getFrontendPipelines() {
+  const pipelines = getMockPipelines();
+  const defaultPipeline = pipelines[0];
+  if (!defaultPipeline) return [];
+
+  const colorMap: Record<string, string> = {
+    new_lead: 'bg-info',
+    contacted: 'bg-primary',
+    qualified: 'bg-primary',
+    quote_sent: 'bg-warning',
+    negotiation: 'bg-destructive',
+    won: 'bg-success',
+    lost: 'bg-muted',
+  };
+
+  return defaultPipeline.stages.map((s) => ({
+    id: s.slug,
+    title: s.name,
+    color: colorMap[s.slug] ?? 'bg-muted',
+  }));
+}
+
+/**
+ * Returns conversations matching the frontend useConversations hook.
+ */
+export function getFrontendConversations(filters?: { channel?: string; status?: string; filter?: string; search?: string }) {
+  let result = [...mockConversations];
+  if (filters?.channel) result = result.filter((c) => c.channel === filters.channel);
+  if (filters?.status) result = result.filter((c) => c.status === filters.status);
+  if (filters?.filter === 'unread') result = result.filter((c) => c.unreadCount > 0);
+  if (filters?.filter === 'ai') result = result.filter((c) => c.aiHandled);
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    result = result.filter((c) => c.contactName.toLowerCase().includes(q) || c.lastMessagePreview.toLowerCase().includes(q));
+  }
+
+  return result.map((c) => {
+    const initials = c.contactName.split(' ').map((n) => n[0]).join('');
+    return {
+      id: c.id,
+      contact: c.contactName,
+      initials,
+      channel: c.channel,
+      lastMessage: c.lastMessagePreview,
+      time: getRelativeTime(c.lastMessageAt),
+      unread: c.unreadCount > 0,
+      aiHandled: c.aiHandled,
+      status: c.status,
+    };
+  });
+}
+
+/**
+ * Returns messages for a conversation matching the frontend useMessages hook.
+ */
+export function getFrontendMessages(conversationId: string) {
+  const msgs = getMockMessages(conversationId);
+  return msgs.map((m) => ({
+    id: m.id,
+    sender: m.senderType,
+    text: m.body,
+    time: new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    status: m.status === 'delivered' ? 'delivered' as const : 'read' as const,
+  }));
+}
+
+/**
+ * Returns appointments matching the frontend useAppointments hook.
+ */
+export function getFrontendAppointments() {
+  return mockAppointments.map((a) => {
+    const start = new Date(a.startTime);
+    const end = new Date(a.endTime);
+    const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    const dayOfWeek = start.getDay();
+    const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    return {
+      id: a.id,
+      title: a.title.split(' — ')[0] ?? a.title,
+      customer: a.contactName,
+      time: `${formatTime(start)} - ${formatTime(end)}`,
+      duration: durationHours,
+      dayIndex,
+      hourStart: start.getHours(),
+      status: a.status as 'scheduled' | 'confirmed' | 'completed',
+      location: a.location,
+    };
+  });
+}
+
+function getRelativeTime(isoDate: string): string {
+  const now = Date.now();
+  const then = new Date(isoDate).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHrs = Math.floor(diffMin / 60);
+  if (diffHrs < 24) return `${diffHrs} hr${diffHrs > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+}
+
 // ── Availability slots (mock) ──
 
 export function getMockAvailability(date: string) {

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockDeals } from '../services/mock-service.js';
+import { getMockDeals, getFrontendDeals } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const deals = new Hono();
@@ -44,7 +44,7 @@ deals.get('/', async (c) => {
     return c.json({ data: result });
   } catch {
     logger.warn('DB unavailable for deals list, using mock data');
-    return c.json({ data: getMockDeals() });
+    return c.json({ data: getFrontendDeals() });
   }
 });
 

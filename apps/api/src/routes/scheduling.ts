@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockAppointments, getMockAvailability } from '../services/mock-service.js';
+import { getMockAppointments, getMockAvailability, getFrontendAppointments } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const scheduling = new Hono();
@@ -61,7 +61,7 @@ authenticatedScheduling.get('/appointments', async (c) => {
     return c.json({ data: appointments });
   } catch {
     logger.warn('DB unavailable for appointments list, using mock data');
-    return c.json({ data: getMockAppointments() });
+    return c.json({ data: getFrontendAppointments() });
   }
 });
 

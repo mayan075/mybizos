@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockPipelines, getMockPipelineById } from '../services/mock-service.js';
+import { getMockPipelines, getMockPipelineById, getFrontendPipelines } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const pipelines = new Hono();
@@ -41,7 +41,7 @@ pipelines.get('/', async (c) => {
     return c.json({ data: result });
   } catch {
     logger.warn('DB unavailable for pipelines list, using mock data');
-    return c.json({ data: getMockPipelines() });
+    return c.json({ data: getFrontendPipelines() });
   }
 });
 

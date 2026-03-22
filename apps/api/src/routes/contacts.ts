@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockContacts, getMockContactById } from '../services/mock-service.js';
+import { getMockContacts, getMockContactById, getFrontendContacts, getFrontendContactById } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const contacts = new Hono();
@@ -66,9 +66,9 @@ contacts.get('/', async (c) => {
     });
   } catch {
     logger.warn('DB unavailable for contacts list, using mock data');
-    const result = getMockContacts(query);
+    const result = getFrontendContacts(query);
     return c.json({
-      data: result.contacts,
+      data: result.data,
       pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
     });
   }
@@ -83,9 +83,9 @@ contacts.get('/:id', async (c) => {
     return c.json({ data: result });
   } catch {
     logger.warn('DB unavailable for contact get, using mock data');
-    const contact = getMockContactById(contactId);
-    if (!contact) return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);
-    return c.json({ data: contact });
+    const result = getFrontendContactById(contactId);
+    if (!result) return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);
+    return c.json({ data: result });
   }
 });
 

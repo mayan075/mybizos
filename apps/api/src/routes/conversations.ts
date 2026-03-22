@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockConversations, getMockMessages } from '../services/mock-service.js';
+import { getMockConversations, getMockMessages, getFrontendConversations, getFrontendMessages } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const conversations = new Hono();
@@ -31,7 +31,7 @@ conversations.get('/', async (c) => {
     return c.json({ data: result });
   } catch {
     logger.warn('DB unavailable for conversations list, using mock data');
-    return c.json({ data: getMockConversations(filters) });
+    return c.json({ data: getFrontendConversations(filters) });
   }
 });
 
@@ -44,7 +44,7 @@ conversations.get('/:id/messages', async (c) => {
     return c.json({ data: messages });
   } catch {
     logger.warn('DB unavailable for messages, using mock data');
-    return c.json({ data: getMockMessages(conversationId) });
+    return c.json({ data: getFrontendMessages(conversationId) });
   }
 });
 
