@@ -122,13 +122,13 @@ function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <Link
-            href="/auth/login"
+            href="/login"
             className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Sign In
           </Link>
           <Link
-            href="/auth/register"
+            href="/register"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md"
           >
             Start Free Trial
@@ -179,13 +179,13 @@ function Navbar() {
             </a>
             <hr className="border-border" />
             <Link
-              href="/auth/login"
+              href="/login"
               className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Sign In
             </Link>
             <Link
-              href="/auth/register"
+              href="/register"
               className="rounded-lg bg-primary px-3 py-2 text-center text-sm font-semibold text-primary-foreground"
             >
               Start Free Trial
@@ -233,7 +233,7 @@ function Hero() {
           {/* CTA buttons */}
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/auth/register"
+              href="/register"
               className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30"
             >
               Start Free Trial
@@ -654,7 +654,7 @@ function PricingSection() {
                 </ul>
 
                 <Link
-                  href="/auth/register"
+                  href="/register"
                   className={`mt-8 block rounded-xl py-3 text-center text-sm font-semibold transition-all ${
                     plan.popular
                       ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md"
@@ -784,7 +784,7 @@ function FinalCTA() {
               </p>
               <div className="mt-10">
                 <Link
-                  href="/auth/register"
+                  href="/register"
                   className="group inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-primary shadow-lg transition-all hover:bg-white/95 hover:shadow-xl"
                 >
                   Start Free Trial — No Credit Card Required

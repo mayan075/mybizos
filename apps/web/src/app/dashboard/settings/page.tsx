@@ -448,12 +448,12 @@ export default function SettingsPage() {
               </div>
 
               {[
-                { name: "Twilio", desc: "SMS and voice calls", connected: true, icon: Phone },
-                { name: "Vapi.ai", desc: "AI voice agent platform", connected: true, icon: Bot },
-                { name: "Stripe", desc: "Payment processing", connected: false, icon: CreditCard },
-                { name: "Google Calendar", desc: "Calendar sync", connected: true, icon: Clock },
-                { name: "Postmark", desc: "Transactional email", connected: false, icon: Mail },
-                { name: "QuickBooks", desc: "Accounting & invoicing", connected: false, icon: Globe },
+                { name: "Twilio", desc: "SMS and voice calls", connected: false, icon: Phone, configUrl: "/dashboard/settings/phone" },
+                { name: "Vapi.ai", desc: "AI voice agent platform", connected: false, icon: Bot, configUrl: "" },
+                { name: "Stripe", desc: "Payment processing", connected: false, icon: CreditCard, configUrl: "" },
+                { name: "Google Calendar", desc: "Calendar sync", connected: false, icon: Clock, configUrl: "" },
+                { name: "Postmark", desc: "Transactional email", connected: false, icon: Mail, configUrl: "" },
+                { name: "QuickBooks", desc: "Accounting & invoicing", connected: false, icon: Globe, configUrl: "" },
               ].map((integration) => (
                 <div
                   key={integration.name}
@@ -476,7 +476,7 @@ export default function SettingsPage() {
                           Connected
                         </span>
                         <button
-                          onClick={() => showToast(`${integration.name} settings opened`)}
+                          onClick={() => integration.configUrl ? window.location.href = integration.configUrl : showToast(`${integration.name} settings — coming soon`)}
                           className="flex h-8 items-center gap-1.5 rounded-lg border border-input px-3 text-xs text-muted-foreground hover:bg-muted transition-colors"
                         >
                           Configure
@@ -485,10 +485,10 @@ export default function SettingsPage() {
                       </>
                     ) : (
                       <button
-                        onClick={() => showToast(`${integration.name} connection started — complete setup in popup`)}
+                        onClick={() => integration.configUrl ? window.location.href = integration.configUrl : showToast(`${integration.name} — setup coming soon`)}
                         className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
-                        Connect
+                        Set Up
                       </button>
                     )}
                   </div>
