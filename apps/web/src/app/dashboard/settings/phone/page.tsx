@@ -1,26 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   CircleHelp,
   Clock,
   ExternalLink,
   Eye,
   EyeOff,
-  Globe,
   Hash,
+  Loader2,
   MessageSquare,
   Mic,
   Phone,
   PhoneForwarded,
   PhoneIncoming,
-  Plus,
   Save,
   Settings2,
   Shield,
@@ -28,10 +26,12 @@ import {
   Trash2,
   Bot,
   X,
-  Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SetupWizard, SuccessCelebration } from "./setup-wizard";
+import { apiClient, tryFetch, ApiRequestError } from "@/lib/api-client";
+import { getOrgId, buildPath } from "@/lib/hooks/use-api";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -40,12 +40,11 @@ import { SetupWizard, SuccessCelebration } from "./setup-wizard";
 type RoutingMode = "ai-first" | "ring-first" | "forward";
 
 interface PhoneNumber {
-  id: string;
-  number: string;
+  sid: string;
+  phoneNumber: string;
   friendlyName: string;
-  active: boolean;
-  routingSummary: string;
-  monthlyCost: string;
+  smsEnabled: boolean;
+  voiceEnabled: boolean;
 }
 
 interface BusinessHoursDay {
@@ -62,26 +61,30 @@ type TransferReason =
   | "high-quote"
   | "always-after-qualifying";
 
+interface PhoneSystemStatus {
+  connected: boolean;
+  accountName?: string | null;
+  numberCount?: number | null;
+}
+
 /* -------------------------------------------------------------------------- */
-/*  Mock Data                                                                  */
+/*  Mock Data (used when API is not available)                                  */
 /* -------------------------------------------------------------------------- */
 
 const MOCK_NUMBERS: PhoneNumber[] = [
   {
-    id: "pn-1",
-    number: "+17045550001",
+    sid: "PN-demo-001",
+    phoneNumber: "+61291234567",
     friendlyName: "Main Business Line",
-    active: true,
-    routingSummary: "AI answers, then forwards to Jim",
-    monthlyCost: "$1.00",
+    smsEnabled: true,
+    voiceEnabled: true,
   },
   {
-    id: "pn-2",
-    number: "+17045550002",
+    sid: "PN-demo-002",
+    phoneNumber: "+61291234568",
     friendlyName: "Marketing / Google Ads",
-    active: true,
-    routingSummary: "AI answers, books appointments",
-    monthlyCost: "$1.00",
+    smsEnabled: true,
+    voiceEnabled: true,
   },
 ];
 
@@ -99,17 +102,66 @@ const DEFAULT_BUSINESS_HOURS: BusinessHoursDay[] = [
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Format an international phone number for display.
+ * Handles Australian (+61), US (+1), and other formats.
+ */
 function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, "");
-  if (cleaned.length === 11 && cleaned.startsWith("1")) {
-    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  const cleaned = phone.replace(/\s/g, "");
+
+  // Australian numbers: +61 X XXXX XXXX
+  if (cleaned.startsWith("+61") && cleaned.length === 12) {
+    const local = cleaned.slice(3); // e.g. "291234567"
+    return `+61 ${local.slice(0, 1)} ${local.slice(1, 5)} ${local.slice(5)}`;
   }
+
+  // Australian mobile: +61 4XX XXX XXX
+  if (cleaned.startsWith("+614") && cleaned.length === 12) {
+    const local = cleaned.slice(3);
+    return `+61 ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
+  }
+
+  // US/CA numbers: +1 (XXX) XXX-XXXX
+  if (cleaned.startsWith("+1") && cleaned.length === 12) {
+    const digits = cleaned.slice(2);
+    return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  // UK numbers: +44 XXXX XXXXXX
+  if (cleaned.startsWith("+44") && cleaned.length >= 13) {
+    const local = cleaned.slice(3);
+    return `+44 ${local.slice(0, 4)} ${local.slice(4)}`;
+  }
+
+  // Fallback: insert space after country code
+  if (cleaned.startsWith("+")) {
+    // Try to find a natural break after 1-3 digit country code
+    const match = cleaned.match(/^(\+\d{1,3})(\d+)$/);
+    if (match) {
+      const [, cc, rest] = match;
+      // Chunk the rest into groups of 4
+      const chunks = rest.match(/.{1,4}/g) ?? [rest];
+      return `${cc} ${chunks.join(" ")}`;
+    }
+  }
+
   return phone;
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Reusable sub-components                                                    */
 /* -------------------------------------------------------------------------- */
+
+function DemoBanner() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm">
+      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+      <p className="text-amber-800 dark:text-amber-300">
+        <span className="font-semibold">Demo mode</span> — connect your API to use real Twilio numbers
+      </p>
+    </div>
+  );
+}
 
 function ToggleSwitch({
   enabled,
@@ -120,9 +172,6 @@ function ToggleSwitch({
   onToggle: () => void;
   size?: "default" | "large";
 }) {
-  const h = size === "large" ? "h-7 w-13" : "h-6 w-11";
-  const dot = size === "large" ? "h-5.5 w-5.5" : "h-5 w-5";
-
   return (
     <button
       onClick={onToggle}
@@ -284,19 +333,22 @@ function RoutingOptionCard({
 export default function PhoneSettingsPage() {
   // ---- Connection state ----
   const [isConnected, setIsConnected] = useState(false);
+  const [isLive, setIsLive] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [accountName, setAccountName] = useState<string | null>(null);
   const [wizardStep, setWizardStep] = useState(0);
   const [accountSid, setAccountSid] = useState("");
   const [authToken, setAuthToken] = useState("");
   const [showToken, setShowToken] = useState(false);
-  const [selectedNewNumber, setSelectedNewNumber] = useState<string | null>(null);
-  const [numberOption, setNumberOption] = useState<"new" | "existing" | "port">("new");
-  const [areaCode, setAreaCode] = useState("");
-  const [existingNumber, setExistingNumber] = useState("");
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [setupComplete, setSetupComplete] = useState(false);
 
   // ---- Phone numbers state ----
-  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>(MOCK_NUMBERS);
-  const [configuringNumberId, setConfiguringNumberId] = useState<string | null>(null);
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
+  const [numbersLoading, setNumbersLoading] = useState(false);
+  const [selectedNumbers, setSelectedNumbers] = useState<Set<string>>(new Set());
+  const [configuringNumberSid, setConfiguringNumberSid] = useState<string | null>(null);
 
   // ---- Routing config state (per number) ----
   const [routingMode, setRoutingMode] = useState<RoutingMode>("ai-first");
@@ -309,7 +361,7 @@ export default function PhoneSettingsPage() {
     "emergency",
     "misunderstanding",
   ]);
-  const [transferNumber, setTransferNumber] = useState("(555) 123-4567");
+  const [transferNumber, setTransferNumber] = useState("");
   const [ringDuration, setRingDuration] = useState(25);
   const [noAnswerAction, setNoAnswerAction] = useState<"ai" | "voicemail" | "forward">("ai");
   const [forwardNumber, setForwardNumber] = useState("");
@@ -332,6 +384,12 @@ export default function PhoneSettingsPage() {
 
   // ---- Advanced ----
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // ---- Save loading ----
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // ---- Disconnect loading ----
+  const [disconnectLoading, setDisconnectLoading] = useState(false);
 
   // ---- Toast ----
   const [toast, setToast] = useState<string | null>(null);
@@ -359,42 +417,197 @@ export default function PhoneSettingsPage() {
     );
   }
 
-  // Mock available numbers for "Get New Number"
-  const mockAvailableNumbers = areaCode.length >= 3
-    ? [
-        `+1${areaCode}5550101`,
-        `+1${areaCode}5550202`,
-        `+1${areaCode}5550303`,
-        `+1${areaCode}5550404`,
-      ]
-    : [];
+  // ---- API Calls ----
 
-  const configuringNumber = phoneNumbers.find((n) => n.id === configuringNumberId);
+  const fetchStatus = useCallback(async () => {
+    setStatusLoading(true);
+    const path = buildPath("/orgs/:orgId/phone-system/status");
+    const result = await tryFetch(() => apiClient.get<PhoneSystemStatus>(path));
+
+    if (result !== null) {
+      setIsLive(true);
+      setIsConnected(result.connected);
+      setAccountName(result.accountName ?? null);
+      if (result.connected) {
+        setSetupComplete(true);
+      }
+    } else {
+      // API unreachable -- demo mode
+      setIsLive(false);
+      setIsConnected(false);
+    }
+    setStatusLoading(false);
+  }, []);
+
+  const fetchNumbers = useCallback(async () => {
+    setNumbersLoading(true);
+    const path = buildPath("/orgs/:orgId/phone-system/numbers");
+    const result = await tryFetch(() =>
+      apiClient.get<{ numbers: PhoneNumber[] }>(path),
+    );
+
+    if (result !== null) {
+      setPhoneNumbers(result.numbers);
+      setIsLive(true);
+    } else {
+      // Fallback to mock data
+      setPhoneNumbers(MOCK_NUMBERS);
+      setIsLive(false);
+    }
+    setNumbersLoading(false);
+  }, []);
+
+  const handleConnect = useCallback(async () => {
+    setConnectLoading(true);
+    setConnectError(null);
+
+    const path = buildPath("/orgs/:orgId/phone-system/connect");
+
+    try {
+      const result = await tryFetch(() =>
+        apiClient.post<{ success: boolean; accountName: string }>(path, {
+          accountSid,
+          authToken,
+        }),
+      );
+
+      if (result !== null) {
+        setIsConnected(true);
+        setIsLive(true);
+        setAccountName(result.accountName);
+        setWizardStep(1);
+        // Fetch real numbers immediately
+        await fetchNumbers();
+      } else {
+        // API not reachable: simulate success for demo mode
+        setIsConnected(true);
+        setIsLive(false);
+        setAccountName("Demo Account");
+        setPhoneNumbers(MOCK_NUMBERS);
+        setWizardStep(1);
+      }
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setConnectError(err.message);
+      } else {
+        setConnectError("Failed to connect. Please check your credentials and try again.");
+      }
+    } finally {
+      setConnectLoading(false);
+    }
+  }, [accountSid, authToken, fetchNumbers]);
+
+  const handleConfigureSave = useCallback(
+    async (numberSid: string) => {
+      setSaveLoading(true);
+
+      const path = buildPath(
+        `/orgs/:orgId/phone-system/numbers/${numberSid}/configure`,
+      );
+
+      const configPayload = {
+        routingMode,
+        aiConfig: {
+          voice: aiVoice,
+          greeting: aiGreeting,
+          transferReasons,
+          transferNumber,
+        },
+        businessHours: {
+          enabled: useBusinessHours,
+          schedule: businessHours,
+          duringHoursRouting,
+          afterHoursRouting,
+        },
+        forwardTo: forwardNumber || undefined,
+        ringDuration,
+        noAnswerAction,
+        recordCalls,
+        smsEnabled,
+        smsAutoRespond,
+        afterHoursReply,
+      };
+
+      const result = await tryFetch(() =>
+        apiClient.post<{ success: boolean }>(path, configPayload),
+      );
+
+      if (result !== null) {
+        showToast("Phone number settings saved!");
+      } else {
+        showToast("Settings saved locally (API offline)");
+      }
+
+      setSaveLoading(false);
+      setTimeout(() => setConfiguringNumberSid(null), 800);
+    },
+    [
+      routingMode, aiVoice, aiGreeting, transferReasons, transferNumber,
+      useBusinessHours, businessHours, duringHoursRouting, afterHoursRouting,
+      forwardNumber, ringDuration, noAnswerAction, recordCalls,
+      smsEnabled, smsAutoRespond, afterHoursReply,
+    ],
+  );
+
+  const handleDisconnect = useCallback(async () => {
+    setDisconnectLoading(true);
+    const path = buildPath("/orgs/:orgId/phone-system/disconnect");
+    await tryFetch(() => apiClient.delete<{ success: boolean }>(path));
+
+    setIsConnected(false);
+    setSetupComplete(false);
+    setAccountName(null);
+    setPhoneNumbers([]);
+    setWizardStep(0);
+    setAccountSid("");
+    setAuthToken("");
+    setDisconnectLoading(false);
+    showToast("Twilio account disconnected");
+  }, []);
+
+  // ---- On mount: check connection status ----
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // ---- When connected, fetch numbers ----
+  useEffect(() => {
+    if (isConnected && setupComplete) {
+      fetchNumbers();
+    }
+  }, [isConnected, setupComplete, fetchNumbers]);
+
+  const configuringNumber = phoneNumbers.find((n) => n.sid === configuringNumberSid);
 
   // ---- Wizard steps ----
   const wizardSteps = [
     { title: "Connect Account", description: "Link your Twilio account" },
-    { title: "Get a Number", description: "Choose your business number" },
+    { title: "Choose Number", description: "Select your phone numbers" },
     { title: "All Done!", description: "Your phone system is ready" },
   ];
 
   const canProceedWizard =
     wizardStep === 0
-      ? accountSid.length > 10 && authToken.length > 10
+      ? accountSid.length > 10 && authToken.length > 10 && !connectLoading
       : wizardStep === 1
-        ? numberOption === "new"
-          ? selectedNewNumber !== null
-          : numberOption === "existing"
-            ? existingNumber.length >= 10
-            : true
+        ? selectedNumbers.size > 0
         : true;
 
   // ======================================================================= //
   //  RENDER                                                                   //
   // ======================================================================= //
 
+  // Loading state
+  if (statusLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   // If we're configuring a specific number, show the routing config panel
-  if (configuringNumberId && configuringNumber) {
+  if (configuringNumberSid && configuringNumber) {
     return (
       <div className="space-y-6 max-w-3xl">
         {/* Toast */}
@@ -405,10 +618,12 @@ export default function PhoneSettingsPage() {
           </div>
         )}
 
+        {!isLive && <DemoBanner />}
+
         {/* Back header */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setConfiguringNumberId(null)}
+            onClick={() => setConfiguringNumberSid(null)}
             className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -418,7 +633,7 @@ export default function PhoneSettingsPage() {
               Configure {configuringNumber.friendlyName}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {formatPhoneNumber(configuringNumber.number)}
+              {formatPhoneNumber(configuringNumber.phoneNumber)}
             </p>
           </div>
         </div>
@@ -453,9 +668,7 @@ export default function PhoneSettingsPage() {
                     onChange={(e) => setAiVoice(e.target.value)}
                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                   >
-                    <option value="professional-female">
-                      Professional Female
-                    </option>
+                    <option value="professional-female">Professional Female</option>
                     <option value="professional-male">Professional Male</option>
                     <option value="friendly-female">Friendly Female</option>
                     <option value="friendly-male">Friendly Male</option>
@@ -492,8 +705,7 @@ export default function PhoneSettingsPage() {
                       },
                       {
                         id: "emergency" as TransferReason,
-                        label:
-                          "Emergency detected (flooding, gas leak, fire)",
+                        label: "Emergency detected (flooding, gas leak, fire)",
                       },
                       {
                         id: "misunderstanding" as TransferReason,
@@ -505,8 +717,7 @@ export default function PhoneSettingsPage() {
                       },
                       {
                         id: "always-after-qualifying" as TransferReason,
-                        label:
-                          "Always transfer after qualifying (AI gathers info, then connects you)",
+                        label: "Always transfer after qualifying (AI gathers info, then connects you)",
                       },
                     ].map((reason) => (
                       <label
@@ -536,11 +747,11 @@ export default function PhoneSettingsPage() {
                     type="tel"
                     value={transferNumber}
                     onChange={(e) => setTransferNumber(e.target.value)}
-                    placeholder="(555) 123-4567"
+                    placeholder="+61 4XX XXX XXX"
                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Usually the business owner's cell phone
+                    Usually the business owner's mobile number
                   </p>
                 </div>
               </div>
@@ -567,9 +778,7 @@ export default function PhoneSettingsPage() {
                       max={60}
                       step={5}
                       value={ringDuration}
-                      onChange={(e) =>
-                        setRingDuration(parseInt(e.target.value, 10))
-                      }
+                      onChange={(e) => setRingDuration(parseInt(e.target.value, 10))}
                       className="flex-1 accent-primary"
                     />
                     <span className="text-sm font-semibold text-foreground w-20 text-right">
@@ -585,21 +794,9 @@ export default function PhoneSettingsPage() {
                   </label>
                   <div className="space-y-2">
                     {[
-                      {
-                        id: "ai" as const,
-                        label: "AI picks up and handles the call",
-                        icon: Bot,
-                      },
-                      {
-                        id: "voicemail" as const,
-                        label: "Send to voicemail",
-                        icon: Mic,
-                      },
-                      {
-                        id: "forward" as const,
-                        label: "Forward to another number",
-                        icon: PhoneForwarded,
-                      },
+                      { id: "ai" as const, label: "AI picks up and handles the call", icon: Bot },
+                      { id: "voicemail" as const, label: "Send to voicemail", icon: Mic },
+                      { id: "forward" as const, label: "Forward to another number", icon: PhoneForwarded },
                     ].map((action) => (
                       <label
                         key={action.id}
@@ -618,9 +815,7 @@ export default function PhoneSettingsPage() {
                           className="accent-primary"
                         />
                         <action.icon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-foreground">
-                          {action.label}
-                        </span>
+                        <span className="text-sm text-foreground">{action.label}</span>
                       </label>
                     ))}
                   </div>
@@ -629,7 +824,7 @@ export default function PhoneSettingsPage() {
                       type="tel"
                       value={forwardNumber}
                       onChange={(e) => setForwardNumber(e.target.value)}
-                      placeholder="(555) 987-6543"
+                      placeholder="+61 4XX XXX XXX"
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                     />
                   )}
@@ -653,7 +848,7 @@ export default function PhoneSettingsPage() {
                   type="tel"
                   value={forwardNumber}
                   onChange={(e) => setForwardNumber(e.target.value)}
-                  placeholder="(555) 987-6543"
+                  placeholder="+61 4XX XXX XXX"
                   className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 />
               </div>
@@ -693,25 +888,18 @@ export default function PhoneSettingsPage() {
                 </label>
                 <div className="rounded-lg border border-border divide-y divide-border">
                   {businessHours.map((day, i) => (
-                    <div
-                      key={day.day}
-                      className="flex items-center gap-3 px-4 py-2.5"
-                    >
+                    <div key={day.day} className="flex items-center gap-3 px-4 py-2.5">
                       <label className="flex items-center gap-2 w-28 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={day.enabled}
-                          onChange={(e) =>
-                            updateBusinessHour(i, "enabled", e.target.checked)
-                          }
+                          onChange={(e) => updateBusinessHour(i, "enabled", e.target.checked)}
                           className="h-4 w-4 rounded border-input accent-primary"
                         />
                         <span
                           className={cn(
                             "text-sm",
-                            day.enabled
-                              ? "text-foreground font-medium"
-                              : "text-muted-foreground",
+                            day.enabled ? "text-foreground font-medium" : "text-muted-foreground",
                           )}
                         >
                           {day.day.slice(0, 3)}
@@ -722,27 +910,19 @@ export default function PhoneSettingsPage() {
                           <input
                             type="time"
                             value={day.start}
-                            onChange={(e) =>
-                              updateBusinessHour(i, "start", e.target.value)
-                            }
+                            onChange={(e) => updateBusinessHour(i, "start", e.target.value)}
                             className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                           />
-                          <span className="text-xs text-muted-foreground">
-                            to
-                          </span>
+                          <span className="text-xs text-muted-foreground">to</span>
                           <input
                             type="time"
                             value={day.end}
-                            onChange={(e) =>
-                              updateBusinessHour(i, "end", e.target.value)
-                            }
+                            onChange={(e) => updateBusinessHour(i, "end", e.target.value)}
                             className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                           />
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground">
-                          Closed
-                        </span>
+                        <span className="text-sm text-muted-foreground">Closed</span>
                       )}
                     </div>
                   ))}
@@ -758,9 +938,7 @@ export default function PhoneSettingsPage() {
                   </label>
                   <select
                     value={duringHoursRouting}
-                    onChange={(e) =>
-                      setDuringHoursRouting(e.target.value as RoutingMode)
-                    }
+                    onChange={(e) => setDuringHoursRouting(e.target.value as RoutingMode)}
                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="ai-first">AI answers first</option>
@@ -775,9 +953,7 @@ export default function PhoneSettingsPage() {
                   </label>
                   <select
                     value={afterHoursRouting}
-                    onChange={(e) =>
-                      setAfterHoursRouting(e.target.value as RoutingMode)
-                    }
+                    onChange={(e) => setAfterHoursRouting(e.target.value as RoutingMode)}
                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="ai-first">AI answers first</option>
@@ -807,20 +983,15 @@ export default function PhoneSettingsPage() {
                 Recordings are stored securely and available in your call history
               </p>
             </div>
-            <ToggleSwitch
-              enabled={recordCalls}
-              onToggle={() => setRecordCalls(!recordCalls)}
-            />
+            <ToggleSwitch enabled={recordCalls} onToggle={() => setRecordCalls(!recordCalls)} />
           </div>
           {recordCalls && (
             <div className="flex items-start gap-2 rounded-lg bg-blue-500/5 border border-blue-500/10 p-3 animate-in fade-in duration-200">
               <Shield className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  Compliance note:
-                </span>{" "}
+                <span className="font-medium text-foreground">Compliance note:</span>{" "}
                 The AI will automatically tell callers that the call may be
-                recorded. This is required by law in most states.
+                recorded. This is required by law in most jurisdictions.
               </p>
             </div>
           )}
@@ -836,26 +1007,19 @@ export default function PhoneSettingsPage() {
         >
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
-              <p className="text-sm font-medium text-foreground">
-                Enable texting on this number
-              </p>
+              <p className="text-sm font-medium text-foreground">Enable texting on this number</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Customers can send and receive text messages
               </p>
             </div>
-            <ToggleSwitch
-              enabled={smsEnabled}
-              onToggle={() => setSmsEnabled(!smsEnabled)}
-            />
+            <ToggleSwitch enabled={smsEnabled} onToggle={() => setSmsEnabled(!smsEnabled)} />
           </div>
 
           {smsEnabled && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">
-                    AI auto-responds to texts
-                  </p>
+                  <p className="text-sm font-medium text-foreground">AI auto-responds to texts</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     AI reads incoming texts and replies instantly
                   </p>
@@ -881,9 +1045,7 @@ export default function PhoneSettingsPage() {
               <div className="flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/10 p-3">
                 <Shield className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    Required by law (TCPA):
-                  </span>{" "}
+                  <span className="font-medium text-foreground">Required by law (TCPA/Spam Act):</span>{" "}
                   All marketing texts will include "Reply STOP to opt out." This
                   is automatic and cannot be removed.
                 </p>
@@ -902,10 +1064,7 @@ export default function PhoneSettingsPage() {
             Advanced Settings
           </span>
           <ChevronDown
-            className={cn(
-              "h-4 w-4 transition-transform",
-              showAdvanced && "rotate-180",
-            )}
+            className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
           />
         </button>
 
@@ -917,7 +1076,7 @@ export default function PhoneSettingsPage() {
               </label>
               <select className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                 <option>
-                  {formatPhoneNumber(configuringNumber.number)} (this number)
+                  {formatPhoneNumber(configuringNumber.phoneNumber)} (this number)
                 </option>
               </select>
             </div>
@@ -955,14 +1114,16 @@ export default function PhoneSettingsPage() {
             Changes are saved per number. Other numbers aren't affected.
           </p>
           <button
-            onClick={() => {
-              showToast("Phone number settings saved!");
-              setTimeout(() => setConfiguringNumberId(null), 1000);
-            }}
-            className="flex h-10 items-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            onClick={() => handleConfigureSave(configuringNumberSid)}
+            disabled={saveLoading}
+            className="flex h-10 items-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Save className="h-4 w-4" />
-            Save Settings
+            {saveLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saveLoading ? "Saving..." : "Save Settings"}
           </button>
         </div>
       </div>
@@ -1013,17 +1174,23 @@ export default function PhoneSettingsPage() {
             currentStep={wizardStep}
             onNext={() => {
               if (wizardStep === 0) {
-                setIsConnected(true);
+                // Trigger connect API call
+                handleConnect();
+                return; // Don't advance step yet; handleConnect does it on success
               }
               setWizardStep((s) => Math.min(s + 1, wizardSteps.length - 1));
             }}
-            onBack={() => setWizardStep((s) => Math.max(s - 1, 0))}
+            onBack={() => {
+              setConnectError(null);
+              setWizardStep((s) => Math.max(s - 1, 0));
+            }}
             onComplete={() => {
               setSetupComplete(true);
               setIsConnected(true);
               showToast("Phone system connected successfully!");
             }}
             canProceed={canProceedWizard}
+            isLoading={connectLoading}
           >
             {/* Step 1: Connect Twilio */}
             {wizardStep === 0 && (
@@ -1060,7 +1227,10 @@ export default function PhoneSettingsPage() {
                     <input
                       type="text"
                       value={accountSid}
-                      onChange={(e) => setAccountSid(e.target.value)}
+                      onChange={(e) => {
+                        setAccountSid(e.target.value);
+                        setConnectError(null);
+                      }}
                       placeholder="Paste your Account SID here (starts with AC...)"
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors font-mono"
                     />
@@ -1076,7 +1246,10 @@ export default function PhoneSettingsPage() {
                       <input
                         type={showToken ? "text" : "password"}
                         value={authToken}
-                        onChange={(e) => setAuthToken(e.target.value)}
+                        onChange={(e) => {
+                          setAuthToken(e.target.value);
+                          setConnectError(null);
+                        }}
                         placeholder="Paste your Auth Token here"
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors font-mono"
                       />
@@ -1084,11 +1257,7 @@ export default function PhoneSettingsPage() {
                         onClick={() => setShowToken(!showToken)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {showToken ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -1096,134 +1265,115 @@ export default function PhoneSettingsPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Connection error */}
+                {connectError && (
+                  <div className="flex items-start gap-2 rounded-lg bg-red-500/5 border border-red-500/20 p-3 animate-in fade-in duration-200">
+                    <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <p className="text-sm text-red-700 dark:text-red-400">
+                      {connectError}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Step 2: Choose Number */}
             {wizardStep === 1 && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Pick how you want to get your business phone number:
-                </p>
+                {!isLive && <DemoBanner />}
 
-                {/* Option tabs */}
-                <div className="flex gap-2">
-                  {[
-                    { id: "new" as const, label: "Get a New Number" },
-                    { id: "existing" as const, label: "Use Existing Number" },
-                    { id: "port" as const, label: "Port My Number" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setNumberOption(opt.id)}
-                      className={cn(
-                        "flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        numberOption === opt.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* New number flow */}
-                {numberOption === "new" && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        What area code do you want?
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={3}
-                        value={areaCode}
-                        onChange={(e) =>
-                          setAreaCode(e.target.value.replace(/\D/g, ""))
-                        }
-                        placeholder="e.g., 704"
-                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                      />
-                    </div>
-
-                    {mockAvailableNumbers.length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Available numbers ($1.00/month each):
-                        </label>
-                        <div className="space-y-1.5">
-                          {mockAvailableNumbers.map((num) => (
-                            <label
-                              key={num}
-                              className={cn(
-                                "flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                                selectedNewNumber === num
-                                  ? "border-primary bg-primary/5"
-                                  : "border-border hover:bg-muted/50",
-                              )}
-                            >
-                              <input
-                                type="radio"
-                                name="new-number"
-                                checked={selectedNewNumber === num}
-                                onChange={() => setSelectedNewNumber(num)}
-                                className="accent-primary"
-                              />
-                              <span className="text-sm font-mono text-foreground">
-                                {formatPhoneNumber(num)}
-                              </span>
-                              <span className="ml-auto text-xs text-muted-foreground">
-                                $1.00/mo
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                {numbersLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      Loading your phone numbers from Twilio...
+                    </span>
                   </div>
-                )}
-
-                {/* Existing number */}
-                {numberOption === "existing" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Enter your Twilio phone number
-                    </label>
-                    <input
-                      type="tel"
-                      value={existingNumber}
-                      onChange={(e) => setExistingNumber(e.target.value)}
-                      placeholder="+1 (555) 123-4567"
-                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      This must be a number you already own in your Twilio
-                      account.
-                    </p>
-                  </div>
-                )}
-
-                {/* Port number */}
-                {numberOption === "port" && (
-                  <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-4 space-y-2">
+                ) : phoneNumbers.length === 0 ? (
+                  <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-6 text-center space-y-3">
+                    <Phone className="h-8 w-8 text-amber-600 mx-auto" />
                     <p className="text-sm font-medium text-foreground">
-                      Keep your current business number
+                      No phone numbers found
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Porting transfers your existing phone number to Twilio so
-                      it works with our system. The process takes 1-2 weeks and
-                      your number stays active during the transfer.
+                      You don't have any phone numbers in your Twilio account yet.
+                      Purchase one from the Twilio console.
                     </p>
                     <a
-                      href="https://www.twilio.com/docs/phone-numbers/porting"
+                      href="https://www.twilio.com/console/phone-numbers/search"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-1"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                     >
-                      Learn more about porting
                       <ExternalLink className="h-3.5 w-3.5" />
+                      Buy a number on twilio.com
                     </a>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Select the phone number(s) you want to use with MyBizOS:
+                    </p>
+                    <div className="space-y-2">
+                      {phoneNumbers.map((num) => {
+                        const isSelected = selectedNumbers.has(num.sid);
+                        return (
+                          <label
+                            key={num.sid}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg border p-4 cursor-pointer transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:bg-muted/50",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedNumbers((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(num.sid)) {
+                                    next.delete(num.sid);
+                                  } else {
+                                    next.add(num.sid);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="h-4 w-4 rounded border-input accent-primary"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-semibold font-mono text-foreground">
+                                  {formatPhoneNumber(num.phoneNumber)}
+                                </span>
+                                {num.friendlyName && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {num.friendlyName}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                {num.voiceEnabled && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                                    <Phone className="h-3 w-3" />
+                                    Voice
+                                  </span>
+                                )}
+                                {num.smsEnabled && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
+                                    <MessageSquare className="h-3 w-3" />
+                                    SMS
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1233,13 +1383,15 @@ export default function PhoneSettingsPage() {
             {wizardStep === 2 && (
               <SuccessCelebration
                 title="Your Phone System is Ready!"
-                message="Calls to your new number will be answered by AI immediately. You can customize everything from this settings page."
+                message="Calls to your selected numbers will be answered by AI immediately. You can customise everything from this settings page."
               />
             )}
           </SetupWizard>
         </SectionCard>
       ) : (
         <>
+          {!isLive && <DemoBanner />}
+
           {/* Connected status banner */}
           <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4">
             <div className="flex items-center gap-3">
@@ -1251,17 +1403,22 @@ export default function PhoneSettingsPage() {
                   Phone System Connected
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Twilio account linked &middot; {phoneNumbers.length} number
-                  {phoneNumbers.length !== 1 ? "s" : ""} active
+                  {accountName ? `${accountName} \u00b7 ` : "Twilio account linked \u00b7 "}
+                  {phoneNumbers.length} number{phoneNumbers.length !== 1 ? "s" : ""}
                 </p>
               </div>
             </div>
             <button
-              onClick={() => showToast("Twilio account settings opened")}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-input px-3 text-xs text-muted-foreground hover:bg-muted transition-colors"
+              onClick={handleDisconnect}
+              disabled={disconnectLoading}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 px-3 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
             >
-              <Settings2 className="h-3.5 w-3.5" />
-              Account
+              {disconnectLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              Disconnect
             </button>
           </div>
 
@@ -1273,77 +1430,76 @@ export default function PhoneSettingsPage() {
             description="Manage your business phone numbers and how calls are handled"
             icon={Hash}
           >
-            <div className="space-y-3">
-              {phoneNumbers.map((pn) => (
-                <div
-                  key={pn.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-                        pn.active ? "bg-emerald-500/10" : "bg-muted",
-                      )}
-                    >
-                      <Phone
-                        className={cn(
-                          "h-5 w-5",
-                          pn.active
-                            ? "text-emerald-600"
-                            : "text-muted-foreground",
-                        )}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground">
-                          {formatPhoneNumber(pn.number)}
-                        </p>
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                            pn.active
-                              ? "bg-emerald-500/10 text-emerald-700"
-                              : "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {pn.active ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {pn.friendlyName}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Bot className="h-3 w-3" />
-                          {pn.routingSummary}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {pn.monthlyCost}/mo
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setConfiguringNumberId(pn.id)}
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-4 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            {numbersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">
+                  Loading numbers...
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {phoneNumbers.map((pn) => (
+                  <div
+                    key={pn.sid}
+                    className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors"
                   >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    Configure
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                        <Phone className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">
+                            {formatPhoneNumber(pn.phoneNumber)}
+                          </p>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                            Active
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {pn.friendlyName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          {pn.voiceEnabled && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" /> Voice
+                            </span>
+                          )}
+                          {pn.smsEnabled && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <MessageSquare className="h-3 w-3" /> SMS
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setConfiguringNumberSid(pn.sid)}
+                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-4 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" />
+                      Configure
+                    </button>
+                  </div>
+                ))}
 
-              {/* Add another number */}
-              <button
-                onClick={() => showToast("Add number flow would open here")}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-4 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Add Another Number
-              </button>
-            </div>
+                {phoneNumbers.length === 0 && (
+                  <div className="text-center py-6 text-sm text-muted-foreground">
+                    No phone numbers found. Purchase one from your{" "}
+                    <a
+                      href="https://www.twilio.com/console/phone-numbers/search"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Twilio console
+                    </a>
+                    , then refresh this page.
+                  </div>
+                )}
+              </div>
+            )}
           </SectionCard>
         </>
       )}

@@ -15,6 +15,7 @@ import { aiRoutes } from './routes/ai.js';
 import { campaignRoutes } from './routes/campaigns.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { sequenceRoutes } from './routes/sequences.js';
+import { phoneSystemRoutes } from './routes/phone-system.js';
 import { twilioWebhookRoutes } from './routes/webhooks/twilio.js';
 import { emailWebhookRoutes } from './routes/webhooks/email.js';
 import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
@@ -61,6 +62,7 @@ app.route('/orgs/:orgId/campaigns', campaignRoutes);
 app.route('/orgs/:orgId/reviews', reviewRoutes);
 app.route('/orgs/:orgId/sequences', sequenceRoutes);
 app.route('/orgs/:orgId', aiRoutes);
+app.route('/orgs/:orgId/phone-system', phoneSystemRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);

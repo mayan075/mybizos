@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { type ReactNode } from "react";
+import { Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WizardStep {
@@ -16,6 +16,8 @@ interface SetupWizardProps {
   onBack: () => void;
   onComplete: () => void;
   canProceed: boolean;
+  /** Show a loading spinner on the Continue button */
+  isLoading?: boolean;
   children: ReactNode;
 }
 
@@ -26,6 +28,7 @@ export function SetupWizard({
   onBack,
   onComplete,
   canProceed,
+  isLoading = false,
   children,
 }: SetupWizardProps) {
   const isLastStep = currentStep === steps.length - 1;
@@ -100,18 +103,29 @@ export function SetupWizard({
 
         <button
           onClick={isLastStep ? onComplete : onNext}
-          disabled={!canProceed}
+          disabled={!canProceed || isLoading}
           className={cn(
             "flex h-10 items-center gap-2 rounded-lg px-6 text-sm font-medium transition-all",
-            canProceed
+            canProceed && !isLoading
               ? isLastStep
                 ? "bg-emerald-500 text-white hover:bg-emerald-600"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
               : "bg-muted text-muted-foreground cursor-not-allowed",
           )}
         >
-          {isLastStep ? "Finish Setup" : "Continue"}
-          {!isLastStep && <ChevronRight className="h-4 w-4" />}
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Connecting...
+            </>
+          ) : isLastStep ? (
+            "Finish Setup"
+          ) : (
+            <>
+              Continue
+              <ChevronRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </div>
     </div>

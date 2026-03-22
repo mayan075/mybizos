@@ -11,6 +11,8 @@ export {
   type InboundSms,
   type InboundCall,
   type TwimlAction,
+  type TwilioPhoneNumber,
+  type TwilioAccountInfo,
 } from "./twilio/index.js";
 
 // Stripe

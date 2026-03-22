@@ -82,6 +82,20 @@ export type TwimlAction =
   | { type: "pause"; length?: number }
   | { type: "record"; action?: string; maxLength?: number; transcribe?: boolean };
 
+export interface TwilioPhoneNumber {
+  sid: string;
+  phoneNumber: string;
+  friendlyName: string;
+  smsEnabled: boolean;
+  voiceEnabled: boolean;
+}
+
+export interface TwilioAccountInfo {
+  sid: string;
+  friendlyName: string;
+  status: string;
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
@@ -268,6 +282,65 @@ export class TwilioClient {
       countryCode: lookup.countryCode,
       valid: lookup.valid,
     };
+  }
+
+  // ─── Phone Number Management ─────────────────────────────────────────────
+
+  /**
+   * Validate Twilio credentials by fetching account info.
+   * Returns account details if valid, throws on invalid credentials.
+   */
+  static async validateCredentials(
+    accountSid: string,
+    authToken: string,
+  ): Promise<TwilioAccountInfo> {
+    const client = Twilio(accountSid, authToken);
+    const account = await client.api.v2010.accounts(accountSid).fetch();
+
+    return {
+      sid: account.sid,
+      friendlyName: account.friendlyName,
+      status: account.status,
+    };
+  }
+
+  /**
+   * List all incoming phone numbers for a Twilio account.
+   */
+  static async listPhoneNumbers(
+    accountSid: string,
+    authToken: string,
+  ): Promise<TwilioPhoneNumber[]> {
+    const client = Twilio(accountSid, authToken);
+    const numbers = await client.incomingPhoneNumbers.list();
+
+    return numbers.map((num) => ({
+      sid: num.sid,
+      phoneNumber: num.phoneNumber,
+      friendlyName: num.friendlyName,
+      smsEnabled: num.capabilities?.sms ?? false,
+      voiceEnabled: num.capabilities?.voice ?? false,
+    }));
+  }
+
+  /**
+   * Configure webhook URLs on a Twilio phone number so inbound
+   * calls and SMS are routed to our API.
+   */
+  static async configureWebhooks(
+    accountSid: string,
+    authToken: string,
+    numberSid: string,
+    voiceUrl: string,
+    smsUrl: string,
+  ): Promise<void> {
+    const client = Twilio(accountSid, authToken);
+    await client.incomingPhoneNumbers(numberSid).update({
+      voiceUrl,
+      voiceMethod: "POST",
+      smsUrl,
+      smsMethod: "POST",
+    });
   }
 
   // ─── Private Helpers ─────────────────────────────────────────────────────
