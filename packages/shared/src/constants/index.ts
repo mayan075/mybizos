@@ -17,6 +17,8 @@ import type {
 
 /** Supported business verticals */
 export const VERTICALS: readonly Vertical[] = [
+  "rubbish_removals",
+  "moving_company",
   "plumbing",
   "hvac",
   "electrical",
@@ -29,6 +31,8 @@ export const VERTICALS: readonly Vertical[] = [
 
 /** Vertical display labels */
 export const VERTICAL_LABELS: Record<Vertical, string> = {
+  rubbish_removals: "Rubbish Removals",
+  moving_company: "Moving Company",
   plumbing: "Plumbing",
   hvac: "HVAC",
   electrical: "Electrical",

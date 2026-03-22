@@ -3,6 +3,8 @@ import { z } from "zod";
 // ─── Enum Schemas ───────────────────────────────────────────────────
 
 export const verticalSchema = z.enum([
+  "rubbish_removals",
+  "moving_company",
   "plumbing",
   "hvac",
   "electrical",

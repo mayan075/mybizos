@@ -2,7 +2,7 @@
 
 // ─── Enums ──────────────────────────────────────────────────────────
 
-export type Vertical = "plumbing" | "hvac" | "electrical" | "roofing" | "landscaping" | "pest_control" | "cleaning" | "general_contractor";
+export type Vertical = "rubbish_removals" | "moving_company" | "plumbing" | "hvac" | "electrical" | "roofing" | "landscaping" | "pest_control" | "cleaning" | "general_contractor";
 
 export type ContactSource =
   | "manual"

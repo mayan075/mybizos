@@ -10,8 +10,6 @@ import {
   Settings,
   LogOut,
   Phone,
-  CalendarCheck,
-  MessageSquare,
   UserPlus,
   Bot,
   Flame,

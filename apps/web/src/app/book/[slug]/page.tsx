@@ -12,6 +12,10 @@ import {
   MapPin,
   CalendarPlus,
   Wrench,
+  Trash2,
+  Truck,
+  Package,
+  Container,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatWidget } from "@/components/widgets/chat-widget";
@@ -25,7 +29,7 @@ interface Service {
   name: string;
   duration: string;
   priceRange: string;
-  icon: "wrench" | "flame" | "snowflake" | "alert";
+  icon: "wrench" | "flame" | "snowflake" | "alert" | "trash" | "truck" | "package" | "container";
   description: string;
 }
 
@@ -37,43 +41,134 @@ interface BookingForm {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Mock Data                                                                 */
+/*  Mock Data — Vertical-aware service sets                                   */
 /* -------------------------------------------------------------------------- */
 
-const SERVICES: Service[] = [
-  {
-    id: "drain-cleaning",
-    name: "Drain Cleaning",
-    duration: "30-60 min",
-    priceRange: "$150-250",
-    icon: "wrench",
-    description: "Professional drain clearing and cleaning service",
-  },
-  {
-    id: "water-heater",
-    name: "Water Heater Install",
-    duration: "2-4 hrs",
-    priceRange: "$1,500-3,000",
-    icon: "flame",
-    description: "Full water heater installation or replacement",
-  },
-  {
-    id: "ac-tuneup",
-    name: "AC Tune-Up",
-    duration: "1-2 hrs",
-    priceRange: "$89-149",
-    icon: "snowflake",
-    description: "Seasonal AC inspection and maintenance",
-  },
-  {
-    id: "emergency-plumbing",
-    name: "Emergency Plumbing",
-    duration: "ASAP",
-    priceRange: "$200-400",
-    icon: "alert",
-    description: "24/7 emergency plumbing response",
-  },
-];
+const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
+  rubbish_removals: [
+    {
+      id: "single-item-pickup",
+      name: "Single Item Pickup",
+      duration: "30-60 min",
+      priceRange: "$80-150",
+      icon: "trash",
+      description: "Pick up and dispose of a single large item (mattress, fridge, couch, etc.)",
+    },
+    {
+      id: "partial-truck-load",
+      name: "Partial Truck Load",
+      duration: "1-2 hrs",
+      priceRange: "$200-350",
+      icon: "trash",
+      description: "Removal of several items or a partial load of rubbish and junk",
+    },
+    {
+      id: "full-truck-load",
+      name: "Full Truck Load",
+      duration: "2-3 hrs",
+      priceRange: "$350-600",
+      icon: "truck",
+      description: "Complete truck load removal for big cleanouts and estate clearances",
+    },
+    {
+      id: "skip-bin-hire",
+      name: "Skip Bin Hire",
+      duration: "Delivered + collected",
+      priceRange: "$250-500",
+      icon: "container",
+      description: "Skip bin delivered to your site and collected when full",
+    },
+  ],
+  moving_company: [
+    {
+      id: "small-move",
+      name: "Small Move (Studio/1BR)",
+      duration: "2-4 hrs",
+      priceRange: "$250-500",
+      icon: "package",
+      description: "Studio or 1-bedroom apartment move with 2 movers and truck",
+    },
+    {
+      id: "medium-move",
+      name: "Medium Move (2-3BR)",
+      duration: "4-6 hrs",
+      priceRange: "$500-900",
+      icon: "truck",
+      description: "2-3 bedroom home move with experienced movers and equipment",
+    },
+    {
+      id: "large-move",
+      name: "Large Move (4BR+)",
+      duration: "6-10 hrs",
+      priceRange: "$900-1,500",
+      icon: "truck",
+      description: "Large home move with full crew, blankets, and trolleys included",
+    },
+    {
+      id: "packing-service",
+      name: "Packing Service",
+      duration: "2-4 hrs",
+      priceRange: "$200-400",
+      icon: "package",
+      description: "Professional packing of your belongings with quality materials",
+    },
+  ],
+  default: [
+    {
+      id: "drain-cleaning",
+      name: "Drain Cleaning",
+      duration: "30-60 min",
+      priceRange: "$150-250",
+      icon: "wrench",
+      description: "Professional drain clearing and cleaning service",
+    },
+    {
+      id: "water-heater",
+      name: "Water Heater Install",
+      duration: "2-4 hrs",
+      priceRange: "$1,500-3,000",
+      icon: "flame",
+      description: "Full water heater installation or replacement",
+    },
+    {
+      id: "ac-tuneup",
+      name: "AC Tune-Up",
+      duration: "1-2 hrs",
+      priceRange: "$89-149",
+      icon: "snowflake",
+      description: "Seasonal AC inspection and maintenance",
+    },
+    {
+      id: "emergency-plumbing",
+      name: "Emergency Plumbing",
+      duration: "ASAP",
+      priceRange: "$200-400",
+      icon: "alert",
+      description: "24/7 emergency plumbing response",
+    },
+  ],
+};
+
+/**
+ * Detect the vertical from the slug.
+ * In production this would come from the API, but for the booking page
+ * we infer it from well-known slug patterns.
+ */
+function detectVerticalFromSlug(slug: string): string {
+  const lower = slug.toLowerCase();
+  if (lower.includes("remov") || lower.includes("rubbish") || lower.includes("junk") || lower.includes("waste") || lower.includes("skip")) {
+    return "rubbish_removals";
+  }
+  if (lower.includes("mov") || lower.includes("relocat") || lower.includes("transport")) {
+    return "moving_company";
+  }
+  return "default";
+}
+
+function getServicesForSlug(slug: string): Service[] {
+  const vertical = detectVerticalFromSlug(slug);
+  return SERVICES_BY_VERTICAL[vertical] ?? SERVICES_BY_VERTICAL["default"]!;
+}
 
 const TIME_SLOTS = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
 
@@ -106,6 +201,14 @@ function ServiceIcon({ type }: { type: Service["icon"] }) {
   switch (type) {
     case "wrench":
       return <Wrench className={cn(base, "text-blue-600")} />;
+    case "trash":
+      return <Trash2 className={cn(base, "text-green-600")} />;
+    case "truck":
+      return <Truck className={cn(base, "text-indigo-600")} />;
+    case "package":
+      return <Package className={cn(base, "text-amber-600")} />;
+    case "container":
+      return <Container className={cn(base, "text-slate-600")} />;
     case "flame":
       return (
         <svg className={cn(base, "text-orange-500")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -131,9 +234,11 @@ function ServiceIcon({ type }: { type: Service["icon"] }) {
 function StepService({
   selected,
   onSelect,
+  services,
 }: {
   selected: string | null;
   onSelect: (id: string) => void;
+  services: Service[];
 }) {
   return (
     <div className="space-y-4">
@@ -142,7 +247,7 @@ function StepService({
         <p className="text-sm text-gray-500 mt-1">Choose the service you need</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        {SERVICES.map((svc) => (
+        {services.map((svc) => (
           <button
             key={svc.id}
             type="button"
@@ -520,6 +625,7 @@ export default function BookingPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "your-business";
   const businessName = slugToBusinessName(slug);
+  const services = useMemo(() => getServicesForSlug(slug), [slug]);
 
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -533,7 +639,7 @@ export default function BookingPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const service = SERVICES.find((s) => s.id === selectedService) ?? null;
+  const service = services.find((s) => s.id === selectedService) ?? null;
 
   const canProceed = useCallback((): boolean => {
     switch (step) {
@@ -599,6 +705,7 @@ export default function BookingPage() {
           {step === 1 && (
             <StepService
               selected={selectedService}
+              services={services}
               onSelect={(id) => {
                 setSelectedService(id);
                 setStep(2);

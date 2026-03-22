@@ -21,6 +21,8 @@ import { storeToken } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 
 const VERTICALS = [
+  { value: "rubbish_removals", label: "Rubbish Removals" },
+  { value: "moving_company", label: "Moving Company" },
   { value: "plumbing", label: "Plumbing" },
   { value: "hvac", label: "HVAC" },
   { value: "electrical", label: "Electrical" },

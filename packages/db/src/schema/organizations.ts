@@ -11,6 +11,8 @@ import {
 import { users } from "./auth.js";
 
 export const verticalEnum = pgEnum("vertical", [
+  "rubbish_removals",
+  "moving_company",
   "plumbing",
   "hvac",
   "electrical",
