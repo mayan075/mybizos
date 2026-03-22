@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUser } from "@/lib/auth";
+import { getOnboardingData } from "@/lib/onboarding";
 
 interface NavItem {
   label: string;
@@ -94,8 +95,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   const user = useMemo(() => getUser(), []);
+  const onboarding = useMemo(() => getOnboardingData(), []);
   const userName = user?.name ?? "Demo User";
-  const orgName = user?.orgName ?? "Demo Business";
+  const orgName = onboarding?.businessName ?? user?.orgName ?? "Demo Business";
   const userInitials = getInitials(userName);
 
   return (

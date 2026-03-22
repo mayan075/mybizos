@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
+import { isOnboardingComplete } from "@/lib/onboarding";
 
 const VERTICALS = [
   { value: "rubbish_removals", label: "Rubbish Removals" },
@@ -98,7 +99,8 @@ export default function RegisterPage() {
     );
 
     storeToken(response.data.token);
-    router.push("/dashboard");
+    // Send new users to onboarding; returning users go straight to dashboard
+    router.push(isOnboardingComplete() ? "/dashboard" : "/onboarding");
   }
 
   async function handleSubmit(e: React.FormEvent) {

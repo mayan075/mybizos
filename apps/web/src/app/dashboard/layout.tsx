@@ -1,21 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { FloatingDialer } from "@/components/dialer/floating-dialer";
+import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
+import { isOnboardingComplete } from "@/lib/onboarding";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
+
+  // Guard: redirect to onboarding if not completed
+  useEffect(() => {
+    if (!isOnboardingComplete()) {
+      router.replace("/onboarding");
+      return;
+    }
+    setReady(true);
+  }, [router]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -27,6 +41,11 @@ export default function DashboardLayout({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  // Don't flash the dashboard while redirecting
+  if (!ready) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -42,6 +61,7 @@ export default function DashboardLayout({
         onClose={() => setCommandPaletteOpen(false)}
       />
       <FloatingDialer />
+      <AIAssistant />
     </div>
   );
 }

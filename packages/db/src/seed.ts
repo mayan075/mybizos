@@ -669,11 +669,479 @@ AI: Transferring you now. Stay on the line.`,
     }).onConflictDoNothing();
   }
 
+  // =========================================================================
+  // NORTHERN REMOVALS — Mayan's rubbish removal business
+  // =========================================================================
+
+  const NR_USER_ID = seededId("user-mayan-nr");
+  const NR_ORG_ID = seededId("org-northern-removals");
+  const NR_PIPELINE_ID = seededId("pipeline-nr-removals");
+
+  const NR_STAGE_IDS = {
+    new_inquiry: seededId("nr-stage-new-inquiry"),
+    quote_sent: seededId("nr-stage-quote-sent"),
+    quote_accepted: seededId("nr-stage-quote-accepted"),
+    job_scheduled: seededId("nr-stage-job-scheduled"),
+    in_progress: seededId("nr-stage-in-progress"),
+    completed: seededId("nr-stage-completed"),
+    paid: seededId("nr-stage-paid"),
+  };
+
+  const NR_CONTACT_IDS = Array.from({ length: 12 }, (_, i) =>
+    seededId(`nr-contact-${i}`),
+  );
+
+  const NR_DEAL_IDS = Array.from({ length: 8 }, (_, i) =>
+    seededId(`nr-deal-${i}`),
+  );
+
+  const NR_ACTIVITY_IDS = Array.from({ length: 15 }, (_, i) =>
+    seededId(`nr-activity-${i}`),
+  );
+
+  const NR_CONVERSATION_IDS = Array.from({ length: 6 }, (_, i) =>
+    seededId(`nr-conversation-${i}`),
+  );
+
+  const NR_APPOINTMENT_IDS = Array.from({ length: 5 }, (_, i) =>
+    seededId(`nr-appointment-${i}`),
+  );
+
+  const NR_AGENT_IDS = {
+    phone: seededId("nr-agent-phone"),
+    sms: seededId("nr-agent-sms"),
+  };
+
+  // --- NR 1. User -----------------------------------------------------------
+  console.log("\n  [Northern Removals] Creating demo user...");
+  await db.insert(users).values({
+    id: NR_USER_ID,
+    email: "mayan@northernremovals.com.au",
+    passwordHash: hashPassword("demo1234"),
+    name: "Mayan",
+    emailVerified: true,
+    isActive: true,
+  }).onConflictDoNothing();
+
+  // --- NR 2. Organization ---------------------------------------------------
+  console.log("  [Northern Removals] Creating organization...");
+  await db.insert(organizations).values({
+    id: NR_ORG_ID,
+    name: "Northern Removals",
+    slug: "northern-removals",
+    vertical: "rubbish_removals",
+    timezone: "Australia/Melbourne",
+    phone: "+61412345678",
+    email: "info@northernremovals.com.au",
+    website: "https://northernremovals.com.au",
+    address: "12 Industrial Drive, Epping VIC 3076",
+    settings: {
+      twilioNumber: "+61412345678",
+      businessHours: { start: "07:00", end: "17:00" },
+      aiEnabled: true,
+      currency: "AUD",
+    },
+  }).onConflictDoNothing();
+
+  // --- NR 3. Org member -----------------------------------------------------
+  console.log("  [Northern Removals] Linking user to org...");
+  await db.insert(orgMembers).values({
+    id: seededId("orgmember-mayan-nr"),
+    orgId: NR_ORG_ID,
+    userId: NR_USER_ID,
+    role: "owner",
+    isActive: true,
+  }).onConflictDoNothing();
+
+  // --- NR 4. Pipeline + stages (Rubbish Removals pipeline) ------------------
+  console.log("  [Northern Removals] Creating pipeline and stages...");
+  await db.insert(pipelines).values({
+    id: NR_PIPELINE_ID,
+    orgId: NR_ORG_ID,
+    name: "Removals Pipeline",
+    isDefault: true,
+  }).onConflictDoNothing();
+
+  const nrStageRows: Array<{
+    id: string;
+    pipelineId: string;
+    orgId: string;
+    name: string;
+    slug: "new_lead" | "contacted" | "qualified" | "quote_sent" | "negotiation" | "won" | "lost";
+    position: number;
+    color: string;
+  }> = [
+    { id: NR_STAGE_IDS.new_inquiry, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "New Inquiry", slug: "new_lead", position: 0, color: "#6366f1" },
+    { id: NR_STAGE_IDS.quote_sent, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "Quote Sent", slug: "quote_sent", position: 1, color: "#f59e0b" },
+    { id: NR_STAGE_IDS.quote_accepted, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "Quote Accepted", slug: "qualified", position: 2, color: "#8b5cf6" },
+    { id: NR_STAGE_IDS.job_scheduled, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "Job Scheduled", slug: "contacted", position: 3, color: "#3b82f6" },
+    { id: NR_STAGE_IDS.in_progress, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "In Progress", slug: "negotiation", position: 4, color: "#ef4444" },
+    { id: NR_STAGE_IDS.completed, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "Completed", slug: "won", position: 5, color: "#22c55e" },
+    { id: NR_STAGE_IDS.paid, pipelineId: NR_PIPELINE_ID, orgId: NR_ORG_ID, name: "Paid", slug: "lost", position: 6, color: "#10b981" },
+  ];
+  for (const stage of nrStageRows) {
+    await db.insert(pipelineStages).values(stage).onConflictDoNothing();
+  }
+
+  // --- NR 5. Contacts (Australian) ------------------------------------------
+  console.log("  [Northern Removals] Creating 12 contacts...");
+  const NR_CONTACTS_DATA: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    source: "manual" | "phone" | "sms" | "email" | "webform" | "referral" | "google_ads" | "facebook_ads" | "yelp" | "import";
+    aiScore: number;
+    tags: string[];
+  }> = [
+    { id: NR_CONTACT_IDS[0]!, firstName: "Steve", lastName: "O'Brien", email: "steve.obrien@gmail.com", phone: "+61412111222", source: "google_ads", aiScore: 90, tags: ["residential", "urgent"] },
+    { id: NR_CONTACT_IDS[1]!, firstName: "Karen", lastName: "Nguyen", email: "karen.nguyen@outlook.com", phone: "+61412222333", source: "referral", aiScore: 85, tags: ["residential", "green-waste"] },
+    { id: NR_CONTACT_IDS[2]!, firstName: "Darren", lastName: "Smith", email: "dsmith@bigpond.com", phone: "+61412333444", source: "phone", aiScore: 75, tags: ["commercial", "construction"] },
+    { id: NR_CONTACT_IDS[3]!, firstName: "Rachel", lastName: "Thompson", email: "rachel.t@gmail.com", phone: "+61412444555", source: "webform", aiScore: 65, tags: ["residential", "deceased-estate"] },
+    { id: NR_CONTACT_IDS[4]!, firstName: "Mark", lastName: "Williams", email: "markw@yahoo.com.au", phone: "+61412555666", source: "google_ads", aiScore: 88, tags: ["commercial"] },
+    { id: NR_CONTACT_IDS[5]!, firstName: "Jenny", lastName: "Chen", email: "jenny.chen@gmail.com", phone: "+61412666777", source: "facebook_ads", aiScore: 70, tags: ["residential", "hoarder"] },
+    { id: NR_CONTACT_IDS[6]!, firstName: "Tom", lastName: "Murphy", email: "tmurphy@hotmail.com", phone: "+61412777888", source: "referral", aiScore: 92, tags: ["residential", "skip-bin"] },
+    { id: NR_CONTACT_IDS[7]!, firstName: "Lisa", lastName: "Patel", email: "lisa.patel@outlook.com", phone: "+61412888999", source: "google_ads", aiScore: 55, tags: ["residential"] },
+    { id: NR_CONTACT_IDS[8]!, firstName: "Craig", lastName: "Johnson", email: "craig.j@gmail.com", phone: "+61412999000", source: "phone", aiScore: 80, tags: ["commercial", "e-waste"] },
+    { id: NR_CONTACT_IDS[9]!, firstName: "Sue", lastName: "Brown", email: "sue.brown@bigpond.com", phone: "+61413000111", source: "webform", aiScore: 45, tags: ["residential"] },
+    { id: NR_CONTACT_IDS[10]!, firstName: "Peter", lastName: "Kostas", email: "peterk@gmail.com", phone: "+61413111222", source: "referral", aiScore: 78, tags: ["commercial", "regular"] },
+    { id: NR_CONTACT_IDS[11]!, firstName: "Angela", lastName: "Taylor", email: "angela.t@outlook.com.au", phone: "+61413222333", source: "facebook_ads", aiScore: 60, tags: ["residential", "mattress"] },
+  ];
+
+  for (const c of NR_CONTACTS_DATA) {
+    await db.insert(contacts).values({
+      id: c.id,
+      orgId: NR_ORG_ID,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.email,
+      phone: c.phone,
+      source: c.source,
+      aiScore: c.aiScore,
+      tags: c.tags,
+      customFields: {},
+      createdAt: daysFromNow(-Math.floor(Math.random() * 60 + 1)),
+    }).onConflictDoNothing();
+  }
+
+  // --- NR 6. Deals ----------------------------------------------------------
+  console.log("  [Northern Removals] Creating 8 deals...");
+  const NR_DEALS_DATA: Array<{
+    id: string;
+    contactIdx: number;
+    stageKey: keyof typeof NR_STAGE_IDS;
+    title: string;
+    value: string;
+    daysAgo: number;
+  }> = [
+    { id: NR_DEAL_IDS[0]!, contactIdx: 0, stageKey: "new_inquiry", title: "Full House Cleanout - O'Brien", value: "550.00", daysAgo: 0 },
+    { id: NR_DEAL_IDS[1]!, contactIdx: 1, stageKey: "quote_sent", title: "Green Waste Removal - Nguyen", value: "280.00", daysAgo: 2 },
+    { id: NR_DEAL_IDS[2]!, contactIdx: 2, stageKey: "job_scheduled", title: "Construction Waste - Smith", value: "900.00", daysAgo: 3 },
+    { id: NR_DEAL_IDS[3]!, contactIdx: 3, stageKey: "quote_accepted", title: "Deceased Estate Cleanup - Thompson", value: "1800.00", daysAgo: 5 },
+    { id: NR_DEAL_IDS[4]!, contactIdx: 6, stageKey: "in_progress", title: "Skip Bin 6m3 - Murphy", value: "450.00", daysAgo: 1 },
+    { id: NR_DEAL_IDS[5]!, contactIdx: 8, stageKey: "completed", title: "E-Waste Collection - Johnson", value: "350.00", daysAgo: 7 },
+    { id: NR_DEAL_IDS[6]!, contactIdx: 10, stageKey: "paid", title: "Monthly Office Cleanout - Kostas", value: "400.00", daysAgo: 14 },
+    { id: NR_DEAL_IDS[7]!, contactIdx: 11, stageKey: "new_inquiry", title: "Mattress & Furniture Removal - Taylor", value: "150.00", daysAgo: 0 },
+  ];
+
+  for (const d of NR_DEALS_DATA) {
+    const isClosed = d.stageKey === "completed" || d.stageKey === "paid";
+    await db.insert(deals).values({
+      id: d.id,
+      orgId: NR_ORG_ID,
+      pipelineId: NR_PIPELINE_ID,
+      stageId: NR_STAGE_IDS[d.stageKey],
+      contactId: NR_CONTACT_IDS[d.contactIdx]!,
+      title: d.title,
+      value: d.value,
+      currency: "AUD",
+      assignedTo: NR_USER_ID,
+      metadata: {},
+      closedAt: isClosed ? daysFromNow(-d.daysAgo) : null,
+      createdAt: daysFromNow(-d.daysAgo - 3),
+    }).onConflictDoNothing();
+  }
+
+  // --- NR 7. Activities -----------------------------------------------------
+  console.log("  [Northern Removals] Creating 15 activities...");
+  const NR_ACTIVITIES_DATA: Array<{
+    id: string;
+    contactIdx: number;
+    type: "call" | "sms" | "email" | "note" | "ai_interaction" | "appointment_booked" | "appointment_completed" | "payment_received";
+    title: string;
+    description: string;
+    daysAgo: number;
+  }> = [
+    { id: NR_ACTIVITY_IDS[0]!, contactIdx: 0, type: "call", title: "Inbound call", description: "Steve called about clearing out his garage and backyard. Lots of old furniture and green waste.", daysAgo: 0 },
+    { id: NR_ACTIVITY_IDS[1]!, contactIdx: 0, type: "note", title: "Job assessment", description: "Approx 2 truck loads. Mixture of furniture, whitegoods, and garden waste. Access is good, driveway can fit the truck.", daysAgo: 0 },
+    { id: NR_ACTIVITY_IDS[2]!, contactIdx: 1, type: "ai_interaction", title: "AI phone call", description: "AI agent handled inquiry about green waste removal. 3 trailer loads of branches and garden clippings. Quoted $250-350.", daysAgo: 2 },
+    { id: NR_ACTIVITY_IDS[3]!, contactIdx: 2, type: "call", title: "Commercial inquiry", description: "Darren called about construction waste from a renovation. Needs concrete, timber, and plasterboard removed.", daysAgo: 3 },
+    { id: NR_ACTIVITY_IDS[4]!, contactIdx: 2, type: "email", title: "Quote sent", description: "Sent quote for construction waste removal. 2 truck loads estimated at $900 inc. tip fees.", daysAgo: 3 },
+    { id: NR_ACTIVITY_IDS[5]!, contactIdx: 3, type: "call", title: "Sensitive inquiry", description: "Rachel called about clearing her late father's house. Full 3BR house needs emptying. Treated with care and empathy.", daysAgo: 5 },
+    { id: NR_ACTIVITY_IDS[6]!, contactIdx: 3, type: "note", title: "Site visit", description: "Visited property. 3BR house, mostly furniture, clothing, and household items. Some items to be donated to Salvos. Quoted $1,500-2,000.", daysAgo: 4 },
+    { id: NR_ACTIVITY_IDS[7]!, contactIdx: 6, type: "appointment_booked", title: "Skip bin delivery", description: "6 cubic metre skip bin to be delivered to 45 Station St, Reservoir. Customer doing a bathroom reno.", daysAgo: 1 },
+    { id: NR_ACTIVITY_IDS[8]!, contactIdx: 8, type: "appointment_completed", title: "E-waste collected", description: "Collected 15 old monitors, 8 PCs, and boxes of cables from Craig's office. All taken to licensed e-waste recycler.", daysAgo: 7 },
+    { id: NR_ACTIVITY_IDS[9]!, contactIdx: 8, type: "payment_received", title: "Payment received", description: "Craig paid $350 via bank transfer for e-waste collection.", daysAgo: 6 },
+    { id: NR_ACTIVITY_IDS[10]!, contactIdx: 10, type: "payment_received", title: "Monthly payment", description: "Peter's monthly office cleanout payment of $400 received.", daysAgo: 14 },
+    { id: NR_ACTIVITY_IDS[11]!, contactIdx: 5, type: "ai_interaction", title: "AI SMS conversation", description: "Jenny texted about hoarder cleanup at her mum's place. AI agent collected details and flagged for follow-up.", daysAgo: 1 },
+    { id: NR_ACTIVITY_IDS[12]!, contactIdx: 11, type: "sms", title: "Inbound SMS", description: "Angela texted asking about mattress removal pricing. Quoted $80-120 for single mattress pickup.", daysAgo: 0 },
+    { id: NR_ACTIVITY_IDS[13]!, contactIdx: 7, type: "email", title: "Follow-up email", description: "Sent follow-up to Lisa about her quote for backyard rubbish removal.", daysAgo: 4 },
+    { id: NR_ACTIVITY_IDS[14]!, contactIdx: 4, type: "call", title: "Commercial contract discussion", description: "Mark wants a regular weekly pickup for his warehouse. Discussing pricing for ongoing contract.", daysAgo: 1 },
+  ];
+
+  for (const a of NR_ACTIVITIES_DATA) {
+    await db.insert(activities).values({
+      id: a.id,
+      orgId: NR_ORG_ID,
+      contactId: NR_CONTACT_IDS[a.contactIdx]!,
+      type: a.type,
+      title: a.title,
+      description: a.description,
+      performedBy: NR_USER_ID,
+      metadata: {},
+      createdAt: daysFromNow(-a.daysAgo),
+    }).onConflictDoNothing();
+  }
+
+  // --- NR 8. Conversations + messages ---------------------------------------
+  console.log("  [Northern Removals] Creating 6 conversations with messages...");
+  const NR_CONVERSATIONS_DATA: ConversationSeed[] = [
+    {
+      id: NR_CONVERSATION_IDS[0]!,
+      contactIdx: 0,
+      channel: "sms",
+      aiHandled: false,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "G'day, I need my garage and backyard cleared out. Heaps of junk. Can you give me a quote?", minutesAgo: 180 },
+        { direction: "outbound", senderType: "user", body: "Hey Steve! Yeah no worries, happy to help. Can you send a few photos so I can estimate the load? Roughly how many cubic metres do you reckon?", minutesAgo: 170 },
+        { direction: "inbound", senderType: "contact", body: "Probably 2 truck loads worth. Old furniture, a busted fridge, and heaps of garden waste out back.", minutesAgo: 160 },
+        { direction: "outbound", senderType: "user", body: "No dramas. For 2 full loads with whitegoods, looking at around $500-600. We do all the heavy lifting. When suits you?", minutesAgo: 150 },
+      ],
+    },
+    {
+      id: NR_CONVERSATION_IDS[1]!,
+      contactIdx: 1,
+      channel: "sms",
+      aiHandled: true,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "Hi, do you do green waste removal? I've got a huge pile of branches from tree trimming.", minutesAgo: 2880 },
+        { direction: "outbound", senderType: "ai", body: "Hi Karen! Yes, we do green waste removal. Branches, grass clippings, shrubs — we take it all. A standard load is usually $250-350. Would you like to book a pickup?", minutesAgo: 2878 },
+        { direction: "inbound", senderType: "contact", body: "That sounds good. Can you come this week?", minutesAgo: 2800 },
+        { direction: "outbound", senderType: "ai", body: "We have availability on Thursday or Friday this week. Which day works better for you? And what's your address?", minutesAgo: 2798 },
+      ],
+    },
+    {
+      id: NR_CONVERSATION_IDS[2]!,
+      contactIdx: 3,
+      channel: "call",
+      aiHandled: false,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "Hi, my father recently passed and we need to clear out his house. It's a 3-bedroom in Thomastown. Can you help?", minutesAgo: 7200 },
+        { direction: "outbound", senderType: "user", body: "I'm sorry for your loss, Rachel. We handle deceased estate cleanups with care and sensitivity. I can come have a look and give you a free quote. Would tomorrow morning suit?", minutesAgo: 7150 },
+        { direction: "inbound", senderType: "contact", body: "That would be great. The address is 28 Chapel St, Thomastown.", minutesAgo: 7100 },
+        { direction: "outbound", senderType: "user", body: "I'll be there at 10am. We can also arrange donation of any items in good condition to local charities if you'd like.", minutesAgo: 7050 },
+      ],
+    },
+    {
+      id: NR_CONVERSATION_IDS[3]!,
+      contactIdx: 6,
+      channel: "sms",
+      aiHandled: false,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "Need a skip bin for a bathroom reno. 6 cubic metre should do it. Can you deliver to Reservoir?", minutesAgo: 1440 },
+        { direction: "outbound", senderType: "user", body: "Hey Tom! 6m3 skip delivered to Reservoir is $420 for 7 days. We can have it there tomorrow morning. Sound good?", minutesAgo: 1400 },
+        { direction: "inbound", senderType: "contact", body: "Perfect. 45 Station St, Reservoir. Can you drop it on the driveway?", minutesAgo: 1380 },
+        { direction: "outbound", senderType: "user", body: "Done! I'll have the driver call you 30 min before arrival. No worries about the driveway placement.", minutesAgo: 1370 },
+      ],
+    },
+    {
+      id: NR_CONVERSATION_IDS[4]!,
+      contactIdx: 5,
+      channel: "sms",
+      aiHandled: true,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "Hi, my mum's a bit of a hoarder and we need help clearing her place. It's pretty full. Do you do this kind of thing?", minutesAgo: 1440 },
+        { direction: "outbound", senderType: "ai", body: "Hi Jenny! Yes, we specialise in hoarder cleanups and handle them with care and discretion. The cost depends on the volume — typically $800-2,500 for a full house. Would you like us to come do a free assessment?", minutesAgo: 1438 },
+        { direction: "inbound", senderType: "contact", body: "Yes please. It's in Epping. When can you come?", minutesAgo: 1400 },
+      ],
+    },
+    {
+      id: NR_CONVERSATION_IDS[5]!,
+      contactIdx: 11,
+      channel: "sms",
+      aiHandled: true,
+      status: "open",
+      messages: [
+        { direction: "inbound", senderType: "contact", body: "How much to pick up an old queen mattress and a couch?", minutesAgo: 60 },
+        { direction: "outbound", senderType: "ai", body: "Hi Angela! For a mattress and couch pickup, it's typically $120-180 depending on your location. We can usually do same-day or next-day. Where are you located?", minutesAgo: 58 },
+        { direction: "inbound", senderType: "contact", body: "I'm in Bundoora. Can you come today?", minutesAgo: 50 },
+        { direction: "outbound", senderType: "ai", body: "Let me check today's availability for Bundoora. I'm flagging this as urgent for the team. Someone will confirm within the hour!", minutesAgo: 48 },
+      ],
+    },
+  ];
+
+  for (const conv of NR_CONVERSATIONS_DATA) {
+    const lastMsg = conv.messages[conv.messages.length - 1]!;
+    const lastMessageAt = new Date(Date.now() - lastMsg.minutesAgo * 60_000);
+
+    await db.insert(conversations).values({
+      id: conv.id,
+      orgId: NR_ORG_ID,
+      contactId: NR_CONTACT_IDS[conv.contactIdx]!,
+      channel: conv.channel,
+      status: conv.status,
+      assignedTo: conv.aiHandled ? null : NR_USER_ID,
+      aiHandled: conv.aiHandled,
+      lastMessageAt,
+      unreadCount: conv.status === "open" ? conv.messages.filter((m) => m.direction === "inbound").length : 0,
+    }).onConflictDoNothing();
+
+    for (let mi = 0; mi < conv.messages.length; mi++) {
+      const msg = conv.messages[mi]!;
+      await db.insert(messages).values({
+        id: seededId(`nr-msg-${conv.id}-${mi}`),
+        conversationId: conv.id,
+        orgId: NR_ORG_ID,
+        direction: msg.direction,
+        channel: conv.channel,
+        senderType: msg.senderType,
+        senderId: msg.senderType === "contact" ? NR_CONTACT_IDS[conv.contactIdx]! : (msg.senderType === "user" ? NR_USER_ID : null),
+        body: msg.body,
+        mediaUrls: [],
+        metadata: {},
+        status: "delivered",
+        createdAt: new Date(Date.now() - msg.minutesAgo * 60_000),
+      }).onConflictDoNothing();
+    }
+  }
+
+  // --- NR 9. Appointments ---------------------------------------------------
+  console.log("  [Northern Removals] Creating 5 appointments...");
+  const nrAppointmentData: Array<{
+    id: string;
+    contactIdx: number;
+    title: string;
+    description: string;
+    dayOffset: number;
+    hour: number;
+    durationHours: number;
+    status: "scheduled" | "confirmed" | "completed";
+    location: string;
+  }> = [
+    { id: NR_APPOINTMENT_IDS[0]!, contactIdx: 0, title: "Garage & Yard Cleanout - O'Brien", description: "2 truck loads: furniture, whitegoods, garden waste", dayOffset: 1, hour: 8, durationHours: 4, status: "scheduled", location: "15 Dalton Rd, Thomastown VIC" },
+    { id: NR_APPOINTMENT_IDS[1]!, contactIdx: 2, title: "Construction Waste - Smith", description: "Concrete, timber, plasterboard from bathroom reno", dayOffset: 2, hour: 7, durationHours: 3, status: "confirmed", location: "82 High St, Preston VIC" },
+    { id: NR_APPOINTMENT_IDS[2]!, contactIdx: 3, title: "Deceased Estate - Thompson", description: "Full 3BR house clearance. Donation items separated.", dayOffset: 3, hour: 8, durationHours: 6, status: "scheduled", location: "28 Chapel St, Thomastown VIC" },
+    { id: NR_APPOINTMENT_IDS[3]!, contactIdx: 6, title: "Skip Bin Delivery - Murphy", description: "6m3 skip bin delivery for bathroom renovation", dayOffset: 0, hour: 7, durationHours: 1, status: "confirmed", location: "45 Station St, Reservoir VIC" },
+    { id: NR_APPOINTMENT_IDS[4]!, contactIdx: 8, title: "E-Waste Collection - Johnson", description: "Monitors, PCs, cables from office clearout", dayOffset: -3, hour: 9, durationHours: 2, status: "completed", location: "Unit 5, 100 Industrial Ave, Campbellfield VIC" },
+  ];
+
+  for (const appt of nrAppointmentData) {
+    await db.insert(appointments).values({
+      id: appt.id,
+      orgId: NR_ORG_ID,
+      contactId: NR_CONTACT_IDS[appt.contactIdx]!,
+      assignedTo: NR_USER_ID,
+      title: appt.title,
+      description: appt.description,
+      startTime: atHour(appt.hour, 0, appt.dayOffset),
+      endTime: atHour(appt.hour + appt.durationHours, 0, appt.dayOffset),
+      status: appt.status,
+      location: appt.location,
+    }).onConflictDoNothing();
+  }
+
+  // --- NR 10. AI Agents -----------------------------------------------------
+  console.log("  [Northern Removals] Creating 2 AI agents...");
+  await db.insert(aiAgents).values({
+    id: NR_AGENT_IDS.phone,
+    orgId: NR_ORG_ID,
+    type: "phone",
+    name: "Northern Removals Phone Agent",
+    vertical: "rubbish_removals",
+    systemPrompt: `You are the AI phone assistant for Northern Removals. You answer calls professionally and help callers with quoting, scheduling, and urgent pickups.
+
+RULES:
+- Always start with: "Hi, this is Northern Removals' AI assistant. This call may be recorded."
+- For pricing, give RANGES only (e.g., "a full truck load is typically $350-600")
+- For emergencies or urgent same-day requests, say: "I'm flagging this as urgent and notifying the team right away."
+- After 2 misunderstandings, say: "Let me connect you with someone from the team directly."
+- Collect: name, phone, address/suburb, what needs removing, how much, any heavy items, access issues, when needed
+- Try to book a pickup or site assessment if the caller is interested
+- Mention: "We do all the heavy lifting — you don't need to do a thing"
+- Items we DON'T take: asbestos, chemicals, paint, hazardous waste`,
+    isActive: true,
+    settings: {
+      greeting: "Hi, this is Northern Removals' AI assistant. This call may be recorded. How can I help you today?",
+      maxMisunderstandings: 2,
+      escalationPhone: "+61412345678",
+      emergencyKeywords: ["asbestos", "urgent", "today", "emergency", "same day", "ASAP"],
+      voiceId: "rachel",
+      language: "en-AU",
+    },
+  }).onConflictDoNothing();
+
+  await db.insert(aiAgents).values({
+    id: NR_AGENT_IDS.sms,
+    orgId: NR_ORG_ID,
+    type: "sms",
+    name: "Northern Removals SMS Agent",
+    vertical: "rubbish_removals",
+    systemPrompt: `You are the AI SMS assistant for Northern Removals. You respond to text messages quickly and helpfully.
+
+RULES:
+- Keep responses concise (under 160 characters when possible)
+- For pricing, give RANGES only
+- For urgent/same-day requests, flag for the team immediately
+- Try to book pickups or assessments when appropriate
+- Always be professional but friendly — use casual Australian English
+- Mention we do all the heavy lifting`,
+    isActive: true,
+    settings: {
+      autoReplyEnabled: true,
+      maxResponseTime: 30,
+      afterHoursMessage: "Thanks for texting Northern Removals! We're available Mon-Sat 7 AM - 5 PM. We'll get back to you first thing next business day.",
+    },
+  }).onConflictDoNothing();
+
+  // --- NR 11. Availability rules --------------------------------------------
+  console.log("  [Northern Removals] Creating availability rules...");
+  const nrDays: Array<{ day: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"; start: string; end: string; active: boolean }> = [
+    { day: "monday", start: "07:00", end: "17:00", active: true },
+    { day: "tuesday", start: "07:00", end: "17:00", active: true },
+    { day: "wednesday", start: "07:00", end: "17:00", active: true },
+    { day: "thursday", start: "07:00", end: "17:00", active: true },
+    { day: "friday", start: "07:00", end: "17:00", active: true },
+    { day: "saturday", start: "08:00", end: "14:00", active: true },
+    { day: "sunday", start: "00:00", end: "00:00", active: false },
+  ];
+
+  for (const rule of nrDays) {
+    await db.insert(availabilityRules).values({
+      id: seededId(`nr-avail-${rule.day}`),
+      orgId: NR_ORG_ID,
+      userId: NR_USER_ID,
+      dayOfWeek: rule.day,
+      startTime: rule.start,
+      endTime: rule.end,
+      isActive: rule.active,
+    }).onConflictDoNothing();
+  }
+
   // --- Done ---------------------------------------------------------------
   console.log("\nSeed complete!");
-  console.log("  User:  jim@jimsplumbing.com / demo1234");
-  console.log("  Org:   Jim's Plumbing & HVAC");
-  console.log("  Data:  15 contacts, 10 deals, 20 activities, 8 conversations, 6 appointments\n");
+  console.log("  User 1: jim@jimsplumbing.com / demo1234");
+  console.log("  Org 1:  Jim's Plumbing & HVAC (plumbing)");
+  console.log("  Data:   15 contacts, 10 deals, 20 activities, 8 conversations, 6 appointments");
+  console.log("");
+  console.log("  User 2: mayan@northernremovals.com.au / demo1234");
+  console.log("  Org 2:  Northern Removals (rubbish_removals)");
+  console.log("  Data:   12 contacts, 8 deals, 15 activities, 6 conversations, 5 appointments\n");
 
   await queryClient.end();
 }

@@ -383,7 +383,7 @@ describe("organizationSchema", () => {
 
 describe("enum validators", () => {
   it("verticalSchema accepts all valid verticals", () => {
-    const verticals = ["plumbing", "hvac", "electrical", "roofing", "landscaping", "pest_control", "cleaning", "general_contractor"];
+    const verticals = ["rubbish_removals", "moving_company", "plumbing", "hvac", "electrical", "roofing", "landscaping", "pest_control", "cleaning", "general_contractor"];
     for (const v of verticals) {
       expect(verticalSchema.safeParse(v).success).toBe(true);
     }

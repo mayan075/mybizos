@@ -39,8 +39,13 @@ describe("VERTICALS", () => {
     expect(VERTICALS).toContain("general_contractor");
   });
 
-  it("has exactly 8 verticals", () => {
-    expect(VERTICALS).toHaveLength(8);
+  it("contains rubbish removals and moving company verticals", () => {
+    expect(VERTICALS).toContain("rubbish_removals");
+    expect(VERTICALS).toContain("moving_company");
+  });
+
+  it("has exactly 10 verticals", () => {
+    expect(VERTICALS).toHaveLength(10);
   });
 
   it("has a label for every vertical", () => {

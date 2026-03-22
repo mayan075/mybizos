@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUser, removeToken } from "@/lib/auth";
+import { getOnboardingData } from "@/lib/onboarding";
 
 interface HeaderProps {
   onOpenCommandPalette: () => void;
@@ -121,9 +122,10 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
   const userRef = useRef<HTMLDivElement>(null);
 
   const user = useMemo(() => getUser(), []);
+  const onboarding = useMemo(() => getOnboardingData(), []);
   const userName = user?.name ?? "Demo User";
   const userEmail = user?.email ?? "demo@mybizos.com";
-  const orgName = user?.orgName ?? "Demo Business";
+  const orgName = onboarding?.businessName ?? user?.orgName ?? "Demo Business";
   const userInitials = getInitials(userName);
 
   const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;

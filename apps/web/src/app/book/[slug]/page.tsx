@@ -15,7 +15,7 @@ import {
   Trash2,
   Truck,
   Package,
-  Container,
+  Box,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatWidget } from "@/components/widgets/chat-widget";
@@ -29,7 +29,7 @@ interface Service {
   name: string;
   duration: string;
   priceRange: string;
-  icon: "wrench" | "flame" | "snowflake" | "alert" | "trash" | "truck" | "package" | "container";
+  icon: "wrench" | "flame" | "snowflake" | "alert" | "trash" | "truck" | "package" | "box";
   description: string;
 }
 
@@ -75,7 +75,7 @@ const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
       name: "Skip Bin Hire",
       duration: "Delivered + collected",
       priceRange: "$250-500",
-      icon: "container",
+      icon: "box",
       description: "Skip bin delivered to your site and collected when full",
     },
   ],
@@ -207,8 +207,8 @@ function ServiceIcon({ type }: { type: Service["icon"] }) {
       return <Truck className={cn(base, "text-indigo-600")} />;
     case "package":
       return <Package className={cn(base, "text-amber-600")} />;
-    case "container":
-      return <Container className={cn(base, "text-slate-600")} />;
+    case "box":
+      return <Box className={cn(base, "text-slate-600")} />;
     case "flame":
       return (
         <svg className={cn(base, "text-orange-500")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

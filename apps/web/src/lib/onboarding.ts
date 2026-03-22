@@ -78,11 +78,11 @@ export interface OnboardingData {
 const STORAGE_KEY = "mybizos_onboarding";
 
 export const VERTICALS = [
+  { value: "rubbish_removals", label: "Rubbish Removals", icon: "Trash2" },
+  { value: "moving_company", label: "Moving Company", icon: "Truck" },
   { value: "plumbing", label: "Plumbing", icon: "Wrench" },
   { value: "hvac", label: "HVAC", icon: "Flame" },
   { value: "electrical", label: "Electrical", icon: "Zap" },
-  { value: "rubbish_removals", label: "Rubbish Removals", icon: "Trash2" },
-  { value: "moving", label: "Moving Company", icon: "Truck" },
   { value: "general_contractor", label: "General Contractor", icon: "Hammer" },
   { value: "cleaning", label: "Cleaning", icon: "Sparkles" },
   { value: "landscaping", label: "Landscaping", icon: "Trees" },
@@ -102,7 +102,7 @@ export const VERTICAL_SERVICES: Record<string, Omit<OnboardingService, "enabled"
     { id: "hard-rubbish", name: "Hard Rubbish", priceMin: 120, priceMax: 350 },
     { id: "commercial-waste", name: "Commercial Waste", priceMin: 300, priceMax: 800 },
   ],
-  moving: [
+  moving_company: [
     { id: "studio-1br", name: "Studio / 1BR Move", priceMin: 300, priceMax: 600 },
     { id: "2-3br", name: "2-3BR Move", priceMin: 500, priceMax: 1200 },
     { id: "4br-plus", name: "4BR+ Move", priceMin: 1000, priceMax: 2500 },
