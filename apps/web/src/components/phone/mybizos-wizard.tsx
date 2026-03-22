@@ -12,42 +12,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SetupWizard } from "@/app/dashboard/settings/phone/setup-wizard";
+import { SectionCard } from "./shared-ui";
 import {
   TWILIO_PRICING,
   TWILIO_PRICING_URL,
   formatPrice,
   type NumberType,
 } from "./pricing-data";
-
-/* -------------------------------------------------------------------------- */
-/*  Shared sub-component                                                       */
-/* -------------------------------------------------------------------------- */
-
-function SectionCard({
-  title,
-  children,
-  icon: Icon,
-}: {
-  title: string;
-  children: React.ReactNode;
-  icon?: React.ElementType;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-      <div className="flex items-start gap-3">
-        {Icon && (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
-          </div>
-        )}
-        <div>
-          <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /*  MyBizOS Wizard                                                             */
@@ -89,10 +60,7 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
         currentStep={step}
         onNext={() => setStep((s) => Math.min(s + 1, wizardSteps.length - 1))}
         onBack={() => {
-          if (step === 0) {
-            onBack();
-            return;
-          }
+          if (step === 0) { onBack(); return; }
           setStep((s) => Math.max(s - 1, 0));
         }}
         onComplete={onComplete}
@@ -104,7 +72,6 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
             <p className="text-sm text-muted-foreground">
               Where is your business located? We'll show you available number types and pricing.
             </p>
-
             <div className="grid gap-3 sm:grid-cols-2">
               {TWILIO_PRICING.map((country) => (
                 <button
@@ -130,7 +97,6 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
                 </button>
               ))}
             </div>
-
             <button className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors pt-1">
               <Globe className="h-4 w-4" />
               More countries coming soon
@@ -144,7 +110,6 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
             <p className="text-sm text-muted-foreground">
               Choose a number type for {selectedCountryData.flag} {selectedCountryData.name}
             </p>
-
             <div className="grid gap-3 sm:grid-cols-3">
               {selectedCountryData.numberTypes.map((nt) => (
                 <button
@@ -165,15 +130,10 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
                       Popular
                     </span>
                   )}
-                  <div
-                    className={cn(
-                      "flex h-12 w-12 items-center justify-center rounded-full mb-3",
-                      selectedNumberType === nt.type ? "bg-primary/10" : "bg-muted",
-                    )}
-                  >
-                    {nt.type === "local" && <Phone className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
-                    {nt.type === "mobile" && <Phone className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
-                    {nt.type === "toll-free" && <Zap className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
+                  <div className={cn("flex h-12 w-12 items-center justify-center rounded-full mb-3", selectedNumberType === nt.type ? "bg-primary/10" : "bg-muted")}>
+                    {nt.type === "toll-free"
+                      ? <Zap className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />
+                      : <Phone className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
                   </div>
                   <p className="text-sm font-semibold text-foreground">{nt.label}</p>
                   <p className="text-2xl font-bold text-foreground mt-1">{formatPrice(nt.monthlyPrice)}</p>
@@ -188,17 +148,10 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
                 </button>
               ))}
             </div>
-
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
               <span>Prices from Twilio as of March 2026. Actual prices may vary.</span>
-              <a
-                href={TWILIO_PRICING_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium"
-              >
-                See current pricing
-                <ExternalLink className="h-3 w-3" />
+              <a href={TWILIO_PRICING_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium">
+                See current pricing <ExternalLink className="h-3 w-3" />
               </a>
             </div>
           </div>
@@ -220,7 +173,6 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
                 </div>
               </div>
             </div>
-
             <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
@@ -230,30 +182,15 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
                 We're setting up our managed phone service. Enter your details below to be first in line when it launches. We'll email you as soon as your number is ready.
               </p>
             </div>
-
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Business Name</label>
-                <input
-                  type="text"
-                  value={waitlistName}
-                  onChange={(e) => setWaitlistName(e.target.value)}
-                  placeholder="e.g., Smith's Plumbing"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                />
+                <input type="text" value={waitlistName} onChange={(e) => setWaitlistName(e.target.value)} placeholder="e.g., Smith's Plumbing" className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Email Address</label>
-                <input
-                  type="email"
-                  value={waitlistEmail}
-                  onChange={(e) => setWaitlistEmail(e.target.value)}
-                  placeholder="you@yourbusiness.com"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                />
-                <p className="text-xs text-muted-foreground">
-                  We'll only use this to notify you when your number is ready
-                </p>
+                <input type="email" value={waitlistEmail} onChange={(e) => setWaitlistEmail(e.target.value)} placeholder="you@yourbusiness.com" className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors" />
+                <p className="text-xs text-muted-foreground">We'll only use this to notify you when your number is ready</p>
               </div>
             </div>
           </div>
