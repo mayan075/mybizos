@@ -30,7 +30,7 @@ interface UseApiMutationResult<TInput, TOutput> {
 
 function getOrgId(): string {
   const user = getUser();
-  return user?.orgId ?? "demo";
+  return user?.orgId ?? "org_01";
 }
 
 function buildPath(template: string): string {
@@ -74,12 +74,23 @@ function useApiQuery<T>(
     setError(null);
 
     const path = buildPath(endpoint);
+    // Fetch raw response — the API may wrap data in { data: ... }
     const result = await tryFetch(() =>
-      apiClient.get<T>(path, params ? { params } : undefined),
+      apiClient.get<T | { data: T }>(path, params ? { params } : undefined),
     );
 
     if (result !== null) {
-      setData(result);
+      // Unwrap { data: ... } wrapper if the API returns one.
+      // Some endpoints (like dashboard/activity) return raw arrays,
+      // while others (contacts, deals) wrap in { data: ... }.
+      const unwrapped =
+        result !== null &&
+        typeof result === "object" &&
+        !Array.isArray(result) &&
+        "data" in (result as Record<string, unknown>)
+          ? ((result as Record<string, unknown>).data as T)
+          : (result as T);
+      setData(unwrapped);
       setIsLive(true);
     } else {
       // API unavailable — use mock data

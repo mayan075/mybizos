@@ -26,11 +26,24 @@ export function storeToken(token: string): void {
 }
 
 /**
- * Retrieve JWT token from localStorage.
+ * Retrieve JWT token from localStorage, falling back to cookie.
  */
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+
+  // Try localStorage first
+  const localToken = localStorage.getItem(TOKEN_KEY);
+  if (localToken) return localToken;
+
+  // Fall back to cookie
+  const cookieToken = getCookieValue(COOKIE_NAME);
+  if (cookieToken) {
+    // Sync back to localStorage for consistency
+    localStorage.setItem(TOKEN_KEY, cookieToken);
+    return cookieToken;
+  }
+
+  return null;
 }
 
 /**
@@ -40,6 +53,17 @@ export function removeToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+/**
+ * Returns auth headers with the Bearer token for API requests.
+ */
+export function getAuthHeaders(): Record<string, string> {
+  const token = getToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 }
 
 /**
@@ -62,6 +86,15 @@ function decodeToken(token: string): TokenPayload | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Read a cookie value by name.
+ */
+function getCookieValue(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1] as string) : null;
 }
 
 /**

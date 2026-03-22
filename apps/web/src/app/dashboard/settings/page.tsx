@@ -87,15 +87,15 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="flex gap-6">
-        {/* Sidebar tabs */}
-        <nav className="w-56 shrink-0 space-y-1">
+      <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+        {/* Sidebar tabs — horizontal scroll on mobile, vertical sidebar on desktop */}
+        <nav className="flex gap-1 overflow-x-auto pb-2 md:w-56 md:shrink-0 md:flex-col md:space-y-1 md:overflow-x-visible md:pb-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors md:w-full md:gap-3",
                 activeTab === tab.id
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -108,7 +108,7 @@ export default function SettingsPage() {
         </nav>
 
         {/* Content area */}
-        <div className="flex-1 max-w-2xl">
+        <div className="min-w-0 flex-1 max-w-2xl">
           {/* ===== GENERAL TAB ===== */}
           {activeTab === "general" && (
             <div className="space-y-6">
@@ -129,7 +129,7 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground flex items-center gap-2">
                         <Phone className="h-4 w-4 text-muted-foreground" />
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
@@ -242,7 +242,7 @@ export default function SettingsPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-4 grid-cols-3">
                   <div className="rounded-lg border border-border p-3">
                     <p className="text-xs text-muted-foreground">Numbers</p>
                     <p className="text-lg font-semibold text-foreground">2</p>
@@ -514,7 +514,7 @@ export default function SettingsPage() {
                     Active
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="grid gap-4 grid-cols-3 mt-4">
                   <div>
                     <p className="text-xs text-muted-foreground">AI Minutes Used</p>
                     <p className="text-sm font-semibold text-foreground">847 / 2,000</p>

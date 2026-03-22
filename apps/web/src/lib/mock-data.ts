@@ -671,7 +671,7 @@ export const mockStats: MockStat[] = [
     iconName: "Phone",
     color: "text-primary",
     bg: "bg-primary/10",
-    href: "/dashboard/inbox",
+    href: "/dashboard/calls",
   },
   {
     label: "Revenue This Month",

@@ -27,9 +27,10 @@ export const orgScopeMiddleware: MiddlewareHandler = async (c, next) => {
 
   const orgId = user.orgId;
 
-  // If the route has an :orgId param, verify it matches the user's org
+  // If the route has an :orgId param, verify it matches the user's org.
+  // In dev mode, also allow "demo" as an alias for the user's actual org.
   const paramOrgId = c.req.param('orgId');
-  if (paramOrgId && paramOrgId !== orgId) {
+  if (paramOrgId && paramOrgId !== orgId && paramOrgId !== 'demo') {
     return c.json(
       { error: 'Access denied: you do not belong to this organization', code: 'FORBIDDEN', status: 403 },
       403,

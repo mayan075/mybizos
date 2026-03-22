@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ChevronDown,
   Loader2,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
@@ -48,6 +49,14 @@ interface RegisterResponse {
   };
 }
 
+const DEMO_FORM = {
+  name: "Jim Henderson",
+  businessName: "Jim's Plumbing",
+  email: "jim@jimsplumbing.com",
+  password: "demo1234",
+  vertical: "plumbing",
+};
+
 export default function RegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -74,6 +83,22 @@ export default function RegisterPage() {
     }
   };
 
+  async function doRegister(data: typeof form) {
+    const response = await apiClient.post<RegisterResponse>(
+      "/auth/register",
+      {
+        name: data.name,
+        businessName: data.businessName,
+        email: data.email,
+        password: data.password,
+        vertical: data.vertical,
+      },
+    );
+
+    storeToken(response.data.token);
+    router.push("/dashboard");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -81,19 +106,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post<RegisterResponse>(
-        "/auth/register",
-        {
-          name: form.name,
-          businessName: form.businessName,
-          email: form.email,
-          password: form.password,
-          vertical: form.vertical,
-        },
-      );
-
-      storeToken(response.data.token);
-      router.push("/dashboard");
+      await doRegister(form);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         if (err.details) {
@@ -104,12 +117,22 @@ export default function RegisterPage() {
           setFieldErrors(errors);
         }
         setError(err.message);
+      } else if (err instanceof TypeError) {
+        setError(
+          "Cannot connect to the API server. Make sure it is running on port 3001.",
+        );
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function handleDemoQuickFill() {
+    setForm(DEMO_FORM);
+    setError("");
+    setFieldErrors({});
   }
 
   return (
@@ -168,6 +191,22 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
+
+          {/* Demo Quick-Fill */}
+          <button
+            type="button"
+            onClick={handleDemoQuickFill}
+            disabled={isLoading}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-lg",
+              "border border-dashed border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary",
+              "hover:bg-primary/10 hover:border-primary/50 transition-all duration-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            <Play className="h-3.5 w-3.5" />
+            Quick-fill with demo data (Jim&apos;s Plumbing)
+          </button>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">

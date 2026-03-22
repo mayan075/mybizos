@@ -4,11 +4,12 @@ import type { NextRequest } from "next/server";
 /**
  * Next.js edge middleware for route protection.
  *
- * In development (localhost), all routes are accessible without auth.
- * In production, checks for a JWT token in cookies (mybizos_token) or the Authorization header.
+ * In development (localhost) and on Vercel, all routes are accessible
+ * without auth because we are in demo mode (no DB for auth yet).
+ *
+ * In production with a real auth backend, this would enforce:
  * - Protected routes (/dashboard/*) redirect to /login if no valid token.
  * - Public routes (/login, /register, /book/*, /review/*) are always accessible.
- * - Auth routes redirect to /dashboard if already authenticated.
  */
 
 const PUBLIC_PATHS = ["/login", "/register", "/book", "/review"];
@@ -17,10 +18,6 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
-}
-
-function isAuthPage(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/register";
 }
 
 function isProtectedPath(pathname: string): boolean {
@@ -52,8 +49,7 @@ function isTokenExpired(token: string): boolean {
 
 /**
  * Check if auth should be skipped.
- * In development (localhost) and on Vercel preview/production deployments
- * auth is skipped because there is no database for auth yet.
+ * On localhost and Vercel deployments, skip auth entirely (demo mode).
  * Remove the Vercel check once Better Auth + DB are wired up.
  */
 function shouldSkipAuth(request: NextRequest): boolean {
@@ -96,13 +92,10 @@ export function middleware(request: NextRequest) {
   const token = cookieToken ?? bearerToken;
   const hasValidToken = token ? !isTokenExpired(token) : false;
 
-  // If user is on an auth page and already logged in, redirect to dashboard
-  if (isAuthPage(pathname) && hasValidToken) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // If route is public, allow access
-  if (isPublicPath(pathname)) {
+  // If route is public (including login/register), always allow access.
+  // We do NOT redirect authenticated users away from login/register —
+  // this is annoying during development and testing.
+  if (isPublicPath(pathname) || pathname === "/") {
     return NextResponse.next();
   }
 

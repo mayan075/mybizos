@@ -4,9 +4,12 @@
  * error handling, auth headers, and response parsing.
  */
 
-import { getToken } from "./auth";
+import { getAuthHeaders, removeToken } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE_URL =
+  typeof window !== "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001")
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001");
 
 interface ApiError {
   error: string;
@@ -33,14 +36,6 @@ class ApiRequestError extends Error {
   }
 }
 
-function getAuthHeaders(): Record<string, string> {
-  const token = getToken();
-  if (token) {
-    return { Authorization: `Bearer ${token}` };
-  }
-  return {};
-}
-
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {},
@@ -61,6 +56,24 @@ async function request<T>(
       ...init.headers,
     },
   });
+
+  // Handle 401: clear token and redirect to login
+  if (response.status === 401) {
+    removeToken();
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      // Don't redirect if already on login/register
+      if (currentPath !== "/login" && currentPath !== "/register") {
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+      }
+    }
+    const errorData = (await response.json().catch(() => ({
+      error: "Session expired. Please sign in again.",
+      code: "UNAUTHORIZED",
+      status: 401,
+    }))) as ApiError;
+    throw new ApiRequestError(errorData);
+  }
 
   if (!response.ok) {
     const errorData = (await response.json()) as ApiError;

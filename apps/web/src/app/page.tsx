@@ -829,30 +829,30 @@ function Footer() {
             >
               Pricing
             </a>
-            <Link
-              href="/about"
+            <a
+              href="#how-it-works"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               About
-            </Link>
-            <Link
-              href="/contact"
+            </a>
+            <a
+              href="mailto:support@mybizos.com"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Contact
-            </Link>
-            <Link
-              href="/privacy"
+            </a>
+            <a
+              href="#"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Privacy
-            </Link>
-            <Link
-              href="/terms"
+            </a>
+            <a
+              href="#"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               Terms
-            </Link>
+            </a>
           </div>
         </div>
 

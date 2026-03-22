@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Phone,
   Loader2,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
@@ -35,6 +36,9 @@ interface LoginResponse {
   };
 }
 
+const DEMO_EMAIL = "jim@jimsplumbing.com";
+const DEMO_PASSWORD = "demo1234";
+
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -42,23 +46,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  async function doLogin(loginEmail: string, loginPassword: string) {
+    setError("");
+
+    const response = await apiClient.post<LoginResponse>("/auth/login", {
+      email: loginEmail,
+      password: loginPassword,
+    });
+
+    storeToken(response.data.token);
+    router.push("/dashboard");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post<LoginResponse>("/auth/login", {
-        email,
-        password,
-      });
-
-      storeToken(response.data.token);
-      router.push("/dashboard");
+      await doLogin(email, password);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.message);
+      } else if (err instanceof TypeError) {
+        setError(
+          "Cannot connect to the API server. Make sure it is running on port 3001.",
+        );
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
@@ -66,6 +80,31 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
+
+  async function handleDemoLogin() {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    setIsDemoLoading(true);
+    setError("");
+
+    try {
+      await doLogin(DEMO_EMAIL, DEMO_PASSWORD);
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+      } else if (err instanceof TypeError) {
+        setError(
+          "Cannot connect to the API server. Make sure it is running on port 3001.",
+        );
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsDemoLoading(false);
+    }
+  }
+
+  const anyLoading = isLoading || isDemoLoading;
 
   return (
     <div className="flex min-h-screen">
@@ -154,7 +193,7 @@ export default function LoginPage() {
                   placeholder="you@company.com"
                   className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                   required
-                  disabled={isLoading}
+                  disabled={anyLoading}
                 />
               </div>
             </div>
@@ -184,7 +223,7 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                   required
-                  disabled={isLoading}
+                  disabled={anyLoading}
                 />
                 <button
                   type="button"
@@ -202,7 +241,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={anyLoading}
               className={cn(
                 "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
                 "bg-primary text-primary-foreground font-medium text-sm",
@@ -224,6 +263,44 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or
+              </span>
+            </div>
+          </div>
+
+          {/* Demo Login Button */}
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={anyLoading}
+            className={cn(
+              "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
+              "border border-border bg-accent/50 font-medium text-sm text-foreground",
+              "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+              "transition-all duration-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            {isDemoLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Logging in as demo user...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                Demo Login (Jim&apos;s Plumbing)
+              </>
+            )}
+          </button>
 
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
