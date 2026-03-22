@@ -8,24 +8,63 @@ import {
   Users,
   Kanban,
   Megaphone,
+  GitBranch,
   Inbox,
   CalendarDays,
   Settings,
   ChevronLeft,
   ChevronRight,
   Zap,
+  Receipt,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
-  { label: "Contacts", href: "/dashboard/contacts", icon: Users, badge: null },
-  { label: "Pipeline", href: "/dashboard/pipeline", icon: Kanban, badge: null },
-  { label: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, badge: null },
-  { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "3" },
-  { label: "Scheduling", href: "/dashboard/scheduling", icon: CalendarDays, badge: null },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
-] as const;
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  badge: string | null;
+}
+
+interface NavSection {
+  title: string | null;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    title: null,
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
+      { label: "Contacts", href: "/dashboard/contacts", icon: Users, badge: null },
+      { label: "Pipeline", href: "/dashboard/pipeline", icon: Kanban, badge: null },
+      { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "3" },
+      { label: "Scheduling", href: "/dashboard/scheduling", icon: CalendarDays, badge: null },
+    ],
+  },
+  {
+    title: "Marketing",
+    items: [
+      { label: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone, badge: null },
+      { label: "Sequences", href: "/dashboard/sequences", icon: GitBranch, badge: null },
+      { label: "Automations", href: "/dashboard/automations", icon: Zap, badge: null },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { label: "Invoices", href: "/dashboard/invoices", icon: Receipt, badge: null },
+      { label: "Estimates", href: "/dashboard/estimates", icon: FileText, badge: null },
+    ],
+  },
+  {
+    title: null,
+    items: [
+      { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    ],
+  },
+];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -68,45 +107,59 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {navSections.map((section, sectionIdx) => (
+          <div key={sectionIdx} className={cn(sectionIdx > 0 && "mt-4")}>
+            {section.title && !collapsed && (
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted-foreground">
+                {section.title}
+              </p>
+            )}
+            {section.title && collapsed && (
+              <div className="mx-auto my-2 h-px w-6 bg-sidebar-border" />
+            )}
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const isActive =
+                  item.href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname.startsWith(item.href);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                collapsed && "justify-center px-2",
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-              {collapsed && item.badge && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                      collapsed && "justify-center px-2",
+                    )}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {item.badge && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {collapsed && item.badge && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Bottom section */}
