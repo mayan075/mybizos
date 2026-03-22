@@ -16,120 +16,8 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  score: number;
-  lastActivity: string;
-  tags: string[];
-  source: string;
-}
-
-const initialContacts: Contact[] = [
-  {
-    id: "c1",
-    name: "Sarah Johnson",
-    phone: "(555) 234-5678",
-    email: "sarah@example.com",
-    score: 92,
-    lastActivity: "2 hours ago",
-    tags: ["Hot Lead", "HVAC"],
-    source: "Phone",
-  },
-  {
-    id: "c2",
-    name: "Mike Chen",
-    phone: "(555) 345-6789",
-    email: "mike.chen@email.com",
-    score: 78,
-    lastActivity: "5 hours ago",
-    tags: ["Plumbing"],
-    source: "Web Form",
-  },
-  {
-    id: "c3",
-    name: "David Park",
-    phone: "(555) 456-7890",
-    email: "dpark@gmail.com",
-    score: 85,
-    lastActivity: "1 day ago",
-    tags: ["Hot Lead", "Furnace"],
-    source: "AI Call",
-  },
-  {
-    id: "c4",
-    name: "Lisa Wang",
-    phone: "(555) 567-8901",
-    email: "lwang@company.com",
-    score: 64,
-    lastActivity: "2 days ago",
-    tags: ["Maintenance"],
-    source: "Referral",
-  },
-  {
-    id: "c5",
-    name: "James Wilson",
-    phone: "(555) 678-9012",
-    email: "jwilson@email.com",
-    score: 45,
-    lastActivity: "3 days ago",
-    tags: ["HVAC", "Commercial"],
-    source: "Google Ads",
-  },
-  {
-    id: "c6",
-    name: "Emily Davis",
-    phone: "(555) 789-0123",
-    email: "emily.d@mail.com",
-    score: 91,
-    lastActivity: "30 min ago",
-    tags: ["Hot Lead", "Emergency"],
-    source: "Phone",
-  },
-  {
-    id: "c7",
-    name: "Robert Martinez",
-    phone: "(555) 890-1234",
-    email: "rmartinez@business.com",
-    score: 56,
-    lastActivity: "4 days ago",
-    tags: ["Plumbing"],
-    source: "Yelp",
-  },
-  {
-    id: "c8",
-    name: "Amanda Taylor",
-    phone: "(555) 901-2345",
-    email: "ataylor@home.com",
-    score: 73,
-    lastActivity: "1 day ago",
-    tags: ["HVAC", "Residential"],
-    source: "SMS",
-  },
-  {
-    id: "c9",
-    name: "Carlos Hernandez",
-    phone: "(555) 012-3456",
-    email: "carlos.h@gmail.com",
-    score: 88,
-    lastActivity: "6 hours ago",
-    tags: ["Hot Lead", "Plumbing"],
-    source: "AI Call",
-  },
-  {
-    id: "c10",
-    name: "Karen Thompson",
-    phone: "(555) 123-4568",
-    email: "kthompson@mail.com",
-    score: 35,
-    lastActivity: "1 week ago",
-    tags: ["HVAC"],
-    source: "Google Ads",
-  },
-];
+import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
+import type { MockContact } from "@/lib/mock-data";
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -183,14 +71,25 @@ export default function ContactsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Local additions (optimistic UI for when API is offline)
+  const [localContacts, setLocalContacts] = useState<MockContact[]>([]);
 
   // New contact form state
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newSource, setNewSource] = useState("Phone");
+
+  // Hook: fetches from API, falls back to mock data
+  const { data: apiContacts } = useContacts({ search });
+  const { mutate: createContact } = useCreateContact();
+
+  // Merge API/mock contacts with locally added ones
+  const contacts = useMemo(() => {
+    return [...localContacts, ...apiContacts];
+  }, [localContacts, apiContacts]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -248,15 +147,10 @@ export default function ContactsPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleAddContact() {
+  async function handleAddContact() {
     if (!newName.trim()) return;
     const id = `c${Date.now()}`;
-    const initials = newName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-    const newContact: Contact = {
+    const newContact: MockContact = {
       id,
       name: newName.trim(),
       phone: newPhone.trim() || "(555) 000-0000",
@@ -266,7 +160,18 @@ export default function ContactsPage() {
       tags: [],
       source: newSource,
     };
-    setContacts((prev) => [newContact, ...prev]);
+
+    // Optimistically add to local state
+    setLocalContacts((prev) => [newContact, ...prev]);
+
+    // Try to persist via API
+    await createContact({
+      name: newContact.name,
+      phone: newContact.phone,
+      email: newContact.email,
+      source: newContact.source,
+    });
+
     setShowModal(false);
     setNewName("");
     setNewPhone("");
@@ -379,7 +284,7 @@ export default function ContactsPage() {
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {contacts.length} total contacts
-            {selected.size > 0 && ` · ${selected.size} selected`}
+            {selected.size > 0 && ` \u00b7 ${selected.size} selected`}
           </p>
         </div>
         <button
@@ -414,7 +319,7 @@ export default function ContactsPage() {
           Filter
         </button>
         <button
-          onClick={() => showToast("Export started — CSV download will begin shortly")}
+          onClick={() => showToast("Export started \u2014 CSV download will begin shortly")}
           className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
         >
           <Download className="h-4 w-4" />

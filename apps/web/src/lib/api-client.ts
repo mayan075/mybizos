@@ -92,4 +92,27 @@ export const apiClient = {
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };
 
-export { ApiRequestError };
+/**
+ * tryFetch wraps a standard apiClient call and returns null
+ * instead of throwing on network errors. This enables graceful
+ * fallback to mock data when the backend is unavailable.
+ *
+ * API errors (4xx, 5xx with a JSON body) still throw ApiRequestError
+ * so the caller can distinguish "server is down" from "bad request".
+ */
+async function tryFetch<T>(
+  fn: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (err) {
+    // If it's a structured API error, re-throw so callers can handle it
+    if (err instanceof ApiRequestError) {
+      throw err;
+    }
+    // Network error / CORS / server unreachable -> return null
+    return null;
+  }
+}
+
+export { ApiRequestError, tryFetch };
