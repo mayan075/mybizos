@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Search,
   Phone,
@@ -28,6 +29,7 @@ import {
   PhoneCall,
   Delete,
   Star,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -1069,11 +1071,20 @@ export default function CallsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Calls</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage calls, view history, and make outbound calls
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Calls</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage calls, view history, and make outbound calls
+          </p>
+        </div>
+        <Link
+          href="/dashboard/settings/phone"
+          className="flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Settings2 className="h-4 w-4" />
+          Phone Settings
+        </Link>
       </div>
 
       <div className="flex h-[calc(100vh-13rem)] rounded-xl border border-border bg-card overflow-hidden">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Building2,
   Globe,
@@ -17,11 +18,15 @@ import {
   Plug,
   CheckCircle2,
   ExternalLink,
+  ChevronRight,
+  PhoneCall,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { id: "general", label: "General", icon: Building2 },
+  { id: "phone", label: "Phone System", icon: PhoneCall },
   { id: "ai-agent", label: "AI Agent", icon: Bot },
   { id: "integrations", label: "Integrations", icon: Plug },
   { id: "billing", label: "Billing", icon: CreditCard },
@@ -208,6 +213,84 @@ export default function SettingsPage() {
                     Save Changes
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== PHONE SYSTEM TAB ===== */}
+          {activeTab === "phone" && (
+            <div className="space-y-4">
+              {/* Status card */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
+                      <PhoneCall className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">
+                        Phone System
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        2 numbers active, AI answering
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Connected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Numbers</p>
+                    <p className="text-lg font-semibold text-foreground">2</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Calls Today</p>
+                    <p className="text-lg font-semibold text-foreground">7</p>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-xs text-muted-foreground">AI Handled</p>
+                    <p className="text-lg font-semibold text-foreground">5</p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/dashboard/settings/phone"
+                  className={cn(
+                    "flex h-10 w-full items-center justify-center gap-2 rounded-lg",
+                    "bg-primary text-primary-foreground text-sm font-medium",
+                    "hover:bg-primary/90 transition-colors",
+                  )}
+                >
+                  <Hash className="h-4 w-4" />
+                  Manage Phone Numbers & Routing
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              {/* Quick summary of numbers */}
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Your Numbers
+                </h3>
+                {[
+                  { num: "+1 (704) 555-0001", name: "Main Business Line", routing: "AI answers, forwards to Jim" },
+                  { num: "+1 (704) 555-0002", name: "Marketing / Google Ads", routing: "AI answers, books appointments" },
+                ].map((n) => (
+                  <div
+                    key={n.num}
+                    className="flex items-center justify-between rounded-lg border border-border p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{n.num}</p>
+                      <p className="text-xs text-muted-foreground">{n.name} &middot; {n.routing}</p>
+                    </div>
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </div>
+                ))}
               </div>
             </div>
           )}
