@@ -20,6 +20,8 @@ import {
   BarChart3,
   Star,
   Share2,
+  UsersRound,
+  FileInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +56,7 @@ const navSections: NavSection[] = [
       { label: "Automations", href: "/dashboard/automations", icon: Zap, badge: null },
       { label: "Reviews", href: "/dashboard/reviews", icon: Star, badge: null },
       { label: "Social", href: "/dashboard/social", icon: Share2, badge: null },
+      { label: "Forms", href: "/dashboard/forms", icon: FileInput, badge: null },
     ],
   },
   {
@@ -66,6 +69,7 @@ const navSections: NavSection[] = [
   {
     title: null,
     items: [
+      { label: "Team", href: "/dashboard/team", icon: UsersRound, badge: null },
       { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: null },
       { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
     ],
