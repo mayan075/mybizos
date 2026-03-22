@@ -10,7 +10,7 @@ import {
   orgMembers,
   withOrgScope,
 } from '@mybizos/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { TwilioClient } from '@mybizos/integrations';
 import { ClaudeClient, SmsAgent } from '@mybizos/ai';
 import { EMERGENCY_KEYWORDS } from '@mybizos/shared';
@@ -546,21 +546,10 @@ twilioWebhooks.post('/status', async (c) => {
 
     const dbStatus = statusMap[messageStatus];
     if (dbStatus) {
-      try {
-        await db
-          .update(messages)
-          .set({ status: dbStatus })
-          .where(
-            eq(messages.metadata, { messageSid } as unknown as typeof messages.metadata.dataType),
-          );
-      } catch {
-        // Fallback: search by metadata JSONB containment
-        // The metadata field stores { messageSid: "..." } so we use a raw SQL match
-        const { sql } = await import('drizzle-orm');
-        await db.execute(
-          sql`UPDATE messages SET status = ${dbStatus} WHERE metadata->>'messageSid' = ${messageSid}`,
-        );
-      }
+      // Update message status by matching messageSid in the JSONB metadata column
+      await db.execute(
+        sql`UPDATE messages SET status = ${dbStatus} WHERE metadata->>'messageSid' = ${messageSid}`,
+      );
 
       logger.info('Message status updated', { messageSid, status: dbStatus });
     }

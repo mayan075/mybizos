@@ -11,90 +11,11 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
+import { mockAppointments, type MockAppointment } from "@/lib/mock-data";
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-interface Appointment {
-  id: string;
-  title: string;
-  customer: string;
-  time: string;
-  duration: number; // in hours
-  dayIndex: number; // 0 = Mon
-  hourStart: number; // 24h format
-  status: "scheduled" | "confirmed" | "completed";
-  location: string;
-}
-
-const baseAppointments: Appointment[] = [
-  {
-    id: "a1",
-    title: "AC Tune-Up",
-    customer: "Sarah Johnson",
-    time: "10:00 AM - 11:00 AM",
-    duration: 1,
-    dayIndex: 0,
-    hourStart: 10,
-    status: "confirmed",
-    location: "742 Evergreen Terrace",
-  },
-  {
-    id: "a2",
-    title: "Plumbing Inspection",
-    customer: "Mike Chen",
-    time: "2:00 PM - 3:30 PM",
-    duration: 1.5,
-    dayIndex: 1,
-    hourStart: 14,
-    status: "scheduled",
-    location: "123 Oak Street",
-  },
-  {
-    id: "a3",
-    title: "Furnace Repair",
-    customer: "Lisa Wang",
-    time: "9:00 AM - 11:00 AM",
-    duration: 2,
-    dayIndex: 3,
-    hourStart: 9,
-    status: "scheduled",
-    location: "456 Pine Avenue",
-  },
-  {
-    id: "a4",
-    title: "Water Heater Install",
-    customer: "James Wilson",
-    time: "1:00 PM - 4:00 PM",
-    duration: 3,
-    dayIndex: 2,
-    hourStart: 13,
-    status: "confirmed",
-    location: "789 Maple Drive",
-  },
-  {
-    id: "a5",
-    title: "AC Maintenance",
-    customer: "Emily Davis",
-    time: "11:00 AM - 12:00 PM",
-    duration: 1,
-    dayIndex: 4,
-    hourStart: 11,
-    status: "scheduled",
-    location: "321 Elm Street",
-  },
-  {
-    id: "a6",
-    title: "Drain Cleaning",
-    customer: "Carlos Hernandez",
-    time: "9:00 AM - 10:00 AM",
-    duration: 1,
-    dayIndex: 4,
-    hourStart: 9,
-    status: "confirmed",
-    location: "555 Birch Lane",
-  },
-];
 
 const statusColors: Record<string, string> = {
   scheduled: "bg-info/10 border-info/30 text-info",
@@ -111,7 +32,6 @@ const statusDotColors: Record<string, string> = {
 function getWeekDates(weekOffset: number): string[] {
   const today = new Date();
   const dayOfWeek = today.getDay();
-  // Monday = 0 offset
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const monday = new Date(today);
   monday.setDate(today.getDate() + mondayOffset + weekOffset * 7);
@@ -126,7 +46,6 @@ function getWeekDates(weekOffset: number): string[] {
 function getTodayIndex(weekOffset: number): number {
   if (weekOffset !== 0) return -1;
   const day = new Date().getDay();
-  // Sunday = 6, Mon=0, Tue=1, ...
   return day === 0 ? 6 : day - 1;
 }
 
@@ -146,11 +65,23 @@ function getWeekLabel(weekOffset: number): string {
 
 export default function SchedulingPage() {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [appointments, setAppointments] = useState(baseAppointments);
   const [toast, setToast] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState<{ dayIndex: number; hour: number } | null>(null);
   const [newTitle, setNewTitle] = useState("AC Tune-Up");
   const [newCustomer, setNewCustomer] = useState("");
+
+  // Hook: fetches from API, falls back to mock data
+  const { data: apiAppointments, isLive } = useAppointments();
+  const { mutate: createAppointmentApi } = useCreateAppointment();
+
+  // Local additions for optimistic UI
+  const [localAppointments, setLocalAppointments] = useState<MockAppointment[]>([]);
+
+  // Merge API/mock data with local additions
+  const appointments = useMemo(() => {
+    const base = isLive ? apiAppointments : mockAppointments;
+    return [...base, ...localAppointments];
+  }, [apiAppointments, isLive, localAppointments]);
 
   const dates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const todayIndex = getTodayIndex(weekOffset);
@@ -162,18 +93,17 @@ export default function SchedulingPage() {
   }
 
   function handleSlotClick(dayIndex: number, hour: number) {
-    // Check if there's already an appointment here
     const existing = appointments.find(
       (a) => a.dayIndex === dayIndex && a.hourStart === hour,
     );
     if (existing) {
-      showToast(`${existing.title} with ${existing.customer} — ${existing.status}`);
+      showToast(`${existing.title} with ${existing.customer} \u2014 ${existing.status}`);
       return;
     }
     setShowBooking({ dayIndex, hour });
   }
 
-  function handleBook() {
+  async function handleBook() {
     if (!showBooking || !newCustomer.trim()) return;
     const hourLabel = showBooking.hour > 12
       ? `${showBooking.hour - 12}:00 PM`
@@ -187,7 +117,7 @@ export default function SchedulingPage() {
         ? "12:00 PM"
         : `${endHour}:00 AM`;
 
-    const newApt: Appointment = {
+    const newApt: MockAppointment = {
       id: `a-${Date.now()}`,
       title: newTitle,
       customer: newCustomer.trim(),
@@ -198,7 +128,20 @@ export default function SchedulingPage() {
       status: "scheduled",
       location: "TBD",
     };
-    setAppointments((prev) => [...prev, newApt]);
+
+    // Optimistic add
+    setLocalAppointments((prev) => [...prev, newApt]);
+
+    // Try to persist via API
+    await createAppointmentApi({
+      title: newApt.title,
+      customer: newApt.customer,
+      dayIndex: newApt.dayIndex,
+      hourStart: newApt.hourStart,
+      duration: newApt.duration,
+      location: newApt.location,
+    });
+
     setShowBooking(null);
     setNewCustomer("");
     setNewTitle("AC Tune-Up");
@@ -327,7 +270,7 @@ export default function SchedulingPage() {
               <>
                 {Math.abs(weekOffset)} week{Math.abs(weekOffset) > 1 ? "s" : ""}{" "}
                 {weekOffset > 0 ? "ahead" : "ago"}
-                {" · "}
+                {" \u00b7 "}
                 <button
                   className="text-primary font-medium hover:underline"
                   onClick={() => setWeekOffset(0)}
@@ -352,7 +295,7 @@ export default function SchedulingPage() {
           <div className="min-w-[900px]">
             {/* Day headers */}
             <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border">
-              <div className="px-3 py-3" /> {/* time column spacer */}
+              <div className="px-3 py-3" />
               {DAYS.map((day, i) => (
                 <div
                   key={day}
@@ -421,7 +364,7 @@ export default function SchedulingPage() {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            showToast(`${apt.title} — ${apt.customer} — ${apt.location}`);
+                            showToast(`${apt.title} \u2014 ${apt.customer} \u2014 ${apt.location}`);
                           }}
                         >
                           <div className="flex items-center gap-1">

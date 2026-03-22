@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Search,
   Phone,
@@ -15,117 +15,8 @@ import {
   Smile,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Conversation {
-  id: string;
-  contact: string;
-  initials: string;
-  channel: "sms" | "email" | "call";
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  aiHandled: boolean;
-  status: "open" | "closed";
-}
-
-interface ChatMessage {
-  id: string;
-  sender: "contact" | "user" | "ai";
-  text: string;
-  time: string;
-  status: "sent" | "delivered" | "read";
-}
-
-const initialConversations: Conversation[] = [
-  {
-    id: "conv1",
-    contact: "Sarah Johnson",
-    initials: "SJ",
-    channel: "sms",
-    lastMessage: "Great, I'll see your technician tomorrow at 10 AM!",
-    time: "2m ago",
-    unread: true,
-    aiHandled: false,
-    status: "open",
-  },
-  {
-    id: "conv2",
-    contact: "Mike Chen",
-    initials: "MC",
-    channel: "sms",
-    lastMessage: "Can you send me the estimate for the water heater?",
-    time: "15m ago",
-    unread: true,
-    aiHandled: true,
-    status: "open",
-  },
-  {
-    id: "conv3",
-    contact: "David Park",
-    initials: "DP",
-    channel: "email",
-    lastMessage: "Re: Furnace Replacement Quote — Thanks for the detailed...",
-    time: "1h ago",
-    unread: false,
-    aiHandled: false,
-    status: "open",
-  },
-  {
-    id: "conv4",
-    contact: "Lisa Wang",
-    initials: "LW",
-    channel: "call",
-    lastMessage: "AI Call Summary: Customer inquired about maintenance plans",
-    time: "3h ago",
-    unread: false,
-    aiHandled: true,
-    status: "open",
-  },
-  {
-    id: "conv5",
-    contact: "James Wilson",
-    initials: "JW",
-    channel: "sms",
-    lastMessage: "Thanks for the quick fix! 5 stars from me.",
-    time: "1d ago",
-    unread: false,
-    aiHandled: false,
-    status: "closed",
-  },
-  {
-    id: "conv6",
-    contact: "Emily Davis",
-    initials: "ED",
-    channel: "call",
-    lastMessage: "AI Call Summary: Emergency plumbing request — escalated to...",
-    time: "1d ago",
-    unread: false,
-    aiHandled: true,
-    status: "closed",
-  },
-  {
-    id: "conv7",
-    contact: "Carlos Hernandez",
-    initials: "CH",
-    channel: "sms",
-    lastMessage: "What time should I expect the technician?",
-    time: "2d ago",
-    unread: true,
-    aiHandled: true,
-    status: "open",
-  },
-  {
-    id: "conv8",
-    contact: "Karen Thompson",
-    initials: "KT",
-    channel: "email",
-    lastMessage: "Re: Seasonal Maintenance — I'd like to schedule...",
-    time: "3d ago",
-    unread: false,
-    aiHandled: false,
-    status: "open",
-  },
-];
+import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
+import { mockConversations, mockMessages, type MockConversation, type MockChatMessage } from "@/lib/mock-data";
 
 const channelIcons = {
   sms: MessageSquare,
@@ -133,64 +24,41 @@ const channelIcons = {
   call: Phone,
 };
 
-const initialMessages: Record<string, ChatMessage[]> = {
-  conv1: [
-    { id: "m1", sender: "contact", text: "Hi, I need to schedule an AC tune-up. What times do you have available this week?", time: "10:23 AM", status: "read" },
-    { id: "m2", sender: "ai", text: "Hi Sarah! This is Acme HVAC's AI assistant. I'd be happy to help you schedule an AC tune-up. We have availability tomorrow (Wednesday) at 10 AM, 1 PM, or 3 PM. We also have Thursday morning slots. Which works best for you?", time: "10:23 AM", status: "read" },
-    { id: "m3", sender: "contact", text: "Tomorrow at 10 AM works perfectly.", time: "10:25 AM", status: "read" },
-    { id: "m4", sender: "ai", text: "I've booked you for an AC tune-up tomorrow, Wednesday at 10:00 AM. Our technician will arrive at your address on file. The service typically takes about an hour and starts at $89. You'll receive a confirmation text shortly. Is there anything else I can help with?", time: "10:25 AM", status: "read" },
-    { id: "m5", sender: "contact", text: "Great, I'll see your technician tomorrow at 10 AM!", time: "10:26 AM", status: "read" },
-  ],
-  conv2: [
-    { id: "m2-1", sender: "contact", text: "Hi, I got a quote for a water heater installation but I lost the email. Can you resend it?", time: "9:45 AM", status: "read" },
-    { id: "m2-2", sender: "ai", text: "Hi Mike! This is Acme HVAC's AI assistant. I'd be happy to resend your water heater installation quote. I've forwarded it to your email on file (mike.chen@email.com). The quote was for a 50-gallon tankless unit at $2,800 installed. Would you like to schedule the installation?", time: "9:45 AM", status: "read" },
-    { id: "m2-3", sender: "contact", text: "Can you send me the estimate for the water heater?", time: "9:50 AM", status: "read" },
-  ],
-  conv3: [
-    { id: "m3-1", sender: "user", text: "Hi David, following up on your furnace replacement inquiry. I've attached a detailed quote with three options ranging from $4,200 to $6,800 depending on the model.", time: "Yesterday", status: "read" },
-    { id: "m3-2", sender: "contact", text: "Thanks for the detailed breakdown. I'm leaning towards the mid-range option. Can we schedule a time to discuss the installation timeline?", time: "1h ago", status: "read" },
-  ],
-  conv4: [
-    { id: "m4-1", sender: "ai", text: "AI Call Summary: Lisa Wang called to inquire about annual HVAC maintenance plans. She has a 3-year-old system and wants preventive care. Quoted $29/month plan. She asked to receive details via email before deciding.", time: "3h ago", status: "read" },
-  ],
-  conv5: [
-    { id: "m5-1", sender: "user", text: "Hi James! Glad we could get that pipe fixed quickly. Is everything working well now?", time: "Yesterday", status: "read" },
-    { id: "m5-2", sender: "contact", text: "Everything's great! No more leaking. Thanks for the quick fix! 5 stars from me.", time: "1d ago", status: "read" },
-  ],
-  conv6: [
-    { id: "m6-1", sender: "ai", text: "AI Call Summary: Emergency plumbing request from Emily Davis. Reported water leak under kitchen sink. Flagged as emergency. AI escalated to on-call technician immediately. Estimated arrival time communicated: 45 minutes.", time: "1d ago", status: "read" },
-  ],
-  conv7: [
-    { id: "m7-1", sender: "ai", text: "Hi Carlos! This is Acme HVAC's AI assistant. Your boiler inspection is confirmed for this Friday at 9 AM. Our technician will arrive at your address.", time: "2d ago", status: "read" },
-    { id: "m7-2", sender: "contact", text: "What time should I expect the technician?", time: "2d ago", status: "read" },
-  ],
-  conv8: [
-    { id: "m8-1", sender: "contact", text: "I got your flyer about seasonal maintenance specials. I'd like to schedule an HVAC check before summer.", time: "3d ago", status: "read" },
-    { id: "m8-2", sender: "user", text: "Hi Karen! Great timing. We have openings next week for seasonal tune-ups. Would Tuesday or Wednesday work for you?", time: "3d ago", status: "read" },
-  ],
-};
-
 export default function InboxPage() {
   const [selectedId, setSelectedId] = useState("conv1");
   const [filter, setFilter] = useState<"all" | "unread" | "ai">("all");
-  const [conversations, setConversations] = useState(initialConversations);
-  const [messages, setMessages] = useState(initialMessages);
-  const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [messageText, setMessageText] = useState("");
 
-  const filtered = conversations.filter((c) => {
-    if (filter === "unread") return c.unread;
-    if (filter === "ai") return c.aiHandled;
-    return true;
-  }).filter((c) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return c.contact.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q);
-  });
+  // Local state mirrors for optimistic UI
+  const [localConversations, setLocalConversations] = useState<MockConversation[]>(mockConversations);
+  const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>(mockMessages);
+
+  // Hooks (try API, fall back to mock data)
+  const { data: apiConversations, isLive: conversationsLive } = useConversations({ filter, search: searchQuery });
+
+  // Use API data if live, otherwise use local state for full interactivity
+  const conversations = conversationsLive ? apiConversations : localConversations;
+
+  const filtered = useMemo(() => {
+    if (conversationsLive) return conversations;
+
+    return conversations.filter((c) => {
+      if (filter === "unread") return c.unread;
+      if (filter === "ai") return c.aiHandled;
+      return true;
+    }).filter((c) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return c.contact.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q);
+    });
+  }, [conversations, conversationsLive, filter, searchQuery]);
 
   const selected = conversations.find((c) => c.id === selectedId);
-  const currentMessages = messages[selectedId] ?? [];
+  const currentMessages = localMessages[selectedId] ?? [];
   const unreadCount = conversations.filter((c) => c.unread).length;
+
+  const { mutate: sendMessageApi } = useSendMessage(selectedId);
 
   function handleSend() {
     if (!messageText.trim() || !selectedId) return;
@@ -198,7 +66,7 @@ export default function InboxPage() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
-    const newMsg: ChatMessage = {
+    const newMsg: MockChatMessage = {
       id: `msg-${Date.now()}`,
       sender: "user",
       text: messageText.trim(),
@@ -206,13 +74,13 @@ export default function InboxPage() {
       status: "sent",
     };
 
-    setMessages((prev) => ({
+    setLocalMessages((prev) => ({
       ...prev,
       [selectedId]: [...(prev[selectedId] ?? []), newMsg],
     }));
 
     // Update conversation last message
-    setConversations((prev) =>
+    setLocalConversations((prev) =>
       prev.map((c) =>
         c.id === selectedId
           ? { ...c, lastMessage: messageText.trim(), time: "Just now", unread: false }
@@ -220,11 +88,14 @@ export default function InboxPage() {
       ),
     );
 
+    // Try to persist via API
+    sendMessageApi({ text: messageText.trim() });
+
     setMessageText("");
 
     // Simulate delivered status after 1 second
     setTimeout(() => {
-      setMessages((prev) => ({
+      setLocalMessages((prev) => ({
         ...prev,
         [selectedId]: (prev[selectedId] ?? []).map((m) =>
           m.id === newMsg.id ? { ...m, status: "delivered" as const } : m,
@@ -243,7 +114,7 @@ export default function InboxPage() {
   function handleSelectConversation(convId: string) {
     setSelectedId(convId);
     // Mark as read
-    setConversations((prev) =>
+    setLocalConversations((prev) =>
       prev.map((c) => (c.id === convId ? { ...c, unread: false } : c)),
     );
   }

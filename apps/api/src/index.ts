@@ -12,8 +12,11 @@ import { dealRoutes } from './routes/deals.js';
 import { conversationRoutes } from './routes/conversations.js';
 import { schedulingRoutes } from './routes/scheduling.js';
 import { aiRoutes } from './routes/ai.js';
+import { campaignRoutes } from './routes/campaigns.js';
 import { twilioWebhookRoutes } from './routes/webhooks/twilio.js';
 import { emailWebhookRoutes } from './routes/webhooks/email.js';
+import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
+import { stripeWebhookRoutes } from './routes/webhooks/stripe.js';
 
 const app = new Hono();
 
@@ -60,6 +63,8 @@ app.route('/', schedulingRoutes);
 // Webhooks (no auth — called by third-party services)
 app.route('/webhooks/twilio', twilioWebhookRoutes);
 app.route('/webhooks/email', emailWebhookRoutes);
+app.route('/webhooks/vapi', vapiWebhookRoutes);
+app.route('/webhooks/stripe', stripeWebhookRoutes);
 
 // ── 404 Catch-all ──
 

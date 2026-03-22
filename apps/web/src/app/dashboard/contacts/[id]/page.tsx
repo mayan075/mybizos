@@ -20,208 +20,30 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useContact } from "@/lib/hooks/use-contacts";
+import type { LucideIcon } from "lucide-react";
+import type { MockTimelineEntry } from "@/lib/mock-data";
 
-const contactsMap: Record<string, {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  address: string;
-  source: string;
-  score: number;
-  tags: string[];
-  createdAt: string;
-}> = {
-  c1: {
-    id: "c1",
-    name: "Sarah Johnson",
-    email: "sarah@example.com",
-    phone: "(555) 234-5678",
-    company: "Johnson Residence",
-    address: "742 Evergreen Terrace, Springfield, IL",
-    source: "Phone",
-    score: 92,
-    tags: ["Hot Lead", "HVAC"],
-    createdAt: "Mar 15, 2026",
-  },
-  c2: {
-    id: "c2",
-    name: "Mike Chen",
-    email: "mike.chen@email.com",
-    phone: "(555) 345-6789",
-    company: "Chen Properties LLC",
-    address: "123 Oak Street, Springfield, IL",
-    source: "Web Form",
-    score: 78,
-    tags: ["Plumbing"],
-    createdAt: "Mar 10, 2026",
-  },
-  c3: {
-    id: "c3",
-    name: "David Park",
-    email: "dpark@gmail.com",
-    phone: "(555) 456-7890",
-    company: "Park Family Home",
-    address: "456 Pine Ave, Springfield, IL",
-    source: "AI Call",
-    score: 85,
-    tags: ["Hot Lead", "Furnace"],
-    createdAt: "Mar 12, 2026",
-  },
-  c6: {
-    id: "c6",
-    name: "Emily Davis",
-    email: "emily.d@mail.com",
-    phone: "(555) 789-0123",
-    company: "Davis Apartments",
-    address: "321 Elm Street, Springfield, IL",
-    source: "Phone",
-    score: 91,
-    tags: ["Hot Lead", "Emergency"],
-    createdAt: "Mar 18, 2026",
-  },
+const iconMap: Record<string, LucideIcon> = {
+  Phone,
+  Mail,
+  MessageSquare,
+  CalendarCheck,
+  TrendingUp,
+  Bot,
+  StickyNote,
 };
 
-const defaultContact = {
-  id: "c0",
-  name: "Unknown Contact",
-  email: "unknown@example.com",
-  phone: "(555) 000-0000",
-  company: "Unknown",
-  address: "Springfield, IL",
-  source: "Unknown",
-  score: 50,
-  tags: [],
-  createdAt: "Mar 20, 2026",
-};
-
-interface TimelineEntry {
-  id: string;
-  type: string;
-  icon: typeof Phone;
-  title: string;
-  description: string;
-  time: string;
-  color: string;
-  bg: string;
+interface TimelineEntryWithIcon extends MockTimelineEntry {
+  icon: LucideIcon;
 }
 
-const baseTimeline: TimelineEntry[] = [
-  {
-    id: "t1",
-    type: "call",
-    icon: Phone,
-    title: "AI answered inbound call",
-    description:
-      "Customer inquired about AC maintenance. AI qualified as high-intent lead and scheduled callback.",
-    time: "2 hours ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    id: "t2",
-    type: "appointment",
-    icon: CalendarCheck,
-    title: "Appointment booked",
-    description: "AC Tune-Up — Tomorrow at 10:00 AM",
-    time: "2 hours ago",
-    color: "text-success",
-    bg: "bg-success/10",
-  },
-  {
-    id: "t3",
-    type: "sms",
-    icon: MessageSquare,
-    title: "SMS confirmation sent",
-    description:
-      "Automated confirmation message sent with appointment details.",
-    time: "2 hours ago",
-    color: "text-info",
-    bg: "bg-info/10",
-  },
-  {
-    id: "t4",
-    type: "score",
-    icon: TrendingUp,
-    title: "AI score updated: 72 -> 92",
-    description: "Score increased due to appointment booking and engagement.",
-    time: "2 hours ago",
-    color: "text-warning",
-    bg: "bg-warning/10",
-  },
-  {
-    id: "t5",
-    type: "email",
-    icon: Mail,
-    title: "Follow-up email sent",
-    description: "Service estimate PDF attached — AC Tune-Up package details.",
-    time: "1 day ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    id: "t6",
-    type: "call",
-    icon: Phone,
-    title: "Initial call — AI agent",
-    description:
-      "First contact. Customer asked about HVAC services. AI collected contact details and service needs.",
-    time: "3 days ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    id: "t7",
-    type: "sms",
-    icon: MessageSquare,
-    title: "SMS received",
-    description: "Customer replied: 'Thanks for the info, I'll think about it.'",
-    time: "3 days ago",
-    color: "text-info",
-    bg: "bg-info/10",
-  },
-  {
-    id: "t8",
-    type: "ai",
-    icon: Bot,
-    title: "AI auto-response sent",
-    description: "AI sent follow-up message with seasonal maintenance tips and a special offer.",
-    time: "3 days ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    id: "t9",
-    type: "score",
-    icon: TrendingUp,
-    title: "AI score updated: 45 -> 72",
-    description: "Score increased — customer engaged with SMS and opened email.",
-    time: "4 days ago",
-    color: "text-warning",
-    bg: "bg-warning/10",
-  },
-  {
-    id: "t10",
-    type: "email",
-    icon: Mail,
-    title: "Welcome email sent",
-    description: "Automated welcome email with company brochure and service menu.",
-    time: "5 days ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    id: "t11",
-    type: "call",
-    icon: Phone,
-    title: "First inbound call",
-    description: "Customer called main number. AI agent answered and collected initial requirements.",
-    time: "5 days ago",
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-];
+function resolveIcon(entry: MockTimelineEntry): TimelineEntryWithIcon {
+  return {
+    ...entry,
+    icon: iconMap[entry.iconName] ?? Phone,
+  };
+}
 
 export default function ContactDetailPage({
   params,
@@ -229,16 +51,24 @@ export default function ContactDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const contact = contactsMap[id] ?? { ...defaultContact, id };
+  const { data: contactData } = useContact(id);
+
+  const contact = contactData.contact;
   const initials = contact.name
     .split(" ")
     .map((n) => n[0])
     .join("");
 
-  const [timeline, setTimeline] = useState<TimelineEntry[]>(baseTimeline);
+  const [localTimeline, setLocalTimeline] = useState<TimelineEntryWithIcon[]>([]);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+
+  // Merge local additions on top of API/mock timeline
+  const timeline: TimelineEntryWithIcon[] = [
+    ...localTimeline,
+    ...contactData.timeline.map(resolveIcon),
+  ];
 
   function showToast(msg: string) {
     setToast(msg);
@@ -247,17 +77,18 @@ export default function ContactDetailPage({
 
   function handleAddNote() {
     if (!noteText.trim()) return;
-    const newEntry: TimelineEntry = {
+    const newEntry: TimelineEntryWithIcon = {
       id: `t-note-${Date.now()}`,
       type: "note",
       icon: StickyNote,
+      iconName: "StickyNote",
       title: "Note added",
       description: noteText.trim(),
       time: "Just now",
       color: "text-foreground",
       bg: "bg-muted",
     };
-    setTimeline((prev) => [newEntry, ...prev]);
+    setLocalTimeline((prev) => [newEntry, ...prev]);
     setNoteText("");
     setShowNoteInput(false);
     showToast("Note added to timeline");

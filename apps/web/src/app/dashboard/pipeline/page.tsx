@@ -3,50 +3,8 @@
 import { useState } from "react";
 import { Plus, MoreHorizontal, DollarSign, User, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Deal {
-  id: string;
-  title: string;
-  contact: string;
-  value: number;
-  daysInStage: number;
-  score: number;
-  tags: string[];
-}
-
-interface Column {
-  id: string;
-  title: string;
-  color: string;
-}
-
-const columnDefs: Column[] = [
-  { id: "new_lead", title: "New Lead", color: "bg-info" },
-  { id: "quoted", title: "Quoted", color: "bg-warning" },
-  { id: "scheduled", title: "Scheduled", color: "bg-primary" },
-  { id: "won", title: "Won", color: "bg-success" },
-];
-
-const initialDeals: Record<string, Deal[]> = {
-  new_lead: [
-    { id: "d1", title: "AC Installation", contact: "Sarah Johnson", value: 4500, daysInStage: 1, score: 92, tags: ["HVAC", "Residential"] },
-    { id: "d2", title: "Furnace Replacement", contact: "David Park", value: 6200, daysInStage: 2, score: 85, tags: ["HVAC"] },
-    { id: "d3", title: "Pipe Repair", contact: "Amanda Taylor", value: 800, daysInStage: 0, score: 73, tags: ["Plumbing"] },
-    { id: "d7", title: "Duct Cleaning", contact: "Tom Bradley", value: 350, daysInStage: 1, score: 60, tags: ["HVAC", "Maintenance"] },
-  ],
-  quoted: [
-    { id: "d4", title: "Water Heater Install", contact: "Mike Chen", value: 2800, daysInStage: 3, score: 78, tags: ["Plumbing"] },
-    { id: "d5", title: "HVAC Maintenance Plan", contact: "Lisa Wang", value: 1200, daysInStage: 5, score: 64, tags: ["HVAC", "Contract"] },
-  ],
-  scheduled: [
-    { id: "d8", title: "Boiler Inspection", contact: "Carlos Hernandez", value: 450, daysInStage: 1, score: 88, tags: ["HVAC"] },
-    { id: "d9", title: "Drain Cleaning", contact: "Karen Thompson", value: 300, daysInStage: 0, score: 55, tags: ["Plumbing"] },
-  ],
-  won: [
-    { id: "d6", title: "Emergency Pipe Fix", contact: "James Wilson", value: 950, daysInStage: 0, score: 45, tags: ["Plumbing", "Emergency"] },
-    { id: "d10", title: "AC Tune-Up", contact: "Emily Davis", value: 189, daysInStage: 2, score: 91, tags: ["HVAC"] },
-  ],
-};
+import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
+import type { MockDeal } from "@/lib/mock-data";
 
 function formatValue(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -71,8 +29,14 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 export default function PipelinePage() {
-  const [deals, setDeals] = useState<Record<string, Deal[]>>(initialDeals);
-  const [draggedDeal, setDraggedDeal] = useState<{ deal: Deal; fromCol: string } | null>(null);
+  const { data: columnDefs } = usePipelines();
+  const { data: apiDeals } = useDeals();
+  const { mutate: createDealApi } = useCreateDeal();
+  const { mutate: moveDealApi } = useMoveDeal();
+
+  // Local state for optimistic UI (mirrors original behavior)
+  const [deals, setDeals] = useState<Record<string, MockDeal[]> | null>(null);
+  const [draggedDeal, setDraggedDeal] = useState<{ deal: MockDeal; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -82,12 +46,15 @@ export default function PipelinePage() {
   const [newContact, setNewContact] = useState("");
   const [newValue, setNewValue] = useState("");
 
+  // Use local state if available (after first mutation), otherwise API/mock data
+  const currentDeals = deals ?? apiDeals;
+
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleDragStart(deal: Deal, fromCol: string) {
+  function handleDragStart(deal: MockDeal, fromCol: string) {
     setDraggedDeal({ deal, fromCol });
   }
 
@@ -110,25 +77,27 @@ export default function PipelinePage() {
       return;
     }
 
-    setDeals((prev) => {
-      const next = { ...prev };
-      // Remove from source column
-      next[draggedDeal.fromCol] = prev[draggedDeal.fromCol].filter(
-        (d) => d.id !== draggedDeal.deal.id,
-      );
-      // Add to target column with reset days
-      next[toCol] = [...prev[toCol], { ...draggedDeal.deal, daysInStage: 0 }];
-      return next;
-    });
+    const prev = currentDeals;
+    const next = { ...prev };
+    // Remove from source column
+    next[draggedDeal.fromCol] = prev[draggedDeal.fromCol].filter(
+      (d) => d.id !== draggedDeal.deal.id,
+    );
+    // Add to target column with reset days
+    next[toCol] = [...prev[toCol], { ...draggedDeal.deal, daysInStage: 0 }];
+    setDeals(next);
+
+    // Try to persist via API
+    moveDealApi({ id: draggedDeal.deal.id, stageId: toCol });
 
     const colName = columnDefs.find((c) => c.id === toCol)?.title ?? toCol;
     showToast(`"${draggedDeal.deal.title}" moved to ${colName}`);
     setDraggedDeal(null);
   }
 
-  function handleAddDeal(colId: string) {
+  async function handleAddDeal(colId: string) {
     if (!newTitle.trim() || !newContact.trim()) return;
-    const deal: Deal = {
+    const deal: MockDeal = {
       id: `d-${Date.now()}`,
       title: newTitle.trim(),
       contact: newContact.trim(),
@@ -137,10 +106,21 @@ export default function PipelinePage() {
       score: Math.floor(Math.random() * 40) + 40,
       tags: [],
     };
-    setDeals((prev) => ({
+
+    const prev = currentDeals;
+    setDeals({
       ...prev,
       [colId]: [...prev[colId], deal],
-    }));
+    });
+
+    // Try to persist via API
+    await createDealApi({
+      title: deal.title,
+      contact: deal.contact,
+      value: deal.value,
+      stageId: colId,
+    });
+
     setShowAddModal(null);
     setNewTitle("");
     setNewContact("");
@@ -148,7 +128,7 @@ export default function PipelinePage() {
     showToast(`Deal "${deal.title}" added`);
   }
 
-  const allDeals = Object.values(deals).flat();
+  const allDeals = Object.values(currentDeals).flat();
   const totalValue = allDeals.reduce((sum, d) => sum + d.value, 0);
 
   return (
@@ -248,7 +228,7 @@ export default function PipelinePage() {
       {/* Kanban board */}
       <div className="flex gap-5 overflow-x-auto pb-4">
         {columnDefs.map((column) => {
-          const colDeals = deals[column.id] ?? [];
+          const colDeals = currentDeals[column.id] ?? [];
           const columnTotal = colDeals.reduce((s, d) => s + d.value, 0);
           return (
             <div
