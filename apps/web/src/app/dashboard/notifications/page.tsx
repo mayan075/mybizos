@@ -473,7 +473,11 @@ export default function NotificationsPage() {
                   : MOCK_NOTIFICATIONS.filter((n) =>
                       tab.key === "system"
                         ? n.type === "system" || n.type === "ai"
-                        : n.type === tab.key
+                        : tab.key === "leads"
+                          ? n.type === "lead"
+                          : tab.key === "appointments"
+                            ? n.type === "appointment"
+                            : n.type === "review"
                     ).length;
             return (
               <button
