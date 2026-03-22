@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -23,8 +23,10 @@ import {
   Share2,
   UsersRound,
   FileInput,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getUser } from "@/lib/auth";
 
 interface NavItem {
   label: string;
@@ -73,14 +75,28 @@ const navSections: NavSection[] = [
     items: [
       { label: "Team", href: "/dashboard/team", icon: UsersRound, badge: null },
       { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: null },
+      { label: "Activity", href: "/dashboard/activity", icon: Activity, badge: null },
       { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
     ],
   },
 ];
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${(parts[0]?.[0] ?? "").toUpperCase()}${(parts[parts.length - 1]?.[0] ?? "").toUpperCase()}`;
+  }
+  return (parts[0]?.substring(0, 2) ?? "DU").toUpperCase();
+}
+
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  const user = useMemo(() => getUser(), []);
+  const userName = user?.name ?? "Demo User";
+  const orgName = user?.orgName ?? "Demo Business";
+  const userInitials = getInitials(userName);
 
   return (
     <aside
@@ -183,15 +199,15 @@ export function Sidebar() {
           )}
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-            JS
+            {userInitials}
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-sidebar-foreground">
-                John Smith
+                {userName}
               </p>
               <p className="truncate text-xs text-sidebar-muted-foreground">
-                Acme HVAC
+                {orgName}
               </p>
             </div>
           )}

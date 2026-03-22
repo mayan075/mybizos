@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { getMockSequences } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
+import type { SequenceStep, SequenceTriggerConfig } from '@mybizos/db';
 
 const sequences = new Hono();
 
@@ -101,10 +102,15 @@ sequences.get('/:id', async (c) => {
 sequences.post('/', async (c) => {
   const body = await c.req.json();
   const parsed = createSequenceSchema.parse(body);
+  const serviceData = {
+    ...parsed,
+    steps: parsed.steps as SequenceStep[],
+    triggerConfig: parsed.triggerConfig as SequenceTriggerConfig,
+  };
   try {
     const { sequenceService } = await import('../services/sequence-service.js');
     const orgId = c.get('orgId');
-    const result = await sequenceService.create(orgId, parsed);
+    const result = await sequenceService.create(orgId, serviceData);
     return c.json({ data: result }, 201);
   } catch {
     return c.json({ data: { id: `seq_${Date.now()}`, ...parsed, status: 'draft', createdAt: new Date().toISOString() } }, 201);
@@ -115,10 +121,15 @@ sequences.patch('/:id', async (c) => {
   const sequenceId = c.req.param('id');
   const body = await c.req.json();
   const parsed = updateSequenceSchema.parse(body);
+  const serviceData = {
+    ...parsed,
+    steps: parsed.steps as SequenceStep[] | undefined,
+    triggerConfig: parsed.triggerConfig as SequenceTriggerConfig | undefined,
+  };
   try {
     const { sequenceService } = await import('../services/sequence-service.js');
     const orgId = c.get('orgId');
-    const result = await sequenceService.update(orgId, sequenceId, parsed);
+    const result = await sequenceService.update(orgId, sequenceId, serviceData);
     return c.json({ data: result });
   } catch {
     return c.json({ data: { id: sequenceId, ...parsed, updatedAt: new Date().toISOString() } });

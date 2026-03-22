@@ -5,6 +5,8 @@ export interface TokenPayload {
   userId: string;
   orgId: string;
   email: string;
+  name?: string;
+  orgName?: string;
   role: 'owner' | 'admin' | 'manager' | 'member';
   iat: number;
   exp: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getUser, removeToken } from "@/lib/auth";
 
 interface HeaderProps {
   onOpenCommandPalette: () => void;
@@ -105,6 +106,14 @@ const notifications = [
   },
 ];
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${(parts[0]?.[0] ?? "").toUpperCase()}${(parts[parts.length - 1]?.[0] ?? "").toUpperCase()}`;
+  }
+  return (parts[0]?.substring(0, 2) ?? "DU").toUpperCase();
+}
+
 export function Header({ onOpenCommandPalette }: HeaderProps) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -112,6 +121,12 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set(["n6", "n7"]));
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
+
+  const user = useMemo(() => getUser(), []);
+  const userName = user?.name ?? "Demo User";
+  const userEmail = user?.email ?? "demo@mybizos.com";
+  const orgName = user?.orgName ?? "Demo Business";
+  const userInitials = getInitials(userName);
 
   const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;
   const visibleNotifications = notifications.slice(0, 5);
@@ -140,11 +155,17 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
     setReadNotifications(new Set(notifications.map((n) => n.id)));
   }
 
+  function handleLogout() {
+    setShowUserMenu(false);
+    removeToken();
+    router.push("/login");
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
       {/* Left: Org name */}
       <div className="flex items-center gap-3">
-        <h2 className="text-sm font-semibold text-foreground">Acme HVAC</h2>
+        <h2 className="text-sm font-semibold text-foreground">{orgName}</h2>
         <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
           Active
         </span>
@@ -268,7 +289,7 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
             )}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-              JS
+              {userInitials}
             </div>
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showUserMenu && "rotate-180")} />
           </button>
@@ -277,12 +298,12 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
           {showUserMenu && (
             <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-popover shadow-2xl z-50">
               <div className="border-b border-border px-4 py-3">
-                <p className="text-sm font-medium text-foreground">John Smith</p>
-                <p className="text-xs text-muted-foreground">john@acmehvac.com</p>
+                <p className="text-sm font-medium text-foreground">{userName}</p>
+                <p className="text-xs text-muted-foreground">{userEmail}</p>
               </div>
               <div className="p-1">
                 <button
-                  onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings"); }}
+                  onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings?tab=profile"); }}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <User className="h-4 w-4 text-muted-foreground" />
@@ -298,7 +319,7 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
               </div>
               <div className="border-t border-border p-1">
                 <button
-                  onClick={() => { setShowUserMenu(false); router.push("/login"); }}
+                  onClick={handleLogout}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
