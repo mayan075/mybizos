@@ -59,7 +59,7 @@ conversations.post('/:id/messages', async (c) => {
   const message = await conversationService.createMessage(orgId, conversationId, {
     direction: 'outbound',
     channel: parsed.channel === 'sms' ? 'sms' : 'email',
-    senderType: 'human',
+    senderType: 'user',
     body: parsed.content,
   });
   return c.json({ data: message }, 201);

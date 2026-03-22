@@ -12,6 +12,7 @@ export * from "./schema/scheduling.js";
 export * from "./schema/ai.js";
 export * from "./schema/campaigns.js";
 export * from "./schema/reviews.js";
+export * from "./schema/sequences.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";

@@ -17,6 +17,7 @@ const createPipelineSchema = z.object({
       z.object({
         name: z.string().min(1, 'Stage name is required'),
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a valid hex code'),
+        slug: z.enum(['new_lead', 'contacted', 'qualified', 'quote_sent', 'negotiation', 'won', 'lost']),
       }),
     )
     .min(1, 'At least one stage is required'),
