@@ -41,6 +41,7 @@ const publicBookingSchema = z.object({
 
 const availabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  userId: z.string().optional(),
 });
 
 // ── Authenticated routes ──
@@ -66,7 +67,13 @@ authenticatedScheduling.post('/appointments', async (c) => {
   const parsed = createAppointmentSchema.parse(body);
 
   const appointment = await schedulingService.createAppointment(orgId, {
-    ...parsed,
+    contactId: parsed.contactId,
+    title: parsed.title,
+    description: parsed.description,
+    startTime: new Date(parsed.startTime),
+    endTime: new Date(parsed.endTime),
+    assignedTo: parsed.assignedTo,
+    location: parsed.location,
     status: 'scheduled',
   });
 
@@ -82,7 +89,11 @@ authenticatedScheduling.patch('/appointments/:id', async (c) => {
   const body = await c.req.json();
   const parsed = updateAppointmentSchema.parse(body);
 
-  const appointment = await schedulingService.updateAppointment(orgId, appointmentId, parsed);
+  const appointment = await schedulingService.updateAppointment(orgId, appointmentId, {
+    ...parsed,
+    startTime: parsed.startTime ? new Date(parsed.startTime) : undefined,
+    endTime: parsed.endTime ? new Date(parsed.endTime) : undefined,
+  });
   return c.json({ data: appointment });
 });
 
@@ -93,9 +104,11 @@ authenticatedScheduling.get('/availability', async (c) => {
   const orgId = c.get('orgId');
   const query = availabilityQuerySchema.parse({
     date: c.req.query('date'),
+    userId: c.req.query('userId'),
   });
 
-  const slots = await schedulingService.getAvailability(orgId, query.date);
+  const userId = query.userId ?? '';
+  const slots = await schedulingService.getAvailability(orgId, userId, query.date);
   return c.json({ data: slots });
 });
 

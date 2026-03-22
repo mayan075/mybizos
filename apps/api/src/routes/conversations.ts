@@ -11,7 +11,7 @@ conversations.use('*', authMiddleware, orgScopeMiddleware);
 // ── Validation Schemas ──
 
 const listConversationsSchema = z.object({
-  channel: z.enum(['sms', 'email', 'phone', 'webchat']).optional(),
+  channel: z.enum(['sms', 'email', 'call', 'whatsapp', 'webchat']).optional(),
   status: z.enum(['open', 'closed', 'snoozed']).optional(),
 });
 
@@ -56,7 +56,12 @@ conversations.post('/:id/messages', async (c) => {
   const body = await c.req.json();
   const parsed = sendMessageSchema.parse(body);
 
-  const message = await conversationService.sendMessage(orgId, conversationId, parsed);
+  const message = await conversationService.createMessage(orgId, conversationId, {
+    direction: 'outbound',
+    channel: parsed.channel === 'sms' ? 'sms' : 'email',
+    senderType: 'human',
+    body: parsed.content,
+  });
   return c.json({ data: message }, 201);
 });
 

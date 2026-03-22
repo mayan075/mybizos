@@ -15,23 +15,19 @@ const createDealSchema = z.object({
   stageId: z.string().min(1, 'Stage ID is required'),
   contactId: z.string().min(1, 'Contact ID is required'),
   title: z.string().min(1, 'Deal title is required'),
-  value: z.number().nonnegative('Deal value must be non-negative'),
+  value: z.number().nonnegative('Deal value must be non-negative').transform(v => String(v)).optional(),
   currency: z.string().length(3).default('USD'),
-  status: z.enum(['open', 'won', 'lost']).default('open'),
   expectedCloseDate: z.string().nullable().optional().default(null),
   assignedTo: z.string().nullable().optional().default(null),
-  notes: z.string().default(''),
 });
 
 const updateDealSchema = z.object({
   stageId: z.string().optional(),
   title: z.string().min(1).optional(),
-  value: z.number().nonnegative().optional(),
+  value: z.number().nonnegative().transform(v => String(v)).optional(),
   currency: z.string().length(3).optional(),
-  status: z.enum(['open', 'won', 'lost']).optional(),
   expectedCloseDate: z.string().nullable().optional(),
   assignedTo: z.string().nullable().optional(),
-  notes: z.string().optional(),
 });
 
 // ── Routes ──
@@ -53,7 +49,10 @@ deals.post('/', async (c) => {
   const body = await c.req.json();
   const parsed = createDealSchema.parse(body);
 
-  const deal = await dealService.create(orgId, parsed);
+  const deal = await dealService.create(orgId, {
+    ...parsed,
+    expectedCloseDate: parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null,
+  });
   return c.json({ data: deal }, 201);
 });
 
@@ -66,7 +65,12 @@ deals.patch('/:id', async (c) => {
   const body = await c.req.json();
   const parsed = updateDealSchema.parse(body);
 
-  const deal = await dealService.update(orgId, dealId, parsed);
+  const deal = await dealService.update(orgId, dealId, {
+    ...parsed,
+    expectedCloseDate: parsed.expectedCloseDate !== undefined
+      ? (parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null)
+      : undefined,
+  });
   return c.json({ data: deal });
 });
 
