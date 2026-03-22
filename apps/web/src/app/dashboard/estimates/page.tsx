@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -157,6 +158,7 @@ function formatDate(dateStr: string): string {
 // ── Page ──
 
 export default function EstimatesPage() {
+  usePageTitle("Estimates");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [toast, setToast] = useState<string | null>(null);

@@ -32,6 +32,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -910,6 +911,7 @@ function CallDetailPanel({ call }: { call: CallRecord }) {
 /* -------------------------------------------------------------------------- */
 
 export default function CallsPage() {
+  usePageTitle("Calls");
   const router = useRouter();
 
   // Call history state

@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { mockAppointments, type MockAppointment } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -66,6 +67,7 @@ function getWeekLabel(weekOffset: number): string {
 }
 
 export default function SchedulingPage() {
+  usePageTitle("Scheduling");
   const [weekOffset, setWeekOffset] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState<{ dayIndex: number; hour: number } | null>(null);

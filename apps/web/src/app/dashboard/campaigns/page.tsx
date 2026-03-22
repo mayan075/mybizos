@@ -18,6 +18,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Mock Data ──
 
@@ -233,6 +234,7 @@ function formatDate(dateStr: string) {
 // ── Page ──
 
 export default function CampaignsPage() {
+  usePageTitle("Campaigns");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     "AI-native business operating system for local service businesses",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icon.svg",
   },
 };
 

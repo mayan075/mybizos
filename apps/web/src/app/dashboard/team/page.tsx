@@ -20,6 +20,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 type Role = "Owner" | "Manager" | "Technician" | "AI";
 
@@ -222,6 +223,7 @@ function avatarBgClasses(role: Role): string {
 }
 
 export default function TeamPage() {
+  usePageTitle("Team");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"Manager" | "Technician">("Technician");

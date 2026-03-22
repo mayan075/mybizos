@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
@@ -15,12 +15,23 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
+
+  const toggleMobileSidebar = useCallback(() => {
+    setMobileSidebarOpen((prev) => !prev);
+  }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
   // Guard: redirect to onboarding if not completed
   useEffect(() => {
@@ -58,17 +69,41 @@ export default function DashboardLayout({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [router]);
 
-  // Don't flash the dashboard while redirecting
+  // Show spinner while checking onboarding status
   if (!ready) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    );
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 md:hidden">
+            <Sidebar />
+          </div>
+        </>
+      )}
+
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onOpenCommandPalette={openCommandPalette} />
-        <main className="flex-1 overflow-y-auto bg-background p-6">
+        <Header
+          onOpenCommandPalette={openCommandPalette}
+          onToggleMobileSidebar={toggleMobileSidebar}
+        />
+        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
           {children}
         </main>
       </div>

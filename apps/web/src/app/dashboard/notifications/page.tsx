@@ -28,6 +28,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -378,6 +379,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 // ── Component ──
 
 export default function NotificationsPage() {
+  usePageTitle("Notifications");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [readIds, setReadIds] = useState<Set<string>>(
     new Set(MOCK_NOTIFICATIONS.filter((n) => n.read).map((n) => n.id))

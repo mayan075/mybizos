@@ -113,7 +113,7 @@ const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
       description: "Professional packing of your belongings with quality materials",
     },
   ],
-  default: [
+  plumbing: [
     {
       id: "drain-cleaning",
       name: "Drain Cleaning",
@@ -131,12 +131,20 @@ const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
       description: "Full water heater installation or replacement",
     },
     {
-      id: "ac-tuneup",
-      name: "AC Tune-Up",
+      id: "pipe-repair",
+      name: "Pipe Repair",
       duration: "1-2 hrs",
-      priceRange: "$89-149",
-      icon: "snowflake",
-      description: "Seasonal AC inspection and maintenance",
+      priceRange: "$200-500",
+      icon: "wrench",
+      description: "Repair leaking or burst pipes, re-piping services",
+    },
+    {
+      id: "toilet-repair",
+      name: "Toilet Repair / Install",
+      duration: "1-2 hrs",
+      priceRange: "$100-350",
+      icon: "wrench",
+      description: "Fix running toilets, clogs, or install new fixtures",
     },
     {
       id: "emergency-plumbing",
@@ -144,7 +152,41 @@ const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
       duration: "ASAP",
       priceRange: "$200-400",
       icon: "alert",
-      description: "24/7 emergency plumbing response",
+      description: "24/7 emergency plumbing response for urgent issues",
+    },
+  ],
+  default: [
+    {
+      id: "consultation",
+      name: "Consultation",
+      duration: "30-60 min",
+      priceRange: "$50-150",
+      icon: "wrench",
+      description: "Initial consultation and assessment of your needs",
+    },
+    {
+      id: "standard-service",
+      name: "Standard Service Call",
+      duration: "1-2 hrs",
+      priceRange: "$100-300",
+      icon: "wrench",
+      description: "General service visit for inspection or minor work",
+    },
+    {
+      id: "maintenance",
+      name: "Maintenance Visit",
+      duration: "1-3 hrs",
+      priceRange: "$150-400",
+      icon: "wrench",
+      description: "Scheduled maintenance and preventive service",
+    },
+    {
+      id: "emergency-service",
+      name: "Emergency Service",
+      duration: "ASAP",
+      priceRange: "$200-500",
+      icon: "alert",
+      description: "24/7 emergency response for urgent situations",
     },
   ],
 };
@@ -161,6 +203,9 @@ function detectVerticalFromSlug(slug: string): string {
   }
   if (lower.includes("mov") || lower.includes("relocat") || lower.includes("transport")) {
     return "moving_company";
+  }
+  if (lower.includes("plumb") || lower.includes("drain") || lower.includes("pipe")) {
+    return "plumbing";
   }
   return "default";
 }

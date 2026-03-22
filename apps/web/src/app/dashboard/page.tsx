@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useRecentActivity } from "@/lib/hooks/use-dashboard";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { WelcomeBanner, GettingStartedChecklist } from "@/components/onboarding/getting-started";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { LucideIcon } from "lucide-react";
@@ -40,6 +41,7 @@ const statTooltips: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  usePageTitle("Dashboard");
   const router = useRouter();
   const { data: dashboardData } = useDashboardStats();
   const { data: recentActivity } = useRecentActivity();

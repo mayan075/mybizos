@@ -27,6 +27,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useContact } from "@/lib/hooks/use-contacts";
 import type { LucideIcon } from "lucide-react";
 import type { MockTimelineEntry, MockChatMessage } from "@/lib/mock-data";
@@ -257,6 +258,7 @@ export default function ContactDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  usePageTitle("Contact Details");
   const { data: contactData } = useContact(id);
   const searchParams = useSearchParams();
   const router = useRouter();

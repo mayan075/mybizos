@@ -17,6 +17,7 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 type DateRange = "today" | "week" | "month" | "quarter" | "custom";
 
@@ -149,6 +150,7 @@ const teamLeaderboard = [
 // --- Component ---
 
 export default function AnalyticsPage() {
+  usePageTitle("Analytics");
   const [dateRange, setDateRange] = useState<DateRange>("month");
 
   const maxRevenue = Math.max(...revenueMonths.map((m) => m.value));

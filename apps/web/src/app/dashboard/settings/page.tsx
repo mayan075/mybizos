@@ -26,6 +26,7 @@ import {
   Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getInitials } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -322,6 +323,7 @@ function InputField({
 // ---------------------------------------------------------------------------
 
 function SettingsContent() {
+  usePageTitle("Settings");
   const router = useRouter();
   const searchParams = useSearchParams();
 

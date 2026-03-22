@@ -15,6 +15,7 @@ import {
   Smile,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
 import { mockConversations, mockMessages, type MockConversation, type MockChatMessage } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +28,7 @@ const channelIcons = {
 };
 
 export default function InboxPage() {
+  usePageTitle("Inbox");
   const [selectedId, setSelectedId] = useState("conv1");
   const [filter, setFilter] = useState<"all" | "unread" | "ai">("all");
   const [searchQuery, setSearchQuery] = useState("");

@@ -32,6 +32,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getUser } from "@/lib/auth";
 import {
   type OnboardingData,
@@ -99,6 +100,7 @@ const ROLES = ["Owner", "Manager", "Admin"] as const;
 // ---------------------------------------------------------------------------
 
 export default function OnboardingPage() {
+  usePageTitle("Setup");
   const router = useRouter();
 
   // Redirect if already complete
@@ -183,6 +185,24 @@ export default function OnboardingPage() {
 
   function handleBack() {
     if (step > 0) setStep(step - 1);
+  }
+
+  function handleSkip() {
+    const skipData: OnboardingData = {
+      businessName: businessName.trim() || "My Business",
+      vertical: vertical || "other",
+      role: role || "Owner",
+      country: country || "US",
+      city: city.trim() || "New York",
+      serviceArea: "",
+      timezone: detectTimezone(),
+      services: getServicesForVertical(vertical || "other").filter((s) => s.enabled),
+      businessHours: DEFAULT_BUSINESS_HOURS,
+      phoneSetup: { mode: "skip" },
+      completedAt: new Date().toISOString(),
+    };
+    saveOnboardingData(skipData);
+    router.push("/dashboard");
   }
 
   function handleFinish() {
@@ -1045,19 +1065,29 @@ export default function OnboardingPage() {
               Back
             </button>
 
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={!canAdvance()}
-              className={cn(
-                "flex h-11 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-all",
-                "hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed",
-                "shadow-lg shadow-primary/20",
-              )}
-            >
-              {step === STEPS.length - 2 ? "Finish setup" : "Next"}
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="flex h-11 items-center gap-1 rounded-xl px-4 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+              >
+                Skip for now
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!canAdvance()}
+                className={cn(
+                  "flex h-11 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-all",
+                  "hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed",
+                  "shadow-lg shadow-primary/20",
+                )}
+              >
+                {step === STEPS.length - 2 ? "Finish setup" : "Next"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

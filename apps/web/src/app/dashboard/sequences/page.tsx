@@ -19,6 +19,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -179,6 +180,7 @@ function StepIcon({ type }: { type: StepType }) {
 // ── Page ──
 
 export default function SequencesPage() {
+  usePageTitle("Sequences");
   const [sequences, setSequences] = useState(mockSequences);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 

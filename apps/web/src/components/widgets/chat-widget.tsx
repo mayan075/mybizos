@@ -168,8 +168,8 @@ export function ChatWidget({
       {/* Chat window */}
       {isOpen && !isMinimized && (
         <div
-          className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-[slideUp_0.25s_ease-out]"
-          style={{ width: "350px", height: "500px" }}
+          className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-[slideUp_0.25s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[350px]"
+          style={{ maxWidth: "350px", height: "min(500px, calc(100vh - 6rem))" }}
         >
           {/* Header */}
           <div

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { MockDeal } from "@/lib/mock-data";
@@ -38,6 +39,7 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 export default function PipelinePage() {
+  usePageTitle("Pipeline");
   const { data: columnDefs } = usePipelines();
   const { data: apiDeals } = useDeals();
   const { mutate: createDealApi } = useCreateDeal();
@@ -247,7 +249,7 @@ export default function PipelinePage() {
       )}
 
       {/* Kanban board */}
-      <div className={cn("flex gap-5 overflow-x-auto pb-4", allDeals.length === 0 && "hidden")}>
+      <div className={cn("flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory sm:snap-none -mx-6 px-6 sm:mx-0 sm:px-0", allDeals.length === 0 && "hidden")}>
         {columnDefs.map((column) => {
           const colDeals = currentDeals[column.id] ?? [];
           const columnTotal = colDeals.reduce((s, d) => s + d.value, 0);
@@ -255,7 +257,7 @@ export default function PipelinePage() {
             <div
               key={column.id}
               className={cn(
-                "flex w-80 shrink-0 flex-col rounded-xl transition-colors",
+                "flex w-72 sm:w-80 shrink-0 flex-col rounded-xl transition-colors snap-start",
                 dragOverCol === column.id
                   ? "bg-primary/10 ring-2 ring-primary/30"
                   : "bg-muted/30",

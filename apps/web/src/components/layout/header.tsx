@@ -16,6 +16,7 @@ import {
   Star,
   AlertTriangle,
   ChevronRight,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUser, removeToken } from "@/lib/auth";
@@ -23,6 +24,7 @@ import { getOnboardingData } from "@/lib/onboarding";
 
 interface HeaderProps {
   onOpenCommandPalette: () => void;
+  onToggleMobileSidebar?: () => void;
 }
 
 const notifications = [
@@ -113,7 +115,7 @@ function getInitials(name: string): string {
   return (parts[0]?.substring(0, 2) ?? "DU").toUpperCase();
 }
 
-export function Header({ onOpenCommandPalette }: HeaderProps) {
+export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderProps) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -162,9 +164,18 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-      {/* Left: Org name */}
+    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
+      {/* Left: Mobile menu + Org name */}
       <div className="flex items-center gap-3">
+        {onToggleMobileSidebar && (
+          <button
+            onClick={onToggleMobileSidebar}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors md:hidden"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
         <h2 className="text-sm font-semibold text-foreground">{orgName}</h2>
         <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
           Active
@@ -175,7 +186,7 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
       <button
         onClick={onOpenCommandPalette}
         className={cn(
-          "flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-input",
+          "hidden sm:flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-input",
           "bg-muted/50 px-3 text-sm text-muted-foreground",
           "hover:bg-muted transition-colors",
         )}

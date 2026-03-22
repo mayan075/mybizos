@@ -27,6 +27,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -510,6 +511,7 @@ const MOCK_ACTIVITIES: ActivityEntry[] = [
 // ── Component ──
 
 export default function ActivityPage() {
+  usePageTitle("Activity");
   const [userFilter, setUserFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showUserDropdown, setShowUserDropdown] = useState(false);

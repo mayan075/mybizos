@@ -21,6 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -235,6 +236,7 @@ function EmbedTypeBadge({ type }: { type: MockForm["embedType"] }) {
 // ── Page ──
 
 export default function FormsPage() {
+  usePageTitle("Forms");
   const [search, setSearch] = useState("");
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
 

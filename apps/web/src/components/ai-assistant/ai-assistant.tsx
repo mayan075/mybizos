@@ -303,8 +303,8 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
       {/* ============================================================= */}
       {isOpen && !isMinimized && (
         <div
-          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.25s_ease-out]"
-          style={{ width: "400px", height: "550px" }}
+          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.25s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[400px]"
+          style={{ maxWidth: "400px", height: "min(550px, calc(100vh - 6rem))" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">

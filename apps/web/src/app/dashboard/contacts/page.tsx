@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { MockContact } from "@/lib/mock-data";
@@ -69,6 +70,7 @@ type SortKey = "name" | "score";
 type SortDir = "asc" | "desc";
 
 export default function ContactsPage() {
+  usePageTitle("Contacts");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");

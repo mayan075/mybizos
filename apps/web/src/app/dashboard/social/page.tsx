@@ -27,6 +27,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -296,6 +297,7 @@ function getStatusBadge(status: RecentPost["status"]): { label: string; classNam
 // ── Main Component ──
 
 export default function SocialPage() {
+  usePageTitle("Social");
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(["facebook", "google_business"]);
   const [postText, setPostText] = useState("");

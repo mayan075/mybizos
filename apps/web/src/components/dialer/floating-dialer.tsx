@@ -127,12 +127,12 @@ export function FloatingDialer() {
   const isCallActive = callStatus === "ringing" || callStatus === "connected" || callStatus === "on-hold";
 
   return (
-    <div className="fixed bottom-5 right-24 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-5 right-5 sm:right-24 z-50 flex flex-col items-end gap-3">
       {/* Expanded dialer popup */}
       {isOpen && !isMinimized && (
         <div
-          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out]"
-          style={{ width: "300px", height: isCallActive ? "340px" : "440px" }}
+          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[300px]"
+          style={{ maxWidth: "300px", height: isCallActive ? "340px" : "440px" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/30 shrink-0">

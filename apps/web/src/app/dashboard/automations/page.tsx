@@ -20,6 +20,7 @@ import {
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -167,6 +168,7 @@ function formatRelativeDate(dateStr: string): string {
 // ── Page ──
 
 export default function AutomationsPage() {
+  usePageTitle("Automations");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [automations, setAutomations] = useState(mockAutomations);

@@ -20,6 +20,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
 
@@ -323,6 +324,7 @@ type FilterTab = "all" | "needs_response" | "positive" | "negative";
 // ── Main Page ──
 
 export default function ReviewsPage() {
+  usePageTitle("Reviews");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [aiDraft, setAiDraft] = useState<Record<string, string>>({});
   const [generatingId, setGeneratingId] = useState<string | null>(null);
