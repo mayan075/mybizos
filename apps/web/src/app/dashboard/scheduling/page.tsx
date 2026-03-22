@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import {
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -13,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { mockAppointments, type MockAppointment } from "@/lib/mock-data";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -288,6 +290,18 @@ export default function SchedulingPage() {
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Empty state when no appointments */}
+      {appointments.length === 0 && (
+        <EmptyState
+          icon={CalendarDays}
+          title="No appointments scheduled"
+          description="Set up your booking page so customers can schedule with you. Your AI agent can also book appointments automatically when customers call."
+          actionLabel="Book Your First Appointment"
+          onAction={() => setShowBooking({ dayIndex: todayIndex >= 0 ? todayIndex : 0, hour: 10 })}
+          className="rounded-xl border border-border bg-card"
+        />
+      )}
 
       {/* Calendar grid */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">

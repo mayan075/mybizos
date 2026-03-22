@@ -11,12 +11,15 @@ import {
   ArrowUpDown,
   Phone,
   Mail,
+  Users,
   X,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { MockContact } from "@/lib/mock-data";
 
 function ScoreBadge({ score }: { score: number }) {
@@ -327,7 +330,20 @@ export default function ContactsPage() {
         </button>
       </div>
 
-      {/* Table */}
+      {/* Empty state when no contacts exist */}
+      {contacts.length === 0 && !search && (
+        <EmptyState
+          icon={Users}
+          title="No contacts yet"
+          description="Add your first contact to start building your customer database. You can add them manually or they will appear automatically when customers call or text."
+          actionLabel="Add Your First Contact"
+          onAction={() => setShowModal(true)}
+          className="rounded-xl border border-border bg-card"
+        />
+      )}
+
+      {/* Table (shown when contacts exist or search is active) */}
+      {(contacts.length > 0 || search) && (
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -357,13 +373,19 @@ export default function ContactsPage() {
                   Email
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <button
-                    onClick={() => toggleSort("score")}
-                    className="flex items-center gap-1 hover:text-foreground transition-colors"
-                  >
-                    Score
-                    <SortIcon col="score" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => toggleSort("score")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      AI Score
+                      <SortIcon col="score" />
+                    </button>
+                    <Tooltip
+                      content="AI Score (0-100) predicts how likely this lead is to convert. It updates automatically based on engagement: calls answered, messages replied, appointments booked, and more."
+                      position="bottom"
+                    />
+                  </div>
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Last Activity
@@ -460,6 +482,7 @@ export default function ContactsPage() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

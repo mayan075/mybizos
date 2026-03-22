@@ -427,14 +427,20 @@ export default function CampaignsPage() {
 
         {filtered.length === 0 && (
           <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-            <Megaphone className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-            <p className="text-sm font-medium text-foreground mb-1">
-              No campaigns found
+            <div className="relative mx-auto mb-4 w-fit">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/5 border border-primary/10">
+                <Megaphone className="h-8 w-8 text-primary/40" />
+              </div>
+              <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-primary/10" />
+              <div className="absolute -left-2 bottom-0 h-2 w-2 rounded-full bg-primary/10" />
+            </div>
+            <p className="text-lg font-semibold text-foreground mb-2">
+              {search ? "No campaigns found" : "Send your first campaign"}
             </p>
-            <p className="text-xs text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
               {search
-                ? `No results matching "${search}"`
-                : "Get started by creating your first campaign"}
+                ? `No results matching "${search}". Try a different search term.`
+                : "Reach your customers with SMS or email campaigns. Send promotions, reminders, and updates to grow your business."}
             </p>
             <Link
               href="/dashboard/campaigns/new"

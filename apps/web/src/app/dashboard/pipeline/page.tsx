@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MoreHorizontal, DollarSign, User, Clock, X } from "lucide-react";
+import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { MockDeal } from "@/lib/mock-data";
+
+const stageTooltips: Record<string, string> = {
+  "New Lead": "Fresh leads that just came in. Review and follow up to move them forward.",
+  "Quoted": "You have sent a quote or estimate. Waiting for the customer to decide.",
+  "Scheduled": "The job is booked. Service appointment is on the calendar.",
+  "Won": "Deal is closed and the job is complete. Revenue is counted here.",
+};
 
 function formatValue(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -225,8 +234,20 @@ export default function PipelinePage() {
         </button>
       </div>
 
+      {/* Empty state for zero deals */}
+      {allDeals.length === 0 && (
+        <EmptyState
+          icon={Kanban}
+          title="No deals in your pipeline"
+          description="Create your first deal to start tracking revenue. Deals move through stages as you quote, schedule, and complete jobs."
+          actionLabel="Create Your First Deal"
+          onAction={() => setShowAddModal("new_lead")}
+          className="rounded-xl border border-border bg-card"
+        />
+      )}
+
       {/* Kanban board */}
-      <div className="flex gap-5 overflow-x-auto pb-4">
+      <div className={cn("flex gap-5 overflow-x-auto pb-4", allDeals.length === 0 && "hidden")}>
         {columnDefs.map((column) => {
           const colDeals = currentDeals[column.id] ?? [];
           const columnTotal = colDeals.reduce((s, d) => s + d.value, 0);
@@ -250,6 +271,12 @@ export default function PipelinePage() {
                   <span className="text-sm font-semibold text-foreground">
                     {column.title}
                   </span>
+                  {stageTooltips[column.title] && (
+                    <Tooltip
+                      content={stageTooltips[column.title]}
+                      position="bottom"
+                    />
+                  )}
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
                     {colDeals.length}
                   </span>
@@ -271,7 +298,9 @@ export default function PipelinePage() {
                     <div className="flex items-start justify-between">
                       <h3 className="text-sm font-medium text-foreground">{deal.title}</h3>
                       <div className="flex items-center gap-1">
-                        <ScoreBadge score={deal.score} />
+                        <Tooltip content="AI Score: likelihood this deal will close." position="left">
+                          <ScoreBadge score={deal.score} />
+                        </Tooltip>
                         <button className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted transition-all">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>

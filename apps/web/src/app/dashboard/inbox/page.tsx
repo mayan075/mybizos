@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
 import { mockConversations, mockMessages, type MockConversation, type MockChatMessage } from "@/lib/mock-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip } from "@/components/ui/tooltip";
 
 const channelIcons = {
   sms: MessageSquare,
@@ -154,7 +156,12 @@ export default function InboxPage() {
                       : "text-muted-foreground hover:bg-muted",
                   )}
                 >
-                  {f === "all" ? "All" : f === "unread" ? `Unread (${unreadCount})` : "AI Handled"}
+                  {f === "all" ? "All" : f === "unread" ? `Unread (${unreadCount})` : (
+                    <span className="flex items-center gap-1">
+                      AI Handled
+                      <Tooltip content="Conversations where your AI agent responded to the customer automatically." position="bottom" />
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -197,7 +204,9 @@ export default function InboxPage() {
                           {conv.contact}
                         </span>
                         {conv.aiHandled && (
-                          <Bot className="h-3.5 w-3.5 text-primary" />
+                          <Tooltip content="Handled by your AI agent" position="right">
+                            <Bot className="h-3.5 w-3.5 text-primary cursor-help" />
+                          </Tooltip>
                         )}
                       </div>
                       <span className="text-[11px] text-muted-foreground shrink-0">
@@ -218,8 +227,18 @@ export default function InboxPage() {
               );
             })}
             {filtered.length === 0 && (
-              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                No conversations found
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/5 border border-primary/10 mb-4">
+                  <MessageSquare className="h-7 w-7 text-primary/40" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">
+                  {searchQuery ? "No conversations found" : "No conversations yet"}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-[240px]">
+                  {searchQuery
+                    ? `No results for "${searchQuery}". Try a different search.`
+                    : "When customers text or call, their messages will appear here. Your AI agent handles them 24/7."}
+                </p>
               </div>
             )}
           </div>
@@ -246,10 +265,15 @@ export default function InboxPage() {
                       })()}
                       {selected.channel.toUpperCase()}
                       {selected.aiHandled && (
-                        <span className="ml-1 inline-flex items-center gap-0.5 text-primary">
-                          <Bot className="h-3 w-3" />
-                          AI handled
-                        </span>
+                        <Tooltip
+                          content="This conversation was handled by your AI agent. The AI answered the customer's call or message automatically, qualified the lead, and may have booked an appointment."
+                          position="bottom"
+                        >
+                          <span className="ml-1 inline-flex items-center gap-0.5 text-primary cursor-help">
+                            <Bot className="h-3 w-3" />
+                            AI handled
+                          </span>
+                        </Tooltip>
                       )}
                     </p>
                   </div>

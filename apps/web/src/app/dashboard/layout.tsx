@@ -33,14 +33,30 @@ export default function DashboardLayout({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Ctrl/Cmd+K — command palette
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+N — new deal (pipeline)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "N") {
+        e.preventDefault();
+        router.push("/dashboard/pipeline");
+        return;
+      }
+
+      // Ctrl/Cmd+N — new contact
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+        e.preventDefault();
+        router.push("/dashboard/contacts");
+        return;
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [router]);
 
   // Don't flash the dashboard while redirecting
   if (!ready) {
