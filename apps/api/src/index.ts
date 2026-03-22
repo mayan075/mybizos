@@ -26,7 +26,22 @@ const app = new Hono();
 // ── Global Middleware ──
 
 app.use('*', cors({
-  origin: config.CORS_ORIGIN,
+  origin: (origin) => {
+    const allowed = [
+      'http://localhost:3000',
+      'http://localhost:3002',
+      config.CORS_ORIGIN,
+    ];
+    // Allow any Vercel deployment URL
+    if (origin && (allowed.includes(origin) || origin.endsWith('.vercel.app'))) {
+      return origin;
+    }
+    // In dev, allow all origins
+    if (config.NODE_ENV === 'development') {
+      return origin || '*';
+    }
+    return allowed[0] as string;
+  },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -37,6 +52,14 @@ app.use('*', requestLogger);
 app.onError(errorHandler);
 
 // ── Health Check ──
+
+app.get('/', (c) => {
+  return c.json({
+    status: 'ok',
+    name: 'mybizos-api',
+    version: '0.1.0',
+  });
+});
 
 app.get('/health', (c) => {
   return c.json({

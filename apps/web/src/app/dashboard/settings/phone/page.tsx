@@ -7,11 +7,13 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   CircleHelp,
   Clock,
   ExternalLink,
   Eye,
   EyeOff,
+  Globe,
   Hash,
   Loader2,
   MessageSquare,
@@ -27,6 +29,7 @@ import {
   Bot,
   X,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SetupWizard, SuccessCelebration } from "./setup-wizard";
@@ -38,6 +41,8 @@ import { getOrgId, buildPath } from "@/lib/hooks/use-api";
 /* -------------------------------------------------------------------------- */
 
 type RoutingMode = "ai-first" | "ring-first" | "forward";
+type PhoneModel = "mybizos" | "byo-twilio";
+type NumberType = "local" | "mobile" | "toll-free";
 
 interface PhoneNumber {
   sid: string;
@@ -63,9 +68,81 @@ type TransferReason =
 
 interface PhoneSystemStatus {
   connected: boolean;
+  provider?: "mybizos" | "byo-twilio" | null;
   accountName?: string | null;
   numberCount?: number | null;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Twilio Pricing Data (Real prices as of March 2026)                         */
+/* -------------------------------------------------------------------------- */
+
+interface CountryPricing {
+  code: string;
+  flag: string;
+  name: string;
+  numberTypes: {
+    type: NumberType;
+    label: string;
+    monthlyPrice: number;
+    available: boolean;
+  }[];
+}
+
+const TWILIO_PRICING: CountryPricing[] = [
+  {
+    code: "AU",
+    flag: "\u{1F1E6}\u{1F1FA}",
+    name: "Australia",
+    numberTypes: [
+      { type: "local", label: "Local", monthlyPrice: 3.0, available: true },
+      { type: "mobile", label: "Mobile", monthlyPrice: 6.5, available: true },
+      { type: "toll-free", label: "Toll-Free", monthlyPrice: 16.0, available: true },
+    ],
+  },
+  {
+    code: "US",
+    flag: "\u{1F1FA}\u{1F1F8}",
+    name: "United States",
+    numberTypes: [
+      { type: "local", label: "Local", monthlyPrice: 1.15, available: true },
+      { type: "mobile", label: "Mobile", monthlyPrice: 1.15, available: true },
+      { type: "toll-free", label: "Toll-Free", monthlyPrice: 2.15, available: true },
+    ],
+  },
+  {
+    code: "GB",
+    flag: "\u{1F1EC}\u{1F1E7}",
+    name: "United Kingdom",
+    numberTypes: [
+      { type: "local", label: "Local", monthlyPrice: 1.0, available: true },
+      { type: "mobile", label: "Mobile", monthlyPrice: 1.0, available: true },
+      { type: "toll-free", label: "Toll-Free", monthlyPrice: 2.0, available: true },
+    ],
+  },
+  {
+    code: "CA",
+    flag: "\u{1F1E8}\u{1F1E6}",
+    name: "Canada",
+    numberTypes: [
+      { type: "local", label: "Local", monthlyPrice: 1.0, available: true },
+      { type: "mobile", label: "Mobile", monthlyPrice: 1.0, available: true },
+      { type: "toll-free", label: "Toll-Free", monthlyPrice: 2.15, available: true },
+    ],
+  },
+  {
+    code: "NZ",
+    flag: "\u{1F1F3}\u{1F1FF}",
+    name: "New Zealand",
+    numberTypes: [
+      { type: "local", label: "Local", monthlyPrice: 3.0, available: true },
+      { type: "mobile", label: "Mobile", monthlyPrice: 6.0, available: true },
+      { type: "toll-free", label: "Toll-Free", monthlyPrice: 12.0, available: true },
+    ],
+  },
+];
+
+const TWILIO_PRICING_URL = "https://www.twilio.com/en-us/voice/pricing";
 
 /* -------------------------------------------------------------------------- */
 /*  Mock Data (used when API is not available)                                  */
@@ -102,50 +179,43 @@ const DEFAULT_BUSINESS_HOURS: BusinessHoursDay[] = [
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Format an international phone number for display.
- * Handles Australian (+61), US (+1), and other formats.
- */
 function formatPhoneNumber(phone: string): string {
   const cleaned = phone.replace(/\s/g, "");
 
-  // Australian numbers: +61 X XXXX XXXX
   if (cleaned.startsWith("+61") && cleaned.length === 12) {
-    const local = cleaned.slice(3); // e.g. "291234567"
+    const local = cleaned.slice(3);
     return `+61 ${local.slice(0, 1)} ${local.slice(1, 5)} ${local.slice(5)}`;
   }
 
-  // Australian mobile: +61 4XX XXX XXX
   if (cleaned.startsWith("+614") && cleaned.length === 12) {
     const local = cleaned.slice(3);
     return `+61 ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
   }
 
-  // US/CA numbers: +1 (XXX) XXX-XXXX
   if (cleaned.startsWith("+1") && cleaned.length === 12) {
     const digits = cleaned.slice(2);
     return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
 
-  // UK numbers: +44 XXXX XXXXXX
   if (cleaned.startsWith("+44") && cleaned.length >= 13) {
     const local = cleaned.slice(3);
     return `+44 ${local.slice(0, 4)} ${local.slice(4)}`;
   }
 
-  // Fallback: insert space after country code
   if (cleaned.startsWith("+")) {
-    // Try to find a natural break after 1-3 digit country code
     const match = cleaned.match(/^(\+\d{1,3})(\d+)$/);
     if (match) {
       const [, cc, rest] = match;
-      // Chunk the rest into groups of 4
       const chunks = rest.match(/.{1,4}/g) ?? [rest];
       return `${cc} ${chunks.join(" ")}`;
     }
   }
 
   return phone;
+}
+
+function formatPrice(price: number): string {
+  return `$${price.toFixed(2)}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -327,22 +397,134 @@ function RoutingOptionCard({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Model Selection Card                                                       */
+/* -------------------------------------------------------------------------- */
+
+function ModelCard({
+  selected,
+  onSelect,
+  icon: Icon,
+  title,
+  subtitle,
+  badge,
+  badgeVariant,
+  features,
+  buttonText,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  badge: string;
+  badgeVariant: "recommended" | "advanced";
+  features: string[];
+  buttonText: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col rounded-2xl border-2 p-6 transition-all cursor-pointer group",
+        selected
+          ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+          : "border-border hover:border-muted-foreground/40 bg-card hover:shadow-md",
+      )}
+      onClick={onSelect}
+    >
+      {/* Badge */}
+      <span
+        className={cn(
+          "absolute -top-3 left-6 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+          badgeVariant === "recommended"
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {badgeVariant === "recommended" && <Sparkles className="h-3 w-3" />}
+        {badgeVariant === "advanced" && <Settings2 className="h-3 w-3" />}
+        {badge}
+      </span>
+
+      {/* Icon */}
+      <div
+        className={cn(
+          "flex h-12 w-12 items-center justify-center rounded-xl mb-4 transition-colors",
+          selected ? "bg-primary/10" : "bg-muted group-hover:bg-primary/5",
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-6 w-6 transition-colors",
+            selected ? "text-primary" : "text-muted-foreground group-hover:text-primary",
+          )}
+        />
+      </div>
+
+      {/* Title + Subtitle */}
+      <h3 className="text-lg font-bold text-foreground">{title}</h3>
+      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+
+      {/* Features */}
+      <ul className="mt-4 space-y-2 flex-1">
+        {features.map((feature) => (
+          <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+            {feature}
+          </li>
+        ))}
+      </ul>
+
+      {/* Button */}
+      <button
+        className={cn(
+          "mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all",
+          selected
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "bg-muted text-foreground hover:bg-muted/80",
+        )}
+      >
+        {buttonText}
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Main Page Component                                                        */
 /* -------------------------------------------------------------------------- */
 
 export default function PhoneSettingsPage() {
+  // ---- Top-level view state ----
+  type ViewState =
+    | "loading"
+    | "model-select"
+    | "mybizos-wizard"
+    | "byo-wizard"
+    | "connected"
+    | "configure-number";
+
+  const [view, setView] = useState<ViewState>("loading");
+  const [connectedProvider, setConnectedProvider] = useState<PhoneModel | null>(null);
+
   // ---- Connection state ----
-  const [isConnected, setIsConnected] = useState(false);
   const [isLive, setIsLive] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(true);
   const [accountName, setAccountName] = useState<string | null>(null);
-  const [wizardStep, setWizardStep] = useState(0);
+
+  // ---- BYO Twilio wizard state ----
+  const [byoStep, setByoStep] = useState(0);
   const [accountSid, setAccountSid] = useState("");
   const [authToken, setAuthToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [setupComplete, setSetupComplete] = useState(false);
+
+  // ---- MyBizOS wizard state ----
+  const [mybizosStep, setMybizosStep] = useState(0);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedNumberType, setSelectedNumberType] = useState<NumberType | null>(null);
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
 
   // ---- Phone numbers state ----
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
@@ -385,10 +567,8 @@ export default function PhoneSettingsPage() {
   // ---- Advanced ----
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // ---- Save loading ----
+  // ---- Save / Disconnect loading ----
   const [saveLoading, setSaveLoading] = useState(false);
-
-  // ---- Disconnect loading ----
   const [disconnectLoading, setDisconnectLoading] = useState(false);
 
   // ---- Toast ----
@@ -401,9 +581,7 @@ export default function PhoneSettingsPage() {
 
   function toggleTransferReason(reason: TransferReason) {
     setTransferReasons((prev) =>
-      prev.includes(reason)
-        ? prev.filter((r) => r !== reason)
-        : [...prev, reason],
+      prev.includes(reason) ? prev.filter((r) => r !== reason) : [...prev, reason],
     );
   }
 
@@ -417,26 +595,28 @@ export default function PhoneSettingsPage() {
     );
   }
 
+  // ---- Derived ----
+  const configuringNumber = phoneNumbers.find((n) => n.sid === configuringNumberSid);
+  const selectedCountryData = TWILIO_PRICING.find((c) => c.code === selectedCountry);
+
   // ---- API Calls ----
 
   const fetchStatus = useCallback(async () => {
-    setStatusLoading(true);
     const path = buildPath("/orgs/:orgId/phone-system/status");
     const result = await tryFetch(() => apiClient.get<PhoneSystemStatus>(path));
 
     if (result !== null) {
       setIsLive(true);
-      setIsConnected(result.connected);
-      setAccountName(result.accountName ?? null);
       if (result.connected) {
-        setSetupComplete(true);
+        setConnectedProvider(result.provider ?? "byo-twilio");
+        setAccountName(result.accountName ?? null);
+        setView("connected");
+        return;
       }
     } else {
-      // API unreachable -- demo mode
       setIsLive(false);
-      setIsConnected(false);
     }
-    setStatusLoading(false);
+    setView("model-select");
   }, []);
 
   const fetchNumbers = useCallback(async () => {
@@ -450,14 +630,13 @@ export default function PhoneSettingsPage() {
       setPhoneNumbers(result.numbers);
       setIsLive(true);
     } else {
-      // Fallback to mock data
       setPhoneNumbers(MOCK_NUMBERS);
       setIsLive(false);
     }
     setNumbersLoading(false);
   }, []);
 
-  const handleConnect = useCallback(async () => {
+  const handleBYOConnect = useCallback(async () => {
     setConnectLoading(true);
     setConnectError(null);
 
@@ -468,23 +647,20 @@ export default function PhoneSettingsPage() {
         apiClient.post<{ success: boolean; accountName: string }>(path, {
           accountSid,
           authToken,
+          provider: "byo-twilio",
         }),
       );
 
       if (result !== null) {
-        setIsConnected(true);
         setIsLive(true);
         setAccountName(result.accountName);
-        setWizardStep(1);
-        // Fetch real numbers immediately
+        setByoStep(1);
         await fetchNumbers();
       } else {
-        // API not reachable: simulate success for demo mode
-        setIsConnected(true);
         setIsLive(false);
         setAccountName("Demo Account");
         setPhoneNumbers(MOCK_NUMBERS);
-        setWizardStep(1);
+        setByoStep(1);
       }
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -539,7 +715,10 @@ export default function PhoneSettingsPage() {
       }
 
       setSaveLoading(false);
-      setTimeout(() => setConfiguringNumberSid(null), 800);
+      setTimeout(() => {
+        setConfiguringNumberSid(null);
+        setView("connected");
+      }, 800);
     },
     [
       routingMode, aiVoice, aiGreeting, transferReasons, transferNumber,
@@ -554,51 +733,76 @@ export default function PhoneSettingsPage() {
     const path = buildPath("/orgs/:orgId/phone-system/disconnect");
     await tryFetch(() => apiClient.delete<{ success: boolean }>(path));
 
-    setIsConnected(false);
-    setSetupComplete(false);
+    setConnectedProvider(null);
     setAccountName(null);
     setPhoneNumbers([]);
-    setWizardStep(0);
+    setByoStep(0);
+    setMybizosStep(0);
     setAccountSid("");
     setAuthToken("");
+    setSelectedCountry(null);
+    setSelectedNumberType(null);
     setDisconnectLoading(false);
-    showToast("Twilio account disconnected");
+    setView("model-select");
+    showToast("Phone system disconnected");
   }, []);
 
-  // ---- On mount: check connection status ----
+  // ---- On mount ----
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
 
   // ---- When connected, fetch numbers ----
   useEffect(() => {
-    if (isConnected && setupComplete) {
+    if (view === "connected") {
       fetchNumbers();
     }
-  }, [isConnected, setupComplete, fetchNumbers]);
+  }, [view, fetchNumbers]);
 
-  const configuringNumber = phoneNumbers.find((n) => n.sid === configuringNumberSid);
-
-  // ---- Wizard steps ----
-  const wizardSteps = [
+  // ---- BYO Wizard steps ----
+  const byoWizardSteps = [
     { title: "Connect Account", description: "Link your Twilio account" },
-    { title: "Choose Number", description: "Select your phone numbers" },
+    { title: "Choose Numbers", description: "Select your phone numbers" },
     { title: "All Done!", description: "Your phone system is ready" },
   ];
 
-  const canProceedWizard =
-    wizardStep === 0
+  const canProceedBYO =
+    byoStep === 0
       ? accountSid.length > 10 && authToken.length > 10 && !connectLoading
-      : wizardStep === 1
+      : byoStep === 1
         ? selectedNumbers.size > 0
         : true;
+
+  // ---- MyBizOS Wizard steps ----
+  const mybizosWizardSteps = [
+    { title: "Country", description: "Choose your country" },
+    { title: "Number Type", description: "Choose a number type" },
+    { title: "Get Number", description: "Reserve your number" },
+  ];
+
+  const canProceedMyBizOS =
+    mybizosStep === 0
+      ? selectedCountry !== null
+      : mybizosStep === 1
+        ? selectedNumberType !== null
+        : mybizosStep === 2
+          ? waitlistName.length > 1 && waitlistEmail.includes("@")
+          : true;
 
   // ======================================================================= //
   //  RENDER                                                                   //
   // ======================================================================= //
 
-  // Loading state
-  if (statusLoading) {
+  // Toast (always rendered)
+  const toastElement = toast && (
+    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg animate-in slide-in-from-top-2 duration-200">
+      <CheckCircle2 className="h-4 w-4" />
+      {toast}
+    </div>
+  );
+
+  // Loading
+  if (view === "loading") {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -606,24 +810,22 @@ export default function PhoneSettingsPage() {
     );
   }
 
-  // If we're configuring a specific number, show the routing config panel
-  if (configuringNumberSid && configuringNumber) {
+  // ================================================================== //
+  //  CONFIGURE NUMBER VIEW                                               //
+  // ================================================================== //
+  if (view === "configure-number" && configuringNumberSid && configuringNumber) {
     return (
       <div className="space-y-6 max-w-3xl">
-        {/* Toast */}
-        {toast && (
-          <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg animate-in slide-in-from-top-2 duration-200">
-            <CheckCircle2 className="h-4 w-4" />
-            {toast}
-          </div>
-        )}
-
+        {toastElement}
         {!isLive && <DemoBanner />}
 
         {/* Back header */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setConfiguringNumberSid(null)}
+            onClick={() => {
+              setConfiguringNumberSid(null);
+              setView("connected");
+            }}
             className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -638,9 +840,7 @@ export default function PhoneSettingsPage() {
           </div>
         </div>
 
-        {/* ================================================================ */}
-        {/*  WHO ANSWERS?                                                     */}
-        {/* ================================================================ */}
+        {/* WHO ANSWERS? */}
         <SectionCard
           title="Who Answers Your Phone?"
           description="Choose how incoming calls are handled for this number"
@@ -656,13 +856,9 @@ export default function PhoneSettingsPage() {
               description="Your AI assistant picks up instantly, qualifies the caller, and books appointments 24/7"
               recommended
             >
-              {/* AI sub-options */}
               <div className="space-y-4 border-t border-border pt-4">
-                {/* Voice */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    AI Voice
-                  </label>
+                  <label className="text-sm font-medium text-foreground">AI Voice</label>
                   <select
                     value={aiVoice}
                     onChange={(e) => setAiVoice(e.target.value)}
@@ -675,11 +871,8 @@ export default function PhoneSettingsPage() {
                   </select>
                 </div>
 
-                {/* Greeting */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    What the AI says first
-                  </label>
+                  <label className="text-sm font-medium text-foreground">What the AI says first</label>
                   <textarea
                     value={aiGreeting}
                     onChange={(e) => setAiGreeting(e.target.value)}
@@ -687,38 +880,19 @@ export default function PhoneSettingsPage() {
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    The AI will always disclose it's an AI assistant and mention
-                    call recording for compliance.
+                    The AI will always disclose it's an AI assistant and mention call recording for compliance.
                   </p>
                 </div>
 
-                {/* Transfer reasons */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground">
-                    When should the AI transfer to you?
-                  </label>
+                  <label className="text-sm font-medium text-foreground">When should the AI transfer to you?</label>
                   <div className="space-y-2">
                     {[
-                      {
-                        id: "caller-requests" as TransferReason,
-                        label: "Caller asks to speak to a real person",
-                      },
-                      {
-                        id: "emergency" as TransferReason,
-                        label: "Emergency detected (flooding, gas leak, fire)",
-                      },
-                      {
-                        id: "misunderstanding" as TransferReason,
-                        label: "AI can't understand the caller after 2 tries",
-                      },
-                      {
-                        id: "high-quote" as TransferReason,
-                        label: "Caller wants a price quote over $500",
-                      },
-                      {
-                        id: "always-after-qualifying" as TransferReason,
-                        label: "Always transfer after qualifying (AI gathers info, then connects you)",
-                      },
+                      { id: "caller-requests" as TransferReason, label: "Caller asks to speak to a real person" },
+                      { id: "emergency" as TransferReason, label: "Emergency detected (flooding, gas leak, fire)" },
+                      { id: "misunderstanding" as TransferReason, label: "AI can't understand the caller after 2 tries" },
+                      { id: "high-quote" as TransferReason, label: "Caller wants a price quote over $500" },
+                      { id: "always-after-qualifying" as TransferReason, label: "Always transfer after qualifying (AI gathers info, then connects you)" },
                     ].map((reason) => (
                       <label
                         key={reason.id}
@@ -730,19 +904,14 @@ export default function PhoneSettingsPage() {
                           onChange={() => toggleTransferReason(reason.id)}
                           className="h-4 w-4 rounded border-input text-primary focus:ring-ring accent-primary"
                         />
-                        <span className="text-sm text-foreground">
-                          {reason.label}
-                        </span>
+                        <span className="text-sm text-foreground">{reason.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Transfer to */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Transfer calls to this number
-                  </label>
+                  <label className="text-sm font-medium text-foreground">Transfer calls to this number</label>
                   <input
                     type="tel"
                     value={transferNumber}
@@ -750,9 +919,7 @@ export default function PhoneSettingsPage() {
                     placeholder="+61 4XX XXX XXX"
                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Usually the business owner's mobile number
-                  </p>
+                  <p className="text-xs text-muted-foreground">Usually the business owner's mobile number</p>
                 </div>
               </div>
             </RoutingOptionCard>
@@ -766,11 +933,8 @@ export default function PhoneSettingsPage() {
               description="Your phone rings first. If you don't answer, the AI takes over."
             >
               <div className="space-y-4 border-t border-border pt-4">
-                {/* Ring duration */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    How long should your phone ring?
-                  </label>
+                  <label className="text-sm font-medium text-foreground">How long should your phone ring?</label>
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
@@ -787,11 +951,8 @@ export default function PhoneSettingsPage() {
                   </div>
                 </div>
 
-                {/* No answer action */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground">
-                    If you don't answer:
-                  </label>
+                  <label className="text-sm font-medium text-foreground">If you don't answer:</label>
                   <div className="space-y-2">
                     {[
                       { id: "ai" as const, label: "AI picks up and handles the call", icon: Bot },
@@ -832,7 +993,7 @@ export default function PhoneSettingsPage() {
               </div>
             </RoutingOptionCard>
 
-            {/* Simple Forward */}
+            {/* Forward */}
             <RoutingOptionCard
               selected={routingMode === "forward"}
               onSelect={() => setRoutingMode("forward")}
@@ -841,9 +1002,7 @@ export default function PhoneSettingsPage() {
               description="Simple call forwarding. No AI involved."
             >
               <div className="space-y-2 border-t border-border pt-4">
-                <label className="text-sm font-medium text-foreground">
-                  Forward all calls to:
-                </label>
+                <label className="text-sm font-medium text-foreground">Forward all calls to:</label>
                 <input
                   type="tel"
                   value={forwardNumber}
@@ -856,9 +1015,7 @@ export default function PhoneSettingsPage() {
           </div>
         </SectionCard>
 
-        {/* ================================================================ */}
-        {/*  BUSINESS HOURS                                                    */}
-        {/* ================================================================ */}
+        {/* BUSINESS HOURS */}
         <SectionCard
           title="Business Hours Routing"
           description="Use different call handling during and after business hours"
@@ -873,19 +1030,13 @@ export default function PhoneSettingsPage() {
                 Example: Ring your phone during the day, AI answers at night
               </p>
             </div>
-            <ToggleSwitch
-              enabled={useBusinessHours}
-              onToggle={() => setUseBusinessHours(!useBusinessHours)}
-            />
+            <ToggleSwitch enabled={useBusinessHours} onToggle={() => setUseBusinessHours(!useBusinessHours)} />
           </div>
 
           {useBusinessHours && (
             <div className="space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Hours grid */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Your Business Hours
-                </label>
+                <label className="text-sm font-medium text-foreground">Your Business Hours</label>
                 <div className="rounded-lg border border-border divide-y divide-border">
                   {businessHours.map((day, i) => (
                     <div key={day.day} className="flex items-center gap-3 px-4 py-2.5">
@@ -929,7 +1080,6 @@ export default function PhoneSettingsPage() {
                 </div>
               </div>
 
-              {/* During / After routing */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 rounded-lg border border-border p-4">
                   <label className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -966,19 +1116,11 @@ export default function PhoneSettingsPage() {
           )}
         </SectionCard>
 
-        {/* ================================================================ */}
-        {/*  CALL RECORDING                                                    */}
-        {/* ================================================================ */}
-        <SectionCard
-          title="Call Recording"
-          description="Record calls so you can review them later"
-          icon={Mic}
-        >
+        {/* CALL RECORDING */}
+        <SectionCard title="Call Recording" description="Record calls so you can review them later" icon={Mic}>
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
-              <p className="text-sm font-medium text-foreground">
-                Record all calls on this number
-              </p>
+              <p className="text-sm font-medium text-foreground">Record all calls on this number</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Recordings are stored securely and available in your call history
               </p>
@@ -990,27 +1132,18 @@ export default function PhoneSettingsPage() {
               <Shield className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">Compliance note:</span>{" "}
-                The AI will automatically tell callers that the call may be
-                recorded. This is required by law in most jurisdictions.
+                The AI will automatically tell callers that the call may be recorded.
               </p>
             </div>
           )}
         </SectionCard>
 
-        {/* ================================================================ */}
-        {/*  SMS SETTINGS                                                      */}
-        {/* ================================================================ */}
-        <SectionCard
-          title="Text Messaging (SMS)"
-          description="Let customers text this number"
-          icon={MessageSquare}
-        >
+        {/* SMS */}
+        <SectionCard title="Text Messaging (SMS)" description="Let customers text this number" icon={MessageSquare}>
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
               <p className="text-sm font-medium text-foreground">Enable texting on this number</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Customers can send and receive text messages
-              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Customers can send and receive text messages</p>
             </div>
             <ToggleSwitch enabled={smsEnabled} onToggle={() => setSmsEnabled(!smsEnabled)} />
           </div>
@@ -1020,20 +1153,13 @@ export default function PhoneSettingsPage() {
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div>
                   <p className="text-sm font-medium text-foreground">AI auto-responds to texts</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    AI reads incoming texts and replies instantly
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">AI reads incoming texts and replies instantly</p>
                 </div>
-                <ToggleSwitch
-                  enabled={smsAutoRespond}
-                  onToggle={() => setSmsAutoRespond(!smsAutoRespond)}
-                />
+                <ToggleSwitch enabled={smsAutoRespond} onToggle={() => setSmsAutoRespond(!smsAutoRespond)} />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  After-hours auto-reply message
-                </label>
+                <label className="text-sm font-medium text-foreground">After-hours auto-reply message</label>
                 <textarea
                   value={afterHoursReply}
                   onChange={(e) => setAfterHoursReply(e.target.value)}
@@ -1046,15 +1172,14 @@ export default function PhoneSettingsPage() {
                 <Shield className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">Required by law (TCPA/Spam Act):</span>{" "}
-                  All marketing texts will include "Reply STOP to opt out." This
-                  is automatic and cannot be removed.
+                  All marketing texts will include "Reply STOP to opt out." This is automatic.
                 </p>
               </div>
             </div>
           )}
         </SectionCard>
 
-        {/* Advanced accordion */}
+        {/* Advanced */}
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
           className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-6 py-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -1063,27 +1188,19 @@ export default function PhoneSettingsPage() {
             <Settings2 className="h-4 w-4" />
             Advanced Settings
           </span>
-          <ChevronDown
-            className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")}
-          />
+          <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
         </button>
 
         {showAdvanced && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Caller ID for outbound calls
-              </label>
+              <label className="text-sm font-medium text-foreground">Caller ID for outbound calls</label>
               <select className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-                <option>
-                  {formatPhoneNumber(configuringNumber.phoneNumber)} (this number)
-                </option>
+                <option>{formatPhoneNumber(configuringNumber.phoneNumber)} (this number)</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Maximum call duration (minutes)
-              </label>
+              <label className="text-sm font-medium text-foreground">Maximum call duration (minutes)</label>
               <input
                 type="number"
                 defaultValue={60}
@@ -1093,9 +1210,7 @@ export default function PhoneSettingsPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Whisper message before connecting
-              </label>
+              <label className="text-sm font-medium text-foreground">Whisper message before connecting</label>
               <input
                 type="text"
                 placeholder="e.g., 'Incoming call from Google Ads lead'"
@@ -1118,11 +1233,7 @@ export default function PhoneSettingsPage() {
             disabled={saveLoading}
             className="flex h-10 items-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saveLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
+            {saveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saveLoading ? "Saving..." : "Save Settings"}
           </button>
         </div>
@@ -1130,80 +1241,350 @@ export default function PhoneSettingsPage() {
     );
   }
 
-  // ==================================================================== //
-  //  MAIN VIEW (not configuring a specific number)                        //
-  // ==================================================================== //
+  // ================================================================== //
+  //  MODEL SELECT VIEW                                                   //
+  // ================================================================== //
+  if (view === "model-select") {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        {toastElement}
 
-  return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg animate-in slide-in-from-top-2 duration-200">
-          <CheckCircle2 className="h-4 w-4" />
-          {toast}
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/settings"
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Phone System</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Choose how you want to set up your business phone
+            </p>
+          </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/dashboard/settings"
-          className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Phone System</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Set up and manage your business phone numbers
-          </p>
+        {/* Two model cards side by side */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <ModelCard
+            selected={false}
+            onSelect={() => setView("mybizos-wizard")}
+            icon={Sparkles}
+            title="Get a MyBizOS Phone Number"
+            subtitle="We handle everything. Get a number in 60 seconds."
+            badge="Recommended"
+            badgeVariant="recommended"
+            features={[
+              "No technical setup required",
+              "AI answers calls immediately",
+              "Numbers from 100+ countries",
+              "Simple monthly pricing",
+            ]}
+            buttonText="Get Started"
+          />
+
+          <ModelCard
+            selected={false}
+            onSelect={() => setView("byo-wizard")}
+            icon={Settings2}
+            title="Connect Your Own Twilio"
+            subtitle="For businesses that already have a Twilio account."
+            badge="Advanced"
+            badgeVariant="advanced"
+            features={[
+              "Use your existing numbers",
+              "Direct Twilio billing",
+              "Full API access",
+              "Complete control",
+            ]}
+            buttonText="Connect Twilio"
+          />
         </div>
       </div>
+    );
+  }
 
-      {/* ================================================================ */}
-      {/*  SECTION 1: TWILIO CONNECTION / SETUP WIZARD                      */}
-      {/* ================================================================ */}
-      {!isConnected && !setupComplete ? (
-        <SectionCard
-          title="Connect Your Phone System"
-          description="Get set up in under 5 minutes. No technical skills needed."
-          icon={Phone}
-        >
+  // ================================================================== //
+  //  MYBIZOS WIZARD (Model B)                                            //
+  // ================================================================== //
+  if (view === "mybizos-wizard") {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        {toastElement}
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setView("model-select");
+              setMybizosStep(0);
+              setSelectedCountry(null);
+              setSelectedNumberType(null);
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Get a MyBizOS Phone Number</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              We handle everything behind the scenes
+            </p>
+          </div>
+        </div>
+
+        <SectionCard title="Set Up Your Number" icon={Sparkles}>
           <SetupWizard
-            steps={wizardSteps}
-            currentStep={wizardStep}
+            steps={mybizosWizardSteps}
+            currentStep={mybizosStep}
             onNext={() => {
-              if (wizardStep === 0) {
-                // Trigger connect API call
-                handleConnect();
-                return; // Don't advance step yet; handleConnect does it on success
-              }
-              setWizardStep((s) => Math.min(s + 1, wizardSteps.length - 1));
+              setMybizosStep((s) => Math.min(s + 1, mybizosWizardSteps.length - 1));
             }}
             onBack={() => {
-              setConnectError(null);
-              setWizardStep((s) => Math.max(s - 1, 0));
+              if (mybizosStep === 0) {
+                setView("model-select");
+                return;
+              }
+              setMybizosStep((s) => Math.max(s - 1, 0));
             }}
             onComplete={() => {
-              setSetupComplete(true);
-              setIsConnected(true);
+              showToast("You're on the waitlist! We'll email you when your number is ready.");
+              setView("model-select");
+            }}
+            canProceed={canProceedMyBizOS}
+          >
+            {/* Step 1: Select Country */}
+            {mybizosStep === 0 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Where is your business located? We'll show you available number types and pricing.
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {TWILIO_PRICING.map((country) => (
+                    <button
+                      key={country.code}
+                      onClick={() => setSelectedCountry(country.code)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                        selectedCountry === country.code
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-muted-foreground/30",
+                      )}
+                    >
+                      <span className="text-3xl">{country.flag}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{country.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          From {formatPrice(Math.min(...country.numberTypes.map((t) => t.monthlyPrice)))}/mo
+                        </p>
+                      </div>
+                      {selectedCountry === country.code && (
+                        <Check className="h-5 w-5 text-primary ml-auto shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <button className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors pt-1">
+                  <Globe className="h-4 w-4" />
+                  More countries coming soon
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Choose Number Type */}
+            {mybizosStep === 1 && selectedCountryData && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Choose a number type for {selectedCountryData.flag} {selectedCountryData.name}
+                </p>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {selectedCountryData.numberTypes.map((nt) => (
+                    <button
+                      key={nt.type}
+                      onClick={() => setSelectedNumberType(nt.type)}
+                      disabled={!nt.available}
+                      className={cn(
+                        "relative flex flex-col items-center rounded-xl border-2 p-5 text-center transition-all",
+                        selectedNumberType === nt.type
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : nt.available
+                            ? "border-border hover:border-muted-foreground/30"
+                            : "border-border opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {nt.type === "local" && (
+                        <span className="absolute -top-2 right-3 inline-flex items-center rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          Popular
+                        </span>
+                      )}
+                      <div
+                        className={cn(
+                          "flex h-12 w-12 items-center justify-center rounded-full mb-3",
+                          selectedNumberType === nt.type ? "bg-primary/10" : "bg-muted",
+                        )}
+                      >
+                        {nt.type === "local" && <Phone className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
+                        {nt.type === "mobile" && <Phone className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
+                        {nt.type === "toll-free" && <Zap className={cn("h-5 w-5", selectedNumberType === nt.type ? "text-primary" : "text-muted-foreground")} />}
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">{nt.label}</p>
+                      <p className="text-2xl font-bold text-foreground mt-1">{formatPrice(nt.monthlyPrice)}</p>
+                      <p className="text-xs text-muted-foreground">per month</p>
+                      {selectedNumberType === nt.type && (
+                        <div className="absolute top-3 left-3">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
+                  <span>Prices from Twilio as of March 2026. Actual prices may vary.</span>
+                  <a
+                    href={TWILIO_PRICING_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium"
+                  >
+                    See current pricing
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Reserve / Waitlist */}
+            {mybizosStep === 2 && selectedCountryData && selectedNumberType && (
+              <div className="space-y-5">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{selectedCountryData.flag}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {selectedCountryData.name} {selectedCountryData.numberTypes.find((t) => t.type === selectedNumberType)?.label} Number
+                      </p>
+                      <p className="text-sm text-primary font-bold">
+                        {formatPrice(selectedCountryData.numberTypes.find((t) => t.type === selectedNumberType)?.monthlyPrice ?? 0)}/month
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+                    <p className="text-sm font-medium text-foreground">Coming Soon</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    We're setting up our managed phone service. Enter your details below to be first in line when it launches. We'll email you as soon as your number is ready.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Business Name</label>
+                    <input
+                      type="text"
+                      value={waitlistName}
+                      onChange={(e) => setWaitlistName(e.target.value)}
+                      placeholder="e.g., Smith's Plumbing"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Email Address</label>
+                    <input
+                      type="email"
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      placeholder="you@yourbusiness.com"
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      We'll only use this to notify you when your number is ready
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </SetupWizard>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  // ================================================================== //
+  //  BYO TWILIO WIZARD (Model A)                                         //
+  // ================================================================== //
+  if (view === "byo-wizard") {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        {toastElement}
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setView("model-select");
+              setByoStep(0);
+              setAccountSid("");
+              setAuthToken("");
+              setConnectError(null);
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">Connect Your Own Twilio</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Link your existing Twilio account to MyBizOS
+            </p>
+          </div>
+        </div>
+
+        <SectionCard title="Connect Twilio Account" icon={Settings2}>
+          <SetupWizard
+            steps={byoWizardSteps}
+            currentStep={byoStep}
+            onNext={() => {
+              if (byoStep === 0) {
+                handleBYOConnect();
+                return;
+              }
+              setByoStep((s) => Math.min(s + 1, byoWizardSteps.length - 1));
+            }}
+            onBack={() => {
+              if (byoStep === 0) {
+                setView("model-select");
+                return;
+              }
+              setConnectError(null);
+              setByoStep((s) => Math.max(s - 1, 0));
+            }}
+            onComplete={() => {
+              setConnectedProvider("byo-twilio");
+              setView("connected");
               showToast("Phone system connected successfully!");
             }}
-            canProceed={canProceedWizard}
+            canProceed={canProceedBYO}
             isLoading={connectLoading}
           >
-            {/* Step 1: Connect Twilio */}
-            {wizardStep === 0 && (
+            {/* Step 1: Credentials */}
+            {byoStep === 0 && (
               <div className="space-y-5">
                 <div className="rounded-lg bg-blue-500/5 border border-blue-500/10 p-4 space-y-2">
-                  <p className="text-sm font-medium text-foreground">
-                    What is Twilio?
-                  </p>
+                  <p className="text-sm font-medium text-foreground">How it works</p>
                   <p className="text-sm text-muted-foreground">
-                    Twilio powers your phone system behind the scenes. It costs
-                    about <strong>$1/month per phone number</strong> and{" "}
-                    <strong>$0.01 per text message</strong>. You pay Twilio
-                    directly for usage.
+                    Connect your Twilio account so MyBizOS can manage your phone numbers.
+                    You keep full control and pay Twilio directly for usage.
                   </p>
                 </div>
 
@@ -1214,15 +1595,14 @@ export default function PhoneSettingsPage() {
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/30 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Create Free Twilio Account (opens in new tab)
+                  Don't have a Twilio account? Create one free
                 </a>
 
                 <div className="space-y-4 pt-2">
-                  {/* Account SID */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                      Your Account Identifier
-                      <Tooltip text="In Twilio, go to your Dashboard. You'll see 'Account SID' near the top. Copy and paste it here. It looks like a long string starting with 'AC'." />
+                      Account SID
+                      <Tooltip text="In Twilio, go to your Dashboard. You'll see 'Account SID' near the top. Copy and paste it here. It starts with 'AC'." />
                     </label>
                     <input
                       type="text"
@@ -1231,16 +1611,15 @@ export default function PhoneSettingsPage() {
                         setAccountSid(e.target.value);
                         setConnectError(null);
                       }}
-                      placeholder="Paste your Account SID here (starts with AC...)"
+                      placeholder="Starts with AC..."
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors font-mono"
                     />
                   </div>
 
-                  {/* Auth Token */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                      Your Secret Key
-                      <Tooltip text="Right below the Account SID on your Twilio Dashboard, you'll see 'Auth Token'. Click the eye icon to reveal it, then copy and paste it here. Keep this secret!" />
+                      Auth Token
+                      <Tooltip text="Right below the Account SID on your Twilio Dashboard, you'll see 'Auth Token'. Click the eye icon to reveal it, then copy and paste it here." />
                     </label>
                     <div className="relative">
                       <input
@@ -1266,20 +1645,39 @@ export default function PhoneSettingsPage() {
                   </div>
                 </div>
 
-                {/* Connection error */}
+                {/* Where do I find these? */}
+                <details className="rounded-lg border border-border">
+                  <summary className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    <CircleHelp className="h-4 w-4" />
+                    Where do I find these?
+                  </summary>
+                  <div className="px-4 pb-4 space-y-2 text-sm text-muted-foreground">
+                    <ol className="list-decimal list-inside space-y-1.5">
+                      <li>
+                        Go to{" "}
+                        <a href="https://www.twilio.com/console" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          twilio.com/console
+                        </a>
+                      </li>
+                      <li>Sign in to your Twilio account</li>
+                      <li>On the dashboard, you'll see <strong className="text-foreground">Account SID</strong> and <strong className="text-foreground">Auth Token</strong></li>
+                      <li>Click the copy icon next to each to copy them</li>
+                      <li>Paste them in the fields above</li>
+                    </ol>
+                  </div>
+                </details>
+
                 {connectError && (
                   <div className="flex items-start gap-2 rounded-lg bg-red-500/5 border border-red-500/20 p-3 animate-in fade-in duration-200">
                     <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                    <p className="text-sm text-red-700 dark:text-red-400">
-                      {connectError}
-                    </p>
+                    <p className="text-sm text-red-700 dark:text-red-400">{connectError}</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Step 2: Choose Number */}
-            {wizardStep === 1 && (
+            {/* Step 2: Your Numbers */}
+            {byoStep === 1 && (
               <div className="space-y-4">
                 {!isLive && <DemoBanner />}
 
@@ -1293,12 +1691,9 @@ export default function PhoneSettingsPage() {
                 ) : phoneNumbers.length === 0 ? (
                   <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 p-6 text-center space-y-3">
                     <Phone className="h-8 w-8 text-amber-600 mx-auto" />
-                    <p className="text-sm font-medium text-foreground">
-                      No phone numbers found
-                    </p>
+                    <p className="text-sm font-medium text-foreground">No phone numbers found</p>
                     <p className="text-sm text-muted-foreground">
                       You don't have any phone numbers in your Twilio account yet.
-                      Purchase one from the Twilio console.
                     </p>
                     <a
                       href="https://www.twilio.com/console/phone-numbers/search"
@@ -1323,9 +1718,7 @@ export default function PhoneSettingsPage() {
                             key={num.sid}
                             className={cn(
                               "flex items-center gap-3 rounded-lg border p-4 cursor-pointer transition-colors",
-                              isSelected
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:bg-muted/50",
+                              isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50",
                             )}
                           >
                             <input
@@ -1350,22 +1743,18 @@ export default function PhoneSettingsPage() {
                                   {formatPhoneNumber(num.phoneNumber)}
                                 </span>
                                 {num.friendlyName && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {num.friendlyName}
-                                  </span>
+                                  <span className="text-xs text-muted-foreground">{num.friendlyName}</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-1">
                                 {num.voiceEnabled && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-                                    <Phone className="h-3 w-3" />
-                                    Voice
+                                    <Phone className="h-3 w-3" /> Voice
                                   </span>
                                 )}
                                 {num.smsEnabled && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
-                                    <MessageSquare className="h-3 w-3" />
-                                    SMS
+                                    <MessageSquare className="h-3 w-3" /> SMS
                                   </span>
                                 )}
                               </div>
@@ -1380,129 +1769,161 @@ export default function PhoneSettingsPage() {
             )}
 
             {/* Step 3: Success */}
-            {wizardStep === 2 && (
+            {byoStep === 2 && (
               <SuccessCelebration
                 title="Your Phone System is Ready!"
-                message="Calls to your selected numbers will be answered by AI immediately. You can customise everything from this settings page."
+                message="Calls to your selected numbers will be answered by AI immediately. You can customise everything from the settings page."
               />
             )}
           </SetupWizard>
         </SectionCard>
-      ) : (
-        <>
-          {!isLive && <DemoBanner />}
+      </div>
+    );
+  }
 
-          {/* Connected status banner */}
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Phone System Connected
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {accountName ? `${accountName} \u00b7 ` : "Twilio account linked \u00b7 "}
-                  {phoneNumbers.length} number{phoneNumbers.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleDisconnect}
-              disabled={disconnectLoading}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 px-3 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-            >
-              {disconnectLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="h-3.5 w-3.5" />
-              )}
-              Disconnect
-            </button>
-          </div>
+  // ================================================================== //
+  //  CONNECTED VIEW                                                      //
+  // ================================================================== //
+  if (view === "connected") {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        {toastElement}
 
-          {/* ============================================================ */}
-          {/*  SECTION 2: YOUR PHONE NUMBERS                                */}
-          {/* ============================================================ */}
-          <SectionCard
-            title="Your Phone Numbers"
-            description="Manage your business phone numbers and how calls are handled"
-            icon={Hash}
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/settings"
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"
           >
-            {numbersLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Loading numbers...
-                </span>
-              </div>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Phone System</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Manage your business phone numbers
+            </p>
+          </div>
+        </div>
+
+        {!isLive && <DemoBanner />}
+
+        {/* Connected status banner */}
+        <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Phone System Connected</p>
+              <p className="text-xs text-muted-foreground">
+                {connectedProvider === "mybizos" ? "MyBizOS Phone" : "Your Twilio Account"}
+                {accountName ? ` \u00b7 ${accountName}` : ""}
+                {" \u00b7 "}
+                {phoneNumbers.length} number{phoneNumbers.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnectLoading}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 px-3 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+          >
+            {disconnectLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <div className="space-y-3">
-                {phoneNumbers.map((pn) => (
-                  <div
-                    key={pn.sid}
-                    className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                        <Phone className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-foreground">
-                            {formatPhoneNumber(pn.phoneNumber)}
-                          </p>
-                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                            Active
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {pn.friendlyName}
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Disconnect
+          </button>
+        </div>
+
+        {/* Phone Numbers List */}
+        <SectionCard
+          title="Your Phone Numbers"
+          description="Manage your business phone numbers and how calls are handled"
+          icon={Hash}
+        >
+          {numbersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading numbers...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {phoneNumbers.map((pn) => (
+                <div
+                  key={pn.sid}
+                  className="flex items-center justify-between rounded-lg border border-border p-4 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                      <Phone className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">
+                          {formatPhoneNumber(pn.phoneNumber)}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          {pn.voiceEnabled && (
-                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" /> Voice
-                            </span>
-                          )}
-                          {pn.smsEnabled && (
-                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                              <MessageSquare className="h-3 w-3" /> SMS
-                            </span>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                          Active
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{pn.friendlyName}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {pn.voiceEnabled && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" /> Voice
+                          </span>
+                        )}
+                        {pn.smsEnabled && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <MessageSquare className="h-3 w-3" /> SMS
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => setConfiguringNumberSid(pn.sid)}
-                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-4 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      <Settings2 className="h-3.5 w-3.5" />
-                      Configure
-                    </button>
                   </div>
-                ))}
+                  <button
+                    onClick={() => {
+                      setConfiguringNumberSid(pn.sid);
+                      setView("configure-number");
+                    }}
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-4 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    Configure
+                  </button>
+                </div>
+              ))}
 
-                {phoneNumbers.length === 0 && (
-                  <div className="text-center py-6 text-sm text-muted-foreground">
-                    No phone numbers found. Purchase one from your{" "}
-                    <a
-                      href="https://www.twilio.com/console/phone-numbers/search"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      Twilio console
-                    </a>
-                    , then refresh this page.
-                  </div>
-                )}
-              </div>
-            )}
-          </SectionCard>
-        </>
-      )}
-    </div>
-  );
+              {phoneNumbers.length === 0 && (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  No phone numbers found.{" "}
+                  {connectedProvider === "byo-twilio" ? (
+                    <>
+                      Purchase one from your{" "}
+                      <a
+                        href="https://www.twilio.com/console/phone-numbers/search"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Twilio console
+                      </a>
+                      , then refresh this page.
+                    </>
+                  ) : (
+                    "Your number is being provisioned. Check back shortly."
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+    );
+  }
+
+  // Fallback
+  return null;
 }

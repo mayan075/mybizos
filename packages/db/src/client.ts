@@ -21,15 +21,77 @@ const schema = {
   ...aiSchema,
 };
 
-const connectionString =
-  process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/mybizos_dev";
+const connectionString = process.env["DATABASE_URL"] ?? "";
 
-const queryClient = postgres(connectionString, {
-  max: 20,
-  idle_timeout: 20,
-  connect_timeout: 10,
+/**
+ * Lazy database connection: only connects when a query is actually executed.
+ * In dev mode with no DATABASE_URL, the import will not crash --
+ * only actual queries will throw (which route handlers catch and fall back to mock data).
+ */
+let _db: ReturnType<typeof drizzle> | null = null;
+
+function getDb(): ReturnType<typeof drizzle> {
+  if (!_db) {
+    if (!connectionString) {
+      // Return a noop proxy so imports succeed without a real DB.
+      // Any actual query will reject with a clear error message.
+      const dbError = new Error(
+        "Database not configured. Set DATABASE_URL to connect to PostgreSQL."
+      );
+      const makeChain = (): unknown =>
+        new Proxy(() => {}, {
+          get(_t, p) {
+            if (p === "then") {
+              return (_resolve: unknown, reject: (e: Error) => void) => {
+                reject(dbError);
+              };
+            }
+            if (p === "catch") {
+              return (fn: (e: Error) => void) => fn(dbError);
+            }
+            if (p === "finally") {
+              return (fn: () => void) => fn();
+            }
+            return makeChain();
+          },
+          apply: () => makeChain(),
+        });
+      _db = new Proxy({} as ReturnType<typeof drizzle>, {
+        get(_target, prop) {
+          if (
+            prop === "then" ||
+            prop === "catch" ||
+            prop === "finally" ||
+            prop === Symbol.toPrimitive ||
+            prop === Symbol.toStringTag
+          ) {
+            return undefined;
+          }
+          return (..._args: unknown[]) => makeChain();
+        },
+      });
+    } else {
+      const queryClient = postgres(connectionString, {
+        max: 20,
+        idle_timeout: 20,
+        connect_timeout: 10,
+      });
+      _db = drizzle(queryClient, { schema });
+    }
+  }
+  return _db;
+}
+
+// Export a proxy that lazily initializes the connection
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop, receiver) {
+    const realDb = getDb();
+    const value = Reflect.get(realDb, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(realDb);
+    }
+    return value;
+  },
 });
 
-export const db = drizzle(queryClient, { schema });
-
-export type Database = typeof db;
+export type Database = ReturnType<typeof drizzle>;
