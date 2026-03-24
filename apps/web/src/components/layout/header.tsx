@@ -164,55 +164,63 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
+    <header className="flex h-16 items-center justify-between bg-card/80 backdrop-blur-xl px-4 sm:px-6 relative">
+      {/* Subtle bottom shadow instead of border */}
+      <div className="absolute inset-x-0 bottom-0 h-px bg-border/50" />
+      <div className="absolute inset-x-0 bottom-0 h-[1px] shadow-[0_1px_3px_0_oklch(0_0_0/0.04)]" />
+
       {/* Left: Mobile menu + Org name */}
       <div className="flex items-center gap-3">
         {onToggleMobileSidebar && (
           <button
             onClick={onToggleMobileSidebar}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all duration-200 hover:scale-[1.04] md:hidden"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <h2 className="text-sm font-semibold text-foreground">{orgName}</h2>
-        <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+        <h2 className="text-sm font-semibold text-foreground tracking-tight">{orgName}</h2>
+        <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
           Active
         </span>
       </div>
 
-      {/* Center: Search bar */}
+      {/* Center: Search bar — rounded-full, subtle shadow */}
       <button
         onClick={onOpenCommandPalette}
         className={cn(
-          "hidden sm:flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-input",
-          "bg-muted/50 px-3 text-sm text-muted-foreground",
-          "hover:bg-muted transition-colors",
+          "hidden sm:flex h-9 w-full max-w-md items-center gap-2.5 rounded-full",
+          "bg-muted/40 px-4 text-sm text-muted-foreground",
+          "shadow-[0_0_0_1px_oklch(0_0_0/0.04),0_1px_2px_0_oklch(0_0_0/0.03)]",
+          "hover:bg-muted/60 hover:shadow-[0_0_0_1px_oklch(0_0_0/0.06),0_2px_4px_0_oklch(0_0_0/0.04)]",
+          "transition-all duration-200",
         )}
       >
-        <Search className="h-4 w-4" />
+        <Search className="h-4 w-4 text-muted-foreground/70" />
         <span className="flex-1 text-left">Search contacts, deals...</span>
-        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-background px-1.5 text-[10px] font-medium text-muted-foreground">
+        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded-md bg-background/80 px-1.5 text-[10px] font-medium text-muted-foreground shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
           <span className="text-xs">&#8984;</span>K
         </kbd>
       </button>
 
       {/* Right: Notifications + user menu */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {/* Notification bell */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setShowNotifications(!showNotifications); setShowUserMenu(false); }}
             className={cn(
-              "relative flex h-9 w-9 items-center justify-center rounded-lg",
-              "text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
-              showNotifications && "bg-muted text-foreground",
+              "relative flex h-9 w-9 items-center justify-center rounded-xl",
+              "text-muted-foreground hover:text-foreground",
+              "hover:bg-muted/60 hover:scale-[1.06]",
+              "transition-all duration-200",
+              showNotifications && "bg-muted/60 text-foreground",
             )}
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-[18px] w-[18px]" />
             {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white">
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white shadow-sm">
                 {unreadCount}
               </span>
             )}
@@ -220,10 +228,10 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
 
           {/* Notification dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-border bg-popover shadow-2xl z-50">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="absolute right-0 top-full mt-2 w-96 rounded-2xl bg-popover shadow-[0_16px_48px_-12px_oklch(0_0_0/0.15),0_0_0_1px_oklch(0_0_0/0.04)] z-50">
+              <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+                  <h3 className="text-sm font-semibold text-foreground tracking-tight">Notifications</h3>
                   {unreadCount > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white">
                       {unreadCount}
@@ -239,7 +247,8 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
                   </button>
                 )}
               </div>
-              <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
+              <div className="h-px bg-border/50 mx-4" />
+              <div className="max-h-[400px] overflow-y-auto py-1">
                 {visibleNotifications.map((notif) => {
                   const isRead = readNotifications.has(notif.id);
                   return (
@@ -247,9 +256,11 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif.id, notif.href)}
                       className={cn(
-                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30",
-                        !isRead && "bg-primary/5",
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-all duration-150",
+                        "hover:bg-muted/40 rounded-lg mx-1",
+                        !isRead && "bg-primary/[0.03]",
                       )}
+                      style={{ width: "calc(100% - 8px)" }}
                     >
                       <div
                         className={cn(
@@ -267,16 +278,17 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
                           {notif.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">{notif.description}</p>
-                        <p className="text-[11px] text-muted-foreground/70 mt-1">{notif.time}</p>
+                        <p className="text-[11px] text-muted-foreground/60 mt-1">{notif.time}</p>
                       </div>
                       {!isRead && (
-                        <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
+                        <div className="h-2 w-2 rounded-full gradient-accent shrink-0 mt-2" />
                       )}
                     </button>
                   );
                 })}
               </div>
-              <div className="border-t border-border px-4 py-2.5">
+              <div className="h-px bg-border/50 mx-4" />
+              <div className="px-4 py-2.5">
                 <button
                   onClick={() => { setShowNotifications(false); router.push("/dashboard/notifications"); }}
                   className="flex items-center justify-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors w-full"
@@ -294,44 +306,47 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
           <button
             onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-2 py-1.5",
-              "hover:bg-muted transition-colors",
-              showUserMenu && "bg-muted",
+              "flex items-center gap-2 rounded-xl px-2 py-1.5",
+              "hover:bg-muted/60 hover:scale-[1.02]",
+              "transition-all duration-200",
+              showUserMenu && "bg-muted/60",
             )}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full gradient-accent text-primary-foreground text-xs font-bold shadow-sm">
               {userInitials}
             </div>
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showUserMenu && "rotate-180")} />
+            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", showUserMenu && "rotate-180")} />
           </button>
 
           {/* User dropdown */}
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-popover shadow-2xl z-50">
-              <div className="border-b border-border px-4 py-3">
-                <p className="text-sm font-medium text-foreground">{userName}</p>
-                <p className="text-xs text-muted-foreground">{userEmail}</p>
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-popover shadow-[0_16px_48px_-12px_oklch(0_0_0/0.15),0_0_0_1px_oklch(0_0_0/0.04)] z-50">
+              <div className="px-4 py-3.5">
+                <p className="text-sm font-semibold text-foreground tracking-tight">{userName}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{userEmail}</p>
               </div>
-              <div className="p-1">
+              <div className="h-px bg-border/50 mx-3" />
+              <div className="p-1.5">
                 <button
                   onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings?tab=profile"); }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-all duration-150"
                 >
                   <User className="h-4 w-4 text-muted-foreground" />
                   Profile
                 </button>
                 <button
                   onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings"); }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-all duration-150"
                 >
                   <Settings className="h-4 w-4 text-muted-foreground" />
                   Settings
                 </button>
               </div>
-              <div className="border-t border-border p-1">
+              <div className="h-px bg-border/50 mx-3" />
+              <div className="p-1.5">
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-destructive hover:bg-destructive/8 transition-all duration-150"
                 >
                   <LogOut className="h-4 w-4" />
                   Log out

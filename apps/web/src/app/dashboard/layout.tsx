@@ -89,7 +89,7 @@ export default function DashboardLayout({
       {mobileSidebarOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
             onClick={() => setMobileSidebarOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 z-50 md:hidden">
@@ -103,7 +103,7 @@ export default function DashboardLayout({
           onOpenCommandPalette={openCommandPalette}
           onToggleMobileSidebar={toggleMobileSidebar}
         />
-        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
+        <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

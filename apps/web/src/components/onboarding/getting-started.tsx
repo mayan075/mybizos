@@ -124,7 +124,64 @@ function dismissGettingStarted(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Welcome Banner Component
+// Progress Ring SVG Component
+// ---------------------------------------------------------------------------
+
+function ProgressRing({
+  progress,
+  size = 40,
+  strokeWidth = 3,
+}: {
+  progress: number;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (progress / 100) * circumference;
+
+  return (
+    <svg width={size} height={size} className="shrink-0 -rotate-90">
+      {/* Background ring */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className="text-muted/60"
+      />
+      {/* Progress ring */}
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="url(#progressGradient)"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        className="progress-ring-circle"
+        style={{
+          "--ring-circumference": circumference,
+          "--ring-offset": offset,
+          transition: "stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+        } as React.CSSProperties}
+      />
+      <defs>
+        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="oklch(0.42 0.17 265)" />
+          <stop offset="100%" stopColor="oklch(0.48 0.2 295)" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Welcome Banner Component — Glassmorphism
 // ---------------------------------------------------------------------------
 
 export function WelcomeBanner() {
@@ -144,24 +201,34 @@ export function WelcomeBanner() {
   if (!visible) return null;
 
   return (
-    <div className="relative rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-5 overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-primary/5 blur-2xl" />
-      <div className="absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-primary/5 blur-2xl" />
+    <div className="relative rounded-2xl overflow-hidden p-6"
+      style={{
+        background: "linear-gradient(135deg, oklch(0.42 0.17 265 / 0.08), oklch(0.48 0.2 295 / 0.1), oklch(0.42 0.17 265 / 0.05))",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+      }}
+    >
+      {/* Decorative gradient orbs */}
+      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-30"
+        style={{ background: "radial-gradient(circle, oklch(0.48 0.2 295 / 0.4), transparent)" }}
+      />
+      <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full opacity-20"
+        style={{ background: "radial-gradient(circle, oklch(0.42 0.17 265 / 0.4), transparent)" }}
+      />
 
       <div className="relative flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Sparkles className="h-6 w-6 text-primary" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-accent shadow-sm">
+            <Sparkles className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">
+            <h2 className="text-lg font-bold text-foreground tracking-tight">
               Welcome to MyBizOS!
             </h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            <p className="text-sm text-muted-foreground mt-1 max-w-xl leading-relaxed">
               We are excited to help {businessName} grow. Here are 3 things to get started:
             </p>
-            <div className="flex flex-wrap gap-3 mt-3">
+            <div className="flex flex-wrap gap-3 mt-4">
               <QuickAction
                 href="/dashboard/contacts"
                 label="Add a contact"
@@ -182,7 +249,7 @@ export function WelcomeBanner() {
         </div>
         <button
           onClick={handleDismiss}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-all duration-200 hover:scale-[1.05]"
           aria-label="Dismiss welcome banner"
         >
           <X className="h-4 w-4" />
@@ -205,9 +272,15 @@ function QuickAction({
   return (
     <button
       onClick={() => router.push(href)}
-      className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:border-primary hover:text-primary transition-colors"
+      className={cn(
+        "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium text-foreground",
+        "bg-card/80 backdrop-blur-sm",
+        "shadow-[0_0_0_1px_oklch(0_0_0/0.04),0_1px_2px_0_oklch(0_0_0/0.03)]",
+        "hover:shadow-[0_0_0_1px_oklch(0.42_0.17_265/0.3),0_2px_4px_0_oklch(0_0_0/0.04)]",
+        "hover:text-primary transition-all duration-200 hover:scale-[1.02]",
+      )}
     >
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full gradient-accent text-[10px] font-bold text-primary-foreground">
         {step}
       </span>
       {label}
@@ -216,7 +289,7 @@ function QuickAction({
 }
 
 // ---------------------------------------------------------------------------
-// Getting Started Checklist Component
+// Getting Started Checklist Component — with Progress Ring
 // ---------------------------------------------------------------------------
 
 export function GettingStartedChecklist() {
@@ -264,21 +337,24 @@ export function GettingStartedChecklist() {
   if (dismissed || allDone) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold text-foreground">
-            Getting Started
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {completedCount} of {STEPS.length} complete
-          </span>
+    <div className="card-elevated overflow-hidden">
+      {/* Header with progress ring */}
+      <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-4">
+          <ProgressRing progress={progress} size={44} strokeWidth={3.5} />
+          <div>
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
+              Getting Started
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {completedCount} of {STEPS.length} complete
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
             aria-label={collapsed ? "Expand checklist" : "Collapse checklist"}
           >
             {collapsed ? (
@@ -289,7 +365,7 @@ export function GettingStartedChecklist() {
           </button>
           <button
             onClick={handleDismiss}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
             aria-label="Dismiss getting started"
           >
             <X className="h-4 w-4" />
@@ -297,17 +373,9 @@ export function GettingStartedChecklist() {
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1 bg-muted">
-        <div
-          className="h-full bg-primary transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
       {/* Steps */}
       {!collapsed && (
-        <div className="divide-y divide-border">
+        <div className="px-2 pb-2">
           {STEPS.map((step) => {
             const isDone = completed.has(step.id);
             const StepIcon = step.icon;
@@ -316,9 +384,9 @@ export function GettingStartedChecklist() {
               <div
                 key={step.id}
                 className={cn(
-                  "flex items-center gap-4 px-5 py-3.5 transition-colors",
+                  "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200",
                   isDone
-                    ? "opacity-60"
+                    ? "opacity-50"
                     : "hover:bg-muted/30 cursor-pointer",
                 )}
                 onClick={() => {
@@ -334,10 +402,10 @@ export function GettingStartedChecklist() {
                     if (!isDone) handleComplete(step.id);
                   }}
                   className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-200",
                     isDone
                       ? "bg-success text-white"
-                      : "border-2 border-muted-foreground/30 hover:border-primary text-transparent hover:text-primary",
+                      : "border-2 border-muted-foreground/20 hover:border-primary text-transparent hover:text-primary hover:scale-110",
                   )}
                 >
                   {isDone ? (
@@ -350,8 +418,8 @@ export function GettingStartedChecklist() {
                 {/* Icon */}
                 <div
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                    isDone ? "bg-muted" : "bg-primary/10",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200",
+                    isDone ? "bg-muted/50" : "bg-primary/8 group-hover:scale-[1.05]",
                   )}
                 >
                   <StepIcon
@@ -374,14 +442,14 @@ export function GettingStartedChecklist() {
                   >
                     {step.label}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     {step.description}
                   </p>
                 </div>
 
                 {/* Action arrow for incomplete steps */}
                 {!isDone && (
-                  <span className="text-xs font-medium text-primary shrink-0">
+                  <span className="text-xs font-semibold text-primary shrink-0">
                     Start
                   </span>
                 )}

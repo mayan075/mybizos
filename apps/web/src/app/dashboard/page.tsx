@@ -40,6 +40,22 @@ const statTooltips: Record<string, string> = {
     "Total value of deals marked as Won in your pipeline this month.",
 };
 
+/* Subtle gradient tints per stat card — different hue for each */
+const statGradients = [
+  "bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/40 dark:from-blue-950/30 dark:via-card dark:to-indigo-950/20",
+  "bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 dark:from-emerald-950/30 dark:via-card dark:to-teal-950/20",
+  "bg-gradient-to-br from-violet-50/80 via-white to-purple-50/40 dark:from-violet-950/30 dark:via-card dark:to-purple-950/20",
+  "bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 dark:from-amber-950/30 dark:via-card dark:to-orange-950/20",
+];
+
+/* Timeline dot colors keyed by activity type */
+const timelineDotColors: Record<string, string> = {
+  call: "border-violet-400 bg-violet-50 dark:bg-violet-950/40",
+  appointment: "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40",
+  message: "border-blue-400 bg-blue-50 dark:bg-blue-950/40",
+  lead: "border-amber-400 bg-amber-50 dark:bg-amber-950/40",
+};
+
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const router = useRouter();
@@ -50,14 +66,14 @@ export default function DashboardPage() {
   const upcomingAppointments = dashboardData.upcomingAppointments;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-[1400px]">
       {/* Welcome banner for first-time users */}
       <WelcomeBanner />
 
-      {/* Page header */}
+      {/* Page header — heavier weight, tighter tracking */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
           Welcome back. Here&apos;s what&apos;s happening with your business.
         </p>
       </div>
@@ -65,19 +81,26 @@ export default function DashboardPage() {
       {/* Getting Started Checklist */}
       <GettingStartedChecklist />
 
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
+      {/* Stat cards — gradient backgrounds, no borders, rounded-2xl */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, idx) => {
           const Icon = iconMap[stat.iconName] ?? Users;
           const tooltip = statTooltips[stat.label];
+          const gradient = statGradients[idx % statGradients.length];
           return (
             <button
               key={stat.label}
               onClick={() => router.push(stat.href)}
-              className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md text-left cursor-pointer"
+              className={cn(
+                "stat-card p-6 text-left cursor-pointer group",
+                gradient,
+              )}
             >
               <div className="flex items-center justify-between">
-                <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", stat.bg)}>
+                <div className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-[1.05]",
+                  stat.bg,
+                )}>
                   <Icon className={cn("h-5 w-5", stat.color)} />
                 </div>
                 <div className="flex items-center gap-2">
@@ -86,15 +109,17 @@ export default function DashboardPage() {
                       <span onClick={(e) => e.stopPropagation()} className="cursor-help" />
                     </Tooltip>
                   )}
-                  <div className="flex items-center gap-1 text-xs font-medium text-success">
-                    <ArrowUpRight className="h-3 w-3" />
+                  <div className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
                     {stat.change}
                   </div>
                 </div>
               </div>
-              <div className="mt-4">
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
+              <div className="mt-5">
+                <p className="text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
+                  {stat.value}
+                </p>
+                <p className="text-xs font-medium text-muted-foreground mt-1 uppercase tracking-wider">
                   {stat.label}
                 </p>
               </div>
@@ -105,10 +130,10 @@ export default function DashboardPage() {
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent activity -- takes 2 cols */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">
+        {/* Recent activity -- takes 2 cols, organic timeline feel */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
               Recent Activity
             </h2>
             <button
@@ -118,61 +143,76 @@ export default function DashboardPage() {
               View all
             </button>
           </div>
-          <div className="divide-y divide-border">
+
+          <div className="card-elevated p-1">
             {recentActivity.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3">
+              <div className="flex flex-col items-center justify-center py-14 text-center px-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
                   <Clock className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-foreground mb-1">
+                <p className="text-sm font-semibold text-foreground mb-1">
                   No activity yet
                 </p>
-                <p className="text-xs text-muted-foreground max-w-xs">
+                <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
                   When customers call, text, or book appointments, their
                   activity will show up here.
                 </p>
               </div>
             ) : (
-              recentActivity.map((item) => {
-                const ItemIcon = iconMap[item.iconName] ?? Phone;
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (item.type === "call") router.push("/dashboard/inbox");
-                      else if (item.type === "appointment") router.push("/dashboard/scheduling");
-                      else if (item.type === "message") router.push("/dashboard/inbox");
-                      else if (item.type === "lead") router.push("/dashboard/contacts");
-                      else router.push("/dashboard/inbox");
-                    }}
-                  >
-                    <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted", item.color)}>
-                      <ItemIcon className="h-4 w-4" />
+              <div className="relative">
+                {recentActivity.map((item, idx) => {
+                  const ItemIcon = iconMap[item.iconName] ?? Phone;
+                  const dotColor = timelineDotColors[item.type] ?? "border-muted-foreground/30 bg-muted";
+                  const isLast = idx === recentActivity.length - 1;
+                  return (
+                    <div
+                      key={item.id}
+                      className="group flex items-start gap-4 px-5 py-4 hover:bg-muted/20 rounded-xl transition-all duration-200 cursor-pointer relative"
+                      onClick={() => {
+                        if (item.type === "call") router.push("/dashboard/inbox");
+                        else if (item.type === "appointment") router.push("/dashboard/scheduling");
+                        else if (item.type === "message") router.push("/dashboard/inbox");
+                        else if (item.type === "lead") router.push("/dashboard/contacts");
+                        else router.push("/dashboard/inbox");
+                      }}
+                    >
+                      {/* Timeline connector line */}
+                      {!isLast && (
+                        <div className="absolute left-[35px] top-[52px] bottom-0 w-px bg-border/40" />
+                      )}
+
+                      {/* Timeline dot with colored ring */}
+                      <div className={cn(
+                        "relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition-transform duration-200 group-hover:scale-[1.08]",
+                        dotColor,
+                      )}>
+                        <ItemIcon className={cn("h-4 w-4", item.color)} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                          {item.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60 shrink-0 pt-0.5">
+                        <Clock className="h-3 w-3" />
+                        {item.time}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {item.time}
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
         {/* Upcoming appointments -- 1 col */}
-        <div className="rounded-xl border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
               Upcoming Appointments
             </h2>
             <button
@@ -182,21 +222,22 @@ export default function DashboardPage() {
               View all
             </button>
           </div>
-          <div className="divide-y divide-border">
+
+          <div className="card-elevated p-1">
             {upcomingAppointments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted mb-3">
+              <div className="flex flex-col items-center justify-center py-14 text-center px-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
                   <CalendarCheck className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-foreground mb-1">
+                <p className="text-sm font-semibold text-foreground mb-1">
                   No upcoming appointments
                 </p>
-                <p className="text-xs text-muted-foreground max-w-xs">
+                <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
                   Set up your booking page so customers can schedule with you.
                 </p>
                 <button
                   onClick={() => router.push("/dashboard/scheduling")}
-                  className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                  className="mt-4 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
                 >
                   Go to Scheduling
                 </button>
@@ -205,16 +246,16 @@ export default function DashboardPage() {
               upcomingAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="px-5 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                  className="group px-5 py-4 hover:bg-muted/20 rounded-xl transition-all duration-200 cursor-pointer"
                   onClick={() => router.push("/dashboard/scheduling")}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                       {apt.customer}
                     </p>
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
                         apt.status === "confirmed"
                           ? "bg-success/10 text-success"
                           : "bg-muted text-muted-foreground",
@@ -223,10 +264,10 @@ export default function DashboardPage() {
                       {apt.status}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     {apt.service}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-[11px] text-muted-foreground/60 mt-1">
                     {apt.date} at {apt.time}
                   </p>
                 </div>
@@ -236,22 +277,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Keyboard shortcuts hint */}
-      <div className="flex items-center justify-center gap-4 py-2 text-xs text-muted-foreground">
+      {/* Keyboard shortcuts hint — subtler, more refined */}
+      <div className="flex items-center justify-center gap-5 py-3 text-[11px] text-muted-foreground/50">
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
             Ctrl+K
           </kbd>
           Command palette
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
             Ctrl+N
           </kbd>
           New contact
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
             Ctrl+Shift+N
           </kbd>
           New deal
