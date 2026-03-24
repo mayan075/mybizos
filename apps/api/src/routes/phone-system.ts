@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
+import { config } from '../config.js';
 import { TwilioClient } from '@mybizos/integrations';
+import type { PurchasedNumber } from '@mybizos/integrations';
 
 const phoneSystem = new Hono();
 
@@ -27,6 +29,18 @@ interface NumberRouting {
 
 const credentialStore = new Map<string, StoredCredentials>();
 const routingStore = new Map<string, Map<string, NumberRouting>>();
+
+// ── Model B: MyBizOS-managed subaccount store (per org) ───────────────────
+
+interface MybizosOrgData {
+  subaccountSid: string;
+  subaccountAuthToken: string;
+  friendlyName: string;
+  setupAt: string;
+  numbers: PurchasedNumber[];
+}
+
+const mybizosOrgStore = new Map<string, MybizosOrgData>();
 
 // ── Zod Schemas ───────────────────────────────────────────────────────────
 
@@ -253,6 +267,399 @@ phoneSystem.delete('/disconnect', async (c) => {
   logger.info('Phone system disconnected', { orgId });
 
   return c.json({ success: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MODEL B: MyBizOS Managed Phone Provisioning
+//  Uses the MASTER Twilio account (from env) to manage subaccounts.
+//  Customers never see Twilio credentials.
+// ══════════════════════════════════════════════════════════════════════════
+
+const mybizosSetupSchema = z.object({
+  businessName: z.string().min(1, 'Business name is required').max(100),
+});
+
+const searchNumbersSchema = z.object({
+  countryCode: z.string().length(2, 'Country code must be 2 characters (e.g., AU, US)'),
+  type: z.enum(['local', 'mobile', 'tollFree']),
+  areaCode: z.string().optional(),
+});
+
+const purchaseNumberSchema = z.object({
+  phoneNumber: z.string().min(1, 'Phone number is required').startsWith('+', 'Phone number must be in E.164 format'),
+});
+
+/**
+ * Helper: get master Twilio credentials from env config.
+ * Returns null if not configured.
+ */
+function getMasterCredentials(): { sid: string; authToken: string } | null {
+  const sid = config.TWILIO_ACCOUNT_SID;
+  const authToken = config.TWILIO_AUTH_TOKEN;
+  if (!sid || !authToken || !sid.startsWith('AC')) {
+    return null;
+  }
+  return { sid, authToken };
+}
+
+/**
+ * POST /mybizos/setup — Create a Twilio subaccount for this org.
+ */
+phoneSystem.post('/mybizos/setup', async (c) => {
+  const orgId = c.get('orgId');
+  const rawBody = await c.req.json();
+
+  const parsed = mybizosSetupSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => ({
+      field: i.path.join('.'),
+      message: i.message,
+    }));
+    return c.json(
+      { error: 'Invalid input', code: 'VALIDATION_ERROR', status: 400, details: issues },
+      400,
+    );
+  }
+
+  const master = getMasterCredentials();
+  if (!master) {
+    return c.json(
+      { error: 'Phone provisioning is not configured. Contact support.', code: 'NOT_CONFIGURED', status: 503 },
+      503,
+    );
+  }
+
+  // Check if this org already has a subaccount
+  const existing = mybizosOrgStore.get(orgId);
+  if (existing) {
+    return c.json({
+      success: true,
+      subaccountSid: existing.subaccountSid,
+      message: 'Subaccount already exists for this organization.',
+    });
+  }
+
+  try {
+    const friendlyName = `MyBizOS - ${parsed.data.businessName} (${orgId})`;
+    const subaccount = await TwilioClient.createSubaccount(
+      master.sid,
+      master.authToken,
+      friendlyName,
+    );
+
+    mybizosOrgStore.set(orgId, {
+      subaccountSid: subaccount.sid,
+      subaccountAuthToken: subaccount.authToken,
+      friendlyName: subaccount.friendlyName,
+      setupAt: new Date().toISOString(),
+      numbers: [],
+    });
+
+    logger.info('MyBizOS subaccount created', {
+      orgId,
+      subaccountSid: subaccount.sid,
+      friendlyName: subaccount.friendlyName,
+    });
+
+    return c.json({
+      success: true,
+      subaccountSid: subaccount.sid,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('Failed to create subaccount', { orgId, error: message });
+
+    return c.json(
+      { error: 'Failed to create phone system account. Please try again.', code: 'SUBACCOUNT_ERROR', status: 500 },
+      500,
+    );
+  }
+});
+
+/**
+ * GET /mybizos/status — Check if this org has a MyBizOS phone setup.
+ */
+phoneSystem.get('/mybizos/status', async (c) => {
+  const orgId = c.get('orgId');
+  const orgData = mybizosOrgStore.get(orgId);
+
+  if (!orgData) {
+    return c.json({ setup: false });
+  }
+
+  return c.json({
+    setup: true,
+    subaccountSid: orgData.subaccountSid,
+    friendlyName: orgData.friendlyName,
+    numberCount: orgData.numbers.length,
+    numbers: orgData.numbers.map((n) => ({
+      sid: n.sid,
+      phoneNumber: n.phoneNumber,
+      friendlyName: n.friendlyName,
+      capabilities: n.capabilities,
+    })),
+  });
+});
+
+/**
+ * GET /mybizos/available-numbers — Search available numbers from Twilio.
+ */
+phoneSystem.get('/mybizos/available-numbers', async (c) => {
+  const orgId = c.get('orgId');
+
+  const query = searchNumbersSchema.safeParse({
+    countryCode: c.req.query('countryCode'),
+    type: c.req.query('type'),
+    areaCode: c.req.query('areaCode') || undefined,
+  });
+
+  if (!query.success) {
+    const issues = query.error.issues.map((i) => ({
+      field: i.path.join('.'),
+      message: i.message,
+    }));
+    return c.json(
+      { error: 'Invalid search parameters', code: 'VALIDATION_ERROR', status: 400, details: issues },
+      400,
+    );
+  }
+
+  const master = getMasterCredentials();
+  if (!master) {
+    return c.json(
+      { error: 'Phone provisioning is not configured. Contact support.', code: 'NOT_CONFIGURED', status: 503 },
+      503,
+    );
+  }
+
+  try {
+    const numbers = await TwilioClient.searchAvailableNumbers(
+      master.sid,
+      master.authToken,
+      query.data.countryCode,
+      query.data.type,
+      query.data.areaCode,
+    );
+
+    logger.info('Available numbers searched', {
+      orgId,
+      countryCode: query.data.countryCode,
+      type: query.data.type,
+      resultCount: numbers.length,
+    });
+
+    return c.json({ numbers });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('Failed to search available numbers', { orgId, error: message });
+
+    // Twilio returns 404 when no numbers are available for a country/type
+    if (message.includes('404') || message.includes('not found') || message.includes('No phone numbers')) {
+      return c.json({
+        numbers: [],
+        message: 'No numbers available for this country and type. Try a different type or area code.',
+      });
+    }
+
+    return c.json(
+      { error: 'Failed to search available numbers. Please try again.', code: 'TWILIO_ERROR', status: 500 },
+      500,
+    );
+  }
+});
+
+/**
+ * POST /mybizos/purchase — Buy a number and assign to the org's subaccount.
+ */
+phoneSystem.post('/mybizos/purchase', async (c) => {
+  const orgId = c.get('orgId');
+  const rawBody = await c.req.json();
+
+  const parsed = purchaseNumberSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => ({
+      field: i.path.join('.'),
+      message: i.message,
+    }));
+    return c.json(
+      { error: 'Invalid input', code: 'VALIDATION_ERROR', status: 400, details: issues },
+      400,
+    );
+  }
+
+  const master = getMasterCredentials();
+  if (!master) {
+    return c.json(
+      { error: 'Phone provisioning is not configured. Contact support.', code: 'NOT_CONFIGURED', status: 503 },
+      503,
+    );
+  }
+
+  // Ensure org has a subaccount (auto-create if needed)
+  let orgData = mybizosOrgStore.get(orgId);
+  if (!orgData) {
+    try {
+      const friendlyName = `MyBizOS - Org ${orgId}`;
+      const subaccount = await TwilioClient.createSubaccount(
+        master.sid,
+        master.authToken,
+        friendlyName,
+      );
+
+      orgData = {
+        subaccountSid: subaccount.sid,
+        subaccountAuthToken: subaccount.authToken,
+        friendlyName: subaccount.friendlyName,
+        setupAt: new Date().toISOString(),
+        numbers: [],
+      };
+      mybizosOrgStore.set(orgId, orgData);
+
+      logger.info('Auto-created subaccount for purchase', {
+        orgId,
+        subaccountSid: subaccount.sid,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Failed to auto-create subaccount', { orgId, error: message });
+      return c.json(
+        { error: 'Failed to set up phone system. Please try again.', code: 'SUBACCOUNT_ERROR', status: 500 },
+        500,
+      );
+    }
+  }
+
+  try {
+    const webhookBaseUrl = config.APP_URL;
+    const purchased = await TwilioClient.purchaseNumber(
+      master.sid,
+      master.authToken,
+      parsed.data.phoneNumber,
+      orgData.subaccountSid,
+      webhookBaseUrl,
+    );
+
+    // Store the purchased number in the org's data
+    orgData.numbers.push(purchased);
+
+    logger.info('Number purchased and assigned', {
+      orgId,
+      phoneNumber: purchased.phoneNumber,
+      numberSid: purchased.sid,
+      subaccountSid: orgData.subaccountSid,
+    });
+
+    return c.json({
+      success: true,
+      number: {
+        sid: purchased.sid,
+        phoneNumber: purchased.phoneNumber,
+        friendlyName: purchased.friendlyName,
+        capabilities: purchased.capabilities,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('Failed to purchase number', {
+      orgId,
+      phoneNumber: parsed.data.phoneNumber,
+      error: message,
+    });
+
+    if (message.includes('already been purchased') || message.includes('not available')) {
+      return c.json(
+        { error: 'This number is no longer available. Please choose another.', code: 'NUMBER_UNAVAILABLE', status: 409 },
+        409,
+      );
+    }
+
+    return c.json(
+      { error: 'Failed to purchase phone number. Please try again.', code: 'PURCHASE_ERROR', status: 500 },
+      500,
+    );
+  }
+});
+
+/**
+ * DELETE /mybizos/numbers/:numberSid — Release a number from the org's subaccount.
+ */
+phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
+  const orgId = c.get('orgId');
+  const numberSid = c.req.param('numberSid');
+
+  const master = getMasterCredentials();
+  if (!master) {
+    return c.json(
+      { error: 'Phone provisioning is not configured.', code: 'NOT_CONFIGURED', status: 503 },
+      503,
+    );
+  }
+
+  const orgData = mybizosOrgStore.get(orgId);
+  if (!orgData) {
+    return c.json(
+      { error: 'No phone system set up for this organization.', code: 'NOT_SETUP', status: 400 },
+      400,
+    );
+  }
+
+  // Verify the number belongs to this org
+  const numberIndex = orgData.numbers.findIndex((n) => n.sid === numberSid);
+  if (numberIndex === -1) {
+    return c.json(
+      { error: 'Number not found in this organization.', code: 'NOT_FOUND', status: 404 },
+      404,
+    );
+  }
+
+  try {
+    await TwilioClient.releaseNumber(
+      master.sid,
+      master.authToken,
+      numberSid,
+      orgData.subaccountSid,
+    );
+
+    // Remove from in-memory store
+    orgData.numbers.splice(numberIndex, 1);
+
+    logger.info('Number released', {
+      orgId,
+      numberSid,
+      subaccountSid: orgData.subaccountSid,
+    });
+
+    return c.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('Failed to release number', { orgId, numberSid, error: message });
+
+    return c.json(
+      { error: 'Failed to release phone number. Please try again.', code: 'RELEASE_ERROR', status: 500 },
+      500,
+    );
+  }
+});
+
+/**
+ * GET /mybizos/numbers — List all numbers for this org's subaccount.
+ */
+phoneSystem.get('/mybizos/numbers', async (c) => {
+  const orgId = c.get('orgId');
+
+  const orgData = mybizosOrgStore.get(orgId);
+  if (!orgData) {
+    return c.json({ numbers: [] });
+  }
+
+  return c.json({
+    numbers: orgData.numbers.map((n) => ({
+      sid: n.sid,
+      phoneNumber: n.phoneNumber,
+      friendlyName: n.friendlyName,
+      capabilities: n.capabilities,
+    })),
+  });
 });
 
 export { phoneSystem as phoneSystemRoutes };

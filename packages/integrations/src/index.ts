@@ -13,6 +13,9 @@ export {
   type TwimlAction,
   type TwilioPhoneNumber,
   type TwilioAccountInfo,
+  type SubaccountInfo,
+  type AvailableNumber,
+  type PurchasedNumber,
 } from "./twilio/index.js";
 
 // Stripe

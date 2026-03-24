@@ -96,6 +96,39 @@ export interface TwilioAccountInfo {
   status: string;
 }
 
+// ─── Model B: Subaccount / Provisioning Types ──────────────────────────────
+
+export interface SubaccountInfo {
+  sid: string;
+  authToken: string;
+  friendlyName: string;
+  status: string;
+}
+
+export interface AvailableNumber {
+  phoneNumber: string;
+  friendlyName: string;
+  locality: string;
+  region: string;
+  isoCountry: string;
+  capabilities: {
+    voice: boolean;
+    sms: boolean;
+    mms: boolean;
+  };
+}
+
+export interface PurchasedNumber {
+  sid: string;
+  phoneNumber: string;
+  friendlyName: string;
+  capabilities: {
+    voice: boolean;
+    sms: boolean;
+    mms: boolean;
+  };
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
@@ -340,6 +373,208 @@ export class TwilioClient {
       voiceMethod: "POST",
       smsUrl,
       smsMethod: "POST",
+    });
+  }
+
+  // ─── Model B: Subaccount Management ────────────────────────────────────
+  // All methods use the MASTER account credentials to manage customer subaccounts.
+  // Customers never see Twilio — they just click "Get a Number" in MyBizOS.
+
+  /**
+   * Create a Twilio subaccount for a customer org.
+   * Uses the master account to create a child account.
+   */
+  static async createSubaccount(
+    masterSid: string,
+    masterAuthToken: string,
+    friendlyName: string,
+  ): Promise<SubaccountInfo> {
+    const client = Twilio(masterSid, masterAuthToken);
+    const account = await client.api.v2010.accounts.create({
+      friendlyName,
+    });
+
+    return {
+      sid: account.sid,
+      authToken: account.authToken,
+      friendlyName: account.friendlyName,
+      status: account.status,
+    };
+  }
+
+  /**
+   * Search available phone numbers in a country.
+   * Searches against the master account's available number pool.
+   */
+  static async searchAvailableNumbers(
+    masterSid: string,
+    masterAuthToken: string,
+    countryCode: string,
+    type: "local" | "mobile" | "tollFree",
+    areaCode?: string,
+  ): Promise<AvailableNumber[]> {
+    const client = Twilio(masterSid, masterAuthToken);
+
+    const searchParams: Record<string, string | number | boolean> = {
+      limit: 20,
+    };
+    if (areaCode) {
+      searchParams["areaCode"] = areaCode;
+    }
+
+    let numbers: Array<{
+      phoneNumber: string;
+      friendlyName: string;
+      locality: string;
+      region: string;
+      isoCountry: string;
+      capabilities: {
+        voice: boolean;
+        sms: boolean;
+        mms: boolean;
+      };
+    }>;
+
+    switch (type) {
+      case "local":
+        numbers = await client
+          .availablePhoneNumbers(countryCode)
+          .local.list(searchParams);
+        break;
+      case "mobile":
+        numbers = await client
+          .availablePhoneNumbers(countryCode)
+          .mobile.list(searchParams);
+        break;
+      case "tollFree":
+        numbers = await client
+          .availablePhoneNumbers(countryCode)
+          .tollFree.list(searchParams);
+        break;
+    }
+
+    return numbers.map((num) => ({
+      phoneNumber: num.phoneNumber,
+      friendlyName: num.friendlyName,
+      locality: num.locality ?? "",
+      region: num.region ?? "",
+      isoCountry: num.isoCountry,
+      capabilities: {
+        voice: num.capabilities?.voice ?? false,
+        sms: num.capabilities?.sms ?? false,
+        mms: num.capabilities?.mms ?? false,
+      },
+    }));
+  }
+
+  /**
+   * Purchase a phone number under the master account, then transfer it
+   * to a customer subaccount. Configures webhooks to point to MyBizOS.
+   */
+  static async purchaseNumber(
+    masterSid: string,
+    masterAuthToken: string,
+    phoneNumber: string,
+    subaccountSid: string,
+    webhookBaseUrl: string,
+  ): Promise<PurchasedNumber> {
+    const client = Twilio(masterSid, masterAuthToken);
+
+    // Purchase the number under the master account
+    const purchased = await client.incomingPhoneNumbers.create({
+      phoneNumber,
+      voiceUrl: `${webhookBaseUrl}/webhooks/twilio/voice`,
+      voiceMethod: "POST",
+      smsUrl: `${webhookBaseUrl}/webhooks/twilio/sms`,
+      smsMethod: "POST",
+      statusCallback: `${webhookBaseUrl}/webhooks/twilio/status`,
+      statusCallbackMethod: "POST",
+    });
+
+    // Transfer the number to the subaccount
+    await client.incomingPhoneNumbers(purchased.sid).update({
+      accountSid: subaccountSid,
+    });
+
+    return {
+      sid: purchased.sid,
+      phoneNumber: purchased.phoneNumber,
+      friendlyName: purchased.friendlyName,
+      capabilities: {
+        voice: purchased.capabilities?.voice ?? false,
+        sms: purchased.capabilities?.sms ?? false,
+        mms: purchased.capabilities?.mms ?? false,
+      },
+    };
+  }
+
+  /**
+   * Release a phone number from a subaccount.
+   * Uses the master account credentials to delete the number.
+   */
+  static async releaseNumber(
+    masterSid: string,
+    masterAuthToken: string,
+    numberSid: string,
+    subaccountSid: string,
+  ): Promise<void> {
+    // Use master credentials but operate on the subaccount's number
+    const client = Twilio(masterSid, masterAuthToken, {
+      accountSid: subaccountSid,
+    });
+    await client.incomingPhoneNumbers(numberSid).remove();
+  }
+
+  /**
+   * List all phone numbers belonging to a subaccount.
+   */
+  static async listSubaccountNumbers(
+    masterSid: string,
+    masterAuthToken: string,
+    subaccountSid: string,
+  ): Promise<TwilioPhoneNumber[]> {
+    // Use master credentials to access the subaccount
+    const client = Twilio(masterSid, masterAuthToken, {
+      accountSid: subaccountSid,
+    });
+    const numbers = await client.incomingPhoneNumbers.list();
+
+    return numbers.map((num) => ({
+      sid: num.sid,
+      phoneNumber: num.phoneNumber,
+      friendlyName: num.friendlyName,
+      smsEnabled: num.capabilities?.sms ?? false,
+      voiceEnabled: num.capabilities?.voice ?? false,
+    }));
+  }
+
+  /**
+   * Suspend a subaccount (sets status to 'suspended').
+   * The subaccount can be reactivated later.
+   */
+  static async suspendSubaccount(
+    masterSid: string,
+    masterAuthToken: string,
+    subaccountSid: string,
+  ): Promise<void> {
+    const client = Twilio(masterSid, masterAuthToken);
+    await client.api.v2010.accounts(subaccountSid).update({
+      status: "suspended",
+    });
+  }
+
+  /**
+   * Close a subaccount permanently (sets status to 'closed').
+   * All numbers will be released. This cannot be undone.
+   */
+  static async closeSubaccount(
+    masterSid: string,
+    masterAuthToken: string,
+    subaccountSid: string,
+  ): Promise<void> {
+    const client = Twilio(masterSid, masterAuthToken);
+    await client.api.v2010.accounts(subaccountSid).update({
+      status: "closed",
     });
   }
 
