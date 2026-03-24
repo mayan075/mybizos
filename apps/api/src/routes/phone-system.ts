@@ -1,24 +1,27 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { eq, sql } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
 import { TwilioClient } from '@mybizos/integrations';
+import { db, organizations } from '@mybizos/db';
 import type { PurchasedNumber } from '@mybizos/integrations';
 
 const phoneSystem = new Hono();
 
 phoneSystem.use('*', authMiddleware, orgScopeMiddleware);
 
-// ── In-memory credential store (per org) ──────────────────────────────────
+// ── Types for settings JSONB ─────────────────────────────────────────────
 
-interface StoredCredentials {
+interface PhoneSettings {
+  provider: string;
   accountSid: string;
   authToken: string;
-  provider: string;
   accountName: string;
   connectedAt: string;
+  routing?: Record<string, NumberRouting>;
 }
 
 interface NumberRouting {
@@ -27,12 +30,7 @@ interface NumberRouting {
   configuredAt: string;
 }
 
-const credentialStore = new Map<string, StoredCredentials>();
-const routingStore = new Map<string, Map<string, NumberRouting>>();
-
-// ── Model B: MyBizOS-managed subaccount store (per org) ───────────────────
-
-interface MybizosOrgData {
+interface MybizosPhoneSettings {
   subaccountSid: string;
   subaccountAuthToken: string;
   friendlyName: string;
@@ -40,7 +38,175 @@ interface MybizosOrgData {
   numbers: PurchasedNumber[];
 }
 
-const mybizosOrgStore = new Map<string, MybizosOrgData>();
+interface OrgSettings {
+  phone?: PhoneSettings;
+  mybizosPhone?: MybizosPhoneSettings;
+  [key: string]: unknown;
+}
+
+// ── In-memory cache (fallback if DB is unavailable) ──────────────────────
+
+const credentialCache = new Map<string, PhoneSettings>();
+const mybizosCache = new Map<string, MybizosPhoneSettings>();
+
+// ── Database helpers ─────────────────────────────────────────────────────
+
+/**
+ * Read phone settings from the database for an org.
+ * Falls back to in-memory cache if DB is unavailable.
+ */
+async function getPhoneSettings(orgId: string): Promise<PhoneSettings | null> {
+  try {
+    const [org] = await db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, orgId));
+
+    if (!org) return credentialCache.get(orgId) ?? null;
+
+    const settings = org.settings as OrgSettings | null;
+    const phone = settings?.phone ?? null;
+
+    // Sync cache
+    if (phone) {
+      credentialCache.set(orgId, phone);
+    } else {
+      credentialCache.delete(orgId);
+    }
+
+    return phone;
+  } catch (err) {
+    logger.warn('DB read failed for phone settings, using cache', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return credentialCache.get(orgId) ?? null;
+  }
+}
+
+/**
+ * Write phone settings to the database for an org.
+ * Also updates the in-memory cache.
+ */
+async function setPhoneSettings(orgId: string, phone: PhoneSettings): Promise<void> {
+  // Always update cache immediately
+  credentialCache.set(orgId, phone);
+
+  try {
+    await db
+      .update(organizations)
+      .set({
+        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{phone}', ${JSON.stringify(phone)}::jsonb)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, orgId));
+  } catch (err) {
+    logger.error('DB write failed for phone settings, data in cache only', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+}
+
+/**
+ * Remove phone settings from the database for an org.
+ */
+async function deletePhoneSettings(orgId: string): Promise<void> {
+  credentialCache.delete(orgId);
+
+  try {
+    await db
+      .update(organizations)
+      .set({
+        settings: sql`COALESCE(settings, '{}') - 'phone'`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, orgId));
+  } catch (err) {
+    logger.error('DB write failed for phone settings delete', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+}
+
+/**
+ * Read MyBizOS phone settings from the database for an org.
+ * Falls back to in-memory cache if DB is unavailable.
+ */
+async function getMybizosSettings(orgId: string): Promise<MybizosPhoneSettings | null> {
+  try {
+    const [org] = await db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, orgId));
+
+    if (!org) return mybizosCache.get(orgId) ?? null;
+
+    const settings = org.settings as OrgSettings | null;
+    const mybizosPhone = settings?.mybizosPhone ?? null;
+
+    // Sync cache
+    if (mybizosPhone) {
+      mybizosCache.set(orgId, mybizosPhone);
+    } else {
+      mybizosCache.delete(orgId);
+    }
+
+    return mybizosPhone;
+  } catch (err) {
+    logger.warn('DB read failed for mybizos phone settings, using cache', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return mybizosCache.get(orgId) ?? null;
+  }
+}
+
+/**
+ * Write MyBizOS phone settings to the database for an org.
+ * Also updates the in-memory cache.
+ */
+async function setMybizosSettings(orgId: string, data: MybizosPhoneSettings): Promise<void> {
+  mybizosCache.set(orgId, data);
+
+  try {
+    await db
+      .update(organizations)
+      .set({
+        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{mybizosPhone}', ${JSON.stringify(data)}::jsonb)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, orgId));
+  } catch (err) {
+    logger.error('DB write failed for mybizos phone settings, data in cache only', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+}
+
+/**
+ * Remove MyBizOS phone settings from the database for an org.
+ */
+async function deleteMybizosSettings(orgId: string): Promise<void> {
+  mybizosCache.delete(orgId);
+
+  try {
+    await db
+      .update(organizations)
+      .set({
+        settings: sql`COALESCE(settings, '{}') - 'mybizosPhone'`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, orgId));
+  } catch (err) {
+    logger.error('DB write failed for mybizos phone settings delete', {
+      orgId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+}
 
 // ── Zod Schemas ───────────────────────────────────────────────────────────
 
@@ -60,7 +226,7 @@ const configureSchema = z.object({
 // ── Routes ────────────────────────────────────────────────────────────────
 
 /**
- * POST /connect — Validate Twilio credentials and store them.
+ * POST /connect — Validate Twilio credentials and persist them.
  */
 phoneSystem.post('/connect', async (c) => {
   const orgId = c.get('orgId');
@@ -84,8 +250,8 @@ phoneSystem.post('/connect', async (c) => {
     // Actually call Twilio to validate the credentials
     const accountInfo = await TwilioClient.validateCredentials(accountSid, authToken);
 
-    // Store credentials in memory for this org
-    credentialStore.set(orgId, {
+    // Persist credentials to database (with in-memory cache fallback)
+    await setPhoneSettings(orgId, {
       accountSid,
       authToken,
       provider,
@@ -134,7 +300,7 @@ phoneSystem.post('/waitlist', async (c) => {
  */
 phoneSystem.get('/numbers', async (c) => {
   const orgId = c.get('orgId');
-  const creds = credentialStore.get(orgId);
+  const creds = await getPhoneSettings(orgId);
 
   if (!creds) {
     return c.json(
@@ -172,7 +338,7 @@ phoneSystem.get('/numbers', async (c) => {
 phoneSystem.post('/numbers/:numberSid/configure', async (c) => {
   const orgId = c.get('orgId');
   const numberSid = c.req.param('numberSid');
-  const creds = credentialStore.get(orgId);
+  const creds = await getPhoneSettings(orgId);
 
   if (!creds) {
     return c.json(
@@ -202,15 +368,15 @@ phoneSystem.post('/numbers/:numberSid/configure', async (c) => {
       smsUrl,
     );
 
-    // Store routing config
-    if (!routingStore.has(orgId)) {
-      routingStore.set(orgId, new Map());
-    }
-    routingStore.get(orgId)!.set(numberSid, {
+    // Persist routing config inside the phone settings
+    const routing = creds.routing ?? {};
+    routing[numberSid] = {
       voiceUrl,
       smsUrl,
       configuredAt: new Date().toISOString(),
-    });
+    };
+
+    await setPhoneSettings(orgId, { ...creds, routing });
 
     logger.info('Number configured', { orgId, numberSid, voiceUrl, smsUrl });
 
@@ -231,7 +397,7 @@ phoneSystem.post('/numbers/:numberSid/configure', async (c) => {
  */
 phoneSystem.get('/status', async (c) => {
   const orgId = c.get('orgId');
-  const creds = credentialStore.get(orgId);
+  const creds = await getPhoneSettings(orgId);
 
   if (!creds) {
     return c.json({ connected: false });
@@ -261,8 +427,7 @@ phoneSystem.get('/status', async (c) => {
 phoneSystem.delete('/disconnect', async (c) => {
   const orgId = c.get('orgId');
 
-  credentialStore.delete(orgId);
-  routingStore.delete(orgId);
+  await deletePhoneSettings(orgId);
 
   logger.info('Phone system disconnected', { orgId });
 
@@ -330,7 +495,7 @@ phoneSystem.post('/mybizos/setup', async (c) => {
   }
 
   // Check if this org already has a subaccount
-  const existing = mybizosOrgStore.get(orgId);
+  const existing = await getMybizosSettings(orgId);
   if (existing) {
     return c.json({
       success: true,
@@ -347,7 +512,7 @@ phoneSystem.post('/mybizos/setup', async (c) => {
       friendlyName,
     );
 
-    mybizosOrgStore.set(orgId, {
+    await setMybizosSettings(orgId, {
       subaccountSid: subaccount.sid,
       subaccountAuthToken: subaccount.authToken,
       friendlyName: subaccount.friendlyName,
@@ -381,7 +546,7 @@ phoneSystem.post('/mybizos/setup', async (c) => {
  */
 phoneSystem.get('/mybizos/status', async (c) => {
   const orgId = c.get('orgId');
-  const orgData = mybizosOrgStore.get(orgId);
+  const orgData = await getMybizosSettings(orgId);
 
   if (!orgData) {
     return c.json({ setup: false });
@@ -496,7 +661,7 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
   }
 
   // Ensure org has a subaccount (auto-create if needed)
-  let orgData = mybizosOrgStore.get(orgId);
+  let orgData = await getMybizosSettings(orgId);
   if (!orgData) {
     try {
       const friendlyName = `MyBizOS - Org ${orgId}`;
@@ -513,7 +678,7 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
         setupAt: new Date().toISOString(),
         numbers: [],
       };
-      mybizosOrgStore.set(orgId, orgData);
+      await setMybizosSettings(orgId, orgData);
 
       logger.info('Auto-created subaccount for purchase', {
         orgId,
@@ -539,8 +704,9 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
       webhookBaseUrl,
     );
 
-    // Store the purchased number in the org's data
+    // Add number to the stored list and persist
     orgData.numbers.push(purchased);
+    await setMybizosSettings(orgId, orgData);
 
     logger.info('Number purchased and assigned', {
       orgId,
@@ -595,7 +761,7 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
     );
   }
 
-  const orgData = mybizosOrgStore.get(orgId);
+  const orgData = await getMybizosSettings(orgId);
   if (!orgData) {
     return c.json(
       { error: 'No phone system set up for this organization.', code: 'NOT_SETUP', status: 400 },
@@ -620,8 +786,9 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
       orgData.subaccountSid,
     );
 
-    // Remove from in-memory store
+    // Remove from stored list and persist
     orgData.numbers.splice(numberIndex, 1);
+    await setMybizosSettings(orgId, orgData);
 
     logger.info('Number released', {
       orgId,
@@ -647,7 +814,7 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
 phoneSystem.get('/mybizos/numbers', async (c) => {
   const orgId = c.get('orgId');
 
-  const orgData = mybizosOrgStore.get(orgId);
+  const orgData = await getMybizosSettings(orgId);
   if (!orgData) {
     return c.json({ numbers: [] });
   }
