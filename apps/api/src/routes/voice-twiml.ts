@@ -170,7 +170,10 @@ voiceTwiml.post('/twiml', async (c) => {
       }
 
       // Build the Dial TwiML
-      const statusCallbackUrl = `${config.APP_URL}/webhooks/twilio/status`;
+      // Twilio requires a publicly accessible URL for callbacks (not localhost).
+      const PRODUCTION_API_URL = 'https://mybizos-production.up.railway.app';
+      const webhookBase = config.APP_URL.includes('localhost') ? PRODUCTION_API_URL : config.APP_URL;
+      const statusCallbackUrl = `${webhookBase}/webhooks/twilio/status`;
       const twiml = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<Response>',
