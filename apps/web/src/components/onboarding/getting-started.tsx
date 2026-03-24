@@ -201,20 +201,10 @@ export function WelcomeBanner() {
   if (!visible) return null;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden p-6"
-      style={{
-        background: "linear-gradient(135deg, oklch(0.42 0.17 265 / 0.08), oklch(0.48 0.2 295 / 0.1), oklch(0.42 0.17 265 / 0.05))",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-      }}
-    >
+    <div className="relative rounded-2xl overflow-hidden p-6 bg-gradient-to-br from-primary/5 via-primary/10 to-violet-500/5 border border-primary/10">
       {/* Decorative gradient orbs */}
-      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-30"
-        style={{ background: "radial-gradient(circle, oklch(0.48 0.2 295 / 0.4), transparent)" }}
-      />
-      <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full opacity-20"
-        style={{ background: "radial-gradient(circle, oklch(0.42 0.17 265 / 0.4), transparent)" }}
-      />
+      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10" />
+      <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-violet-500/10" />
 
       <div className="relative flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">

@@ -1419,118 +1419,112 @@ function SettingsContent() {
           {/* ============================================================= */}
           {activeTab === "integrations" && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-border bg-card p-6 space-y-2">
-                <h2 className="text-base font-semibold text-foreground">
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Plug className="h-4 w-4" />
                   Integrations
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Connect your tools and services to MyBizOS.
+                  Connect third-party services to MyBizOS using OAuth. Manage all your
+                  Facebook, Instagram, Google, QuickBooks, and Stripe connections from the
+                  dedicated Integrations hub.
                 </p>
+
+                <Link
+                  href="/dashboard/integrations"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Plug className="h-4 w-4" />
+                  Open Integrations Hub
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
               </div>
 
-              {(
-                [
-                  {
-                    key: "twilio" as const,
-                    name: "Twilio",
-                    desc: "SMS and voice calls",
-                    icon: Phone,
-                    configUrl: "/dashboard/settings/phone",
-                  },
-                  {
-                    key: "vapi" as const,
-                    name: "Vapi.ai",
-                    desc: "AI voice agent platform",
-                    icon: Bot,
-                    configUrl: "",
-                  },
-                  {
-                    key: "stripe" as const,
-                    name: "Stripe",
-                    desc: "Payment processing",
-                    icon: CreditCard,
-                    configUrl: "",
-                  },
-                  {
-                    key: "googleCalendar" as const,
-                    name: "Google Calendar",
-                    desc: "Calendar sync",
-                    icon: Clock,
-                    configUrl: "",
-                  },
-                  {
-                    key: "resend" as const,
-                    name: "Resend",
-                    desc: "Transactional email",
-                    icon: Mail,
-                    configUrl: "",
-                  },
-                  {
-                    key: "quickbooks" as const,
-                    name: "QuickBooks",
-                    desc: "Accounting & invoicing",
-                    icon: Globe,
-                    configUrl: "",
-                  },
-                ] as const
-              ).map((integration) => {
-                const connected = settings.integrations[integration.key];
-                return (
-                  <div
-                    key={integration.key}
-                    className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                        <integration.icon className="h-5 w-5 text-muted-foreground" />
+              {/* Quick Status — Internal services with toggles */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Internal Services
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  These are managed by the platform admin and don&apos;t use OAuth.
+                </p>
+
+                {(
+                  [
+                    {
+                      key: "twilio" as const,
+                      name: "Twilio",
+                      desc: "SMS and voice calls",
+                      icon: Phone,
+                      configUrl: "/dashboard/settings/phone",
+                    },
+                    {
+                      key: "vapi" as const,
+                      name: "Vapi.ai",
+                      desc: "AI voice agent platform",
+                      icon: Bot,
+                      configUrl: "",
+                    },
+                    {
+                      key: "resend" as const,
+                      name: "Resend",
+                      desc: "Transactional email",
+                      icon: Mail,
+                      configUrl: "",
+                    },
+                  ] as const
+                ).map((integration) => {
+                  const connected = settings.integrations[integration.key];
+                  return (
+                    <div
+                      key={integration.key}
+                      className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                          <integration.icon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {integration.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {integration.desc}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {integration.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {integration.desc}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <ToggleSwitch
+                          enabled={connected}
+                          onToggle={() => {
+                            updateIntegration(integration.key, !connected);
+                            const next = {
+                              ...settings,
+                              integrations: {
+                                ...settings.integrations,
+                                [integration.key]: !connected,
+                              },
+                            };
+                            saveSettings(next);
+                            showToast(
+                              `${integration.name} ${!connected ? "connected" : "disconnected"}`
+                            );
+                          }}
+                        />
+                        {connected && integration.configUrl && (
+                          <button
+                            onClick={() => router.push(integration.configUrl)}
+                            className="flex h-8 items-center gap-1.5 rounded-lg border border-input px-3 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            Configure
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <ToggleSwitch
-                        enabled={connected}
-                        onToggle={() => {
-                          updateIntegration(integration.key, !connected);
-                          // Auto-save integrations on toggle
-                          const next = {
-                            ...settings,
-                            integrations: {
-                              ...settings.integrations,
-                              [integration.key]: !connected,
-                            },
-                          };
-                          saveSettings(next);
-                          showToast(
-                            `${integration.name} ${!connected ? "connected" : "disconnected"}`
-                          );
-                        }}
-                      />
-                      {connected && (
-                        <button
-                          onClick={() =>
-                            integration.configUrl
-                              ? router.push(integration.configUrl)
-                              : showToast(
-                                  `${integration.name} settings — coming soon`
-                                )
-                          }
-                          className="flex h-8 items-center gap-1.5 rounded-lg border border-input px-3 text-xs text-muted-foreground hover:bg-muted transition-colors"
-                        >
-                          Configure
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 

@@ -9,8 +9,23 @@ import {
   MicOff,
   User,
   Delete,
+  ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatPhoneNumber,
+  detectCountry,
+  toE164,
+  isValidNumber,
+  stripToDigits,
+  maxDigitsForCountry,
+  formatE164ForDisplay,
+} from "@/lib/phone-utils";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { buildPath } from "@/lib/hooks/use-api";
+import { getOnboardingData } from "@/lib/onboarding";
+import type { PhoneNumber } from "@/components/phone/pricing-data";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -21,15 +36,6 @@ type FloatingCallStatus = "idle" | "ringing" | "connected" | "on-hold" | "ended"
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
-
-function formatPhoneInput(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  if (digits.length <= 1) return `+${digits}`;
-  if (digits.length <= 4) return `+${digits[0]} (${digits.slice(1)}`;
-  if (digits.length <= 7) return `+${digits[0]} (${digits.slice(1, 4)}) ${digits.slice(4)}`;
-  return `+${digits[0]} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
-}
 
 function formatTimerDisplay(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -53,13 +59,99 @@ const KEYPAD_KEYS = [
 ];
 
 /* -------------------------------------------------------------------------- */
+/*  Hook: useCallerNumbers                                                     */
+/* -------------------------------------------------------------------------- */
+
+interface CallerNumber {
+  sid: string;
+  phoneNumber: string;
+  friendlyName: string;
+}
+
+function useCallerNumbers() {
+  const [numbers, setNumbers] = useState<CallerNumber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const didFetch = useRef(false);
+
+  useEffect(() => {
+    if (didFetch.current) return;
+    didFetch.current = true;
+
+    async function load() {
+      setLoading(true);
+
+      // 1. Try API
+      try {
+        const path = buildPath("/orgs/:orgId/phone-system/numbers");
+        const result = await tryFetch(() =>
+          apiClient.get<{ numbers: PhoneNumber[] }>(path),
+        );
+        if (result && result.numbers.length > 0) {
+          setNumbers(
+            result.numbers.map((n) => ({
+              sid: n.sid,
+              phoneNumber: n.phoneNumber,
+              friendlyName: n.friendlyName,
+            })),
+          );
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // API not available — fall through to onboarding data
+      }
+
+      // 2. Fallback: onboarding localStorage
+      try {
+        const onboarding = getOnboardingData();
+        if (onboarding?.phoneSetup) {
+          const setup = onboarding.phoneSetup;
+          const num = setup.selectedNumber ?? setup.existingNumber;
+          if (num) {
+            setNumbers([
+              {
+                sid: "onboarding",
+                phoneNumber: num,
+                friendlyName: "My Number",
+              },
+            ]);
+          }
+        }
+      } catch {
+        // No onboarding data either
+      }
+
+      setLoading(false);
+    }
+
+    load();
+  }, []);
+
+  return { numbers, loading };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Floating Dialer                                                            */
 /* -------------------------------------------------------------------------- */
 
 export function FloatingDialer() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [phoneInput, setPhoneInput] = useState("");
+  const [rawDigits, setRawDigits] = useState("");
+
+  // Caller-from state
+  const { numbers: callerNumbers, loading: numbersLoading } = useCallerNumbers();
+  const [selectedFromSid, setSelectedFromSid] = useState<string | null>(null);
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+
+  // Auto-select first number when loaded
+  useEffect(() => {
+    if (callerNumbers.length > 0 && selectedFromSid === null) {
+      setSelectedFromSid(callerNumbers[0].sid);
+    }
+  }, [callerNumbers, selectedFromSid]);
+
+  const selectedFrom = callerNumbers.find((n) => n.sid === selectedFromSid) ?? null;
 
   // Call state
   const [callStatus, setCallStatus] = useState<FloatingCallStatus>("idle");
@@ -69,6 +161,11 @@ export function FloatingDialer() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Derived
+  const displayFormatted = formatPhoneNumber(rawDigits);
+  const detectedCountry = detectCountry(rawDigits);
+  const numberValid = isValidNumber(rawDigits);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -77,24 +174,29 @@ export function FloatingDialer() {
   }, []);
 
   const handleKeyPress = useCallback((digit: string) => {
-    setPhoneInput((prev) => {
-      const digits = prev.replace(/\D/g, "");
-      if (digits.length >= 11) return prev;
-      return formatPhoneInput(digits + digit);
+    setRawDigits((prev) => {
+      const max = maxDigitsForCountry(prev);
+      if (prev.length >= max) return prev;
+      return prev + digit;
     });
   }, []);
 
   const handleBackspace = useCallback(() => {
-    setPhoneInput((prev) => {
-      const digits = prev.replace(/\D/g, "");
-      if (digits.length === 0) return "";
-      return formatPhoneInput(digits.slice(0, -1));
+    setRawDigits((prev) => {
+      if (prev.length === 0) return "";
+      return prev.slice(0, -1);
     });
   }, []);
 
+  const handleInputChange = useCallback((value: string) => {
+    // Allow pasting any format — strip to digits
+    const digits = stripToDigits(value);
+    const max = maxDigitsForCountry(digits);
+    setRawDigits(digits.slice(0, max));
+  }, []);
+
   const startCall = useCallback(() => {
-    const digits = phoneInput.replace(/\D/g, "");
-    if (digits.length < 10) return;
+    if (!numberValid) return;
 
     setCallStatus("ringing");
     setCallTimer(0);
@@ -106,7 +208,7 @@ export function FloatingDialer() {
         setCallTimer((prev) => prev + 1);
       }, 1000);
     }, 2000);
-  }, [phoneInput]);
+  }, [numberValid]);
 
   const endCall = useCallback(() => {
     if (timerRef.current) {
@@ -115,7 +217,7 @@ export function FloatingDialer() {
     }
     setCallStatus("idle");
     setCallTimer(0);
-    setPhoneInput("");
+    setRawDigits("");
     setActiveContactName(null);
   }, []);
 
@@ -132,7 +234,7 @@ export function FloatingDialer() {
       {isOpen && !isMinimized && (
         <div
           className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[300px]"
-          style={{ maxWidth: "300px", height: isCallActive ? "340px" : "440px" }}
+          style={{ maxWidth: "300px", height: isCallActive ? "340px" : "470px" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/30 shrink-0">
@@ -175,7 +277,7 @@ export function FloatingDialer() {
               </div>
 
               <p className="text-sm font-semibold text-foreground">
-                {activeContactName ?? phoneInput}
+                {activeContactName ?? displayFormatted}
               </p>
 
               {/* Status */}
@@ -220,25 +322,29 @@ export function FloatingDialer() {
           {/* Dialer view */}
           {!isCallActive && (
             <div className="flex flex-col flex-1 px-4 py-3 overflow-hidden">
-              {/* Phone input */}
+              {/* Phone input with country flag */}
               <div className="relative mb-2">
-                <input
-                  value={phoneInput}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "");
-                    setPhoneInput(formatPhoneInput(digits));
-                  }}
-                  placeholder="+1 (___) ___-____"
-                  className="w-full text-center text-lg font-light tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-1"
-                />
-                {phoneInput && (
-                  <button
-                    onClick={handleBackspace}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Delete className="h-4 w-4" />
-                  </button>
-                )}
+                <div className="flex items-center">
+                  {rawDigits.length > 0 && (
+                    <span className="text-lg mr-1 shrink-0" title={detectedCountry.name}>
+                      {detectedCountry.flag}
+                    </span>
+                  )}
+                  <input
+                    value={displayFormatted}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder="Enter number..."
+                    className="w-full text-center text-lg font-light tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-1"
+                  />
+                  {rawDigits.length > 0 && (
+                    <button
+                      onClick={handleBackspace}
+                      className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      <Delete className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="h-px bg-border mb-3" />
 
@@ -265,10 +371,10 @@ export function FloatingDialer() {
               {/* Call button */}
               <button
                 onClick={startCall}
-                disabled={phoneInput.replace(/\D/g, "").length < 10}
+                disabled={!numberValid}
                 className={cn(
                   "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold mt-3 transition-all",
-                  phoneInput.replace(/\D/g, "").length >= 10
+                  numberValid
                     ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-lg shadow-emerald-600/20"
                     : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                 )}
@@ -277,10 +383,69 @@ export function FloatingDialer() {
                 Call
               </button>
 
-              {/* Calling from */}
-              <p className="text-center text-[10px] text-muted-foreground mt-2">
-                From: +61 468 000 171
-              </p>
+              {/* Calling from — dynamic */}
+              <div className="mt-2 text-center">
+                {numbersLoading ? (
+                  <p className="text-[10px] text-muted-foreground">Loading numbers...</p>
+                ) : callerNumbers.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    <span>
+                      No number configured{" "}
+                      <a href="/dashboard/settings/phone" className="text-primary hover:underline">
+                        Set up
+                      </a>
+                    </span>
+                  </p>
+                ) : callerNumbers.length === 1 ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    From:{" "}
+                    <span className="font-medium text-foreground">
+                      {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
+                    </span>
+                  </p>
+                ) : (
+                  /* Multiple numbers — dropdown */
+                  <div className="relative inline-block">
+                    <button
+                      onClick={() => setShowFromDropdown(!showFromDropdown)}
+                      className="text-[10px] text-muted-foreground flex items-center gap-0.5 hover:text-foreground transition-colors"
+                    >
+                      From:{" "}
+                      <span className="font-medium text-foreground">
+                        {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
+                      </span>
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </button>
+                    {showFromDropdown && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[180px] z-10">
+                        {callerNumbers.map((num) => (
+                          <button
+                            key={num.sid}
+                            onClick={() => {
+                              setSelectedFromSid(num.sid);
+                              setShowFromDropdown(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors",
+                              num.sid === selectedFromSid && "bg-muted font-medium",
+                            )}
+                          >
+                            <span className="text-foreground">
+                              {formatE164ForDisplay(num.phoneNumber)}
+                            </span>
+                            {num.friendlyName && (
+                              <span className="text-muted-foreground ml-1.5">
+                                {num.friendlyName}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
