@@ -330,7 +330,41 @@ export default function ContactsPage() {
           Filter
         </button>
         <button
-          onClick={() => showToast("Export started \u2014 CSV download will begin shortly")}
+          onClick={() => {
+            if (contacts.length === 0) {
+              showToast("No contacts to export");
+              return;
+            }
+            // Build CSV content
+            const headers = ["Name", "Email", "Phone", "Source", "Score", "Tags", "Last Activity"];
+            const rows = contacts.map((c) => [
+              c.name,
+              c.email,
+              c.phone,
+              c.source,
+              String(c.score),
+              c.tags.join("; "),
+              c.lastActivity,
+            ]);
+            const csvContent = [
+              headers.join(","),
+              ...rows.map((row) =>
+                row.map((cell) => `"${(cell ?? "").replace(/"/g, '""')}"`).join(",")
+              ),
+            ].join("\n");
+
+            // Create and trigger download
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `contacts-export-${new Date().toISOString().split("T")[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast(`Exported ${contacts.length} contacts to CSV`);
+          }}
           className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
         >
           <Download className="h-4 w-4" />

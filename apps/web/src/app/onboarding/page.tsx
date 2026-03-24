@@ -41,6 +41,8 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getUser } from "@/lib/auth";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
 import {
   type OnboardingData,
   type OnboardingService,
@@ -237,6 +239,9 @@ export default function OnboardingPage() {
       completedAt: new Date().toISOString(),
     };
     saveOnboardingData(skipData);
+    // Also persist to database (fire-and-forget)
+    const orgId = getOrgId();
+    tryFetch(() => apiClient.post(`/orgs/${orgId}/onboarding`, skipData)).catch(() => {});
     router.push("/dashboard");
   }
 
@@ -268,8 +273,16 @@ export default function OnboardingPage() {
       },
       completedAt: new Date().toISOString(),
     };
+
+    // Save to localStorage for immediate use
     saveOnboardingData(data);
     setShowConfetti(true);
+
+    // Also persist to database (fire-and-forget, don't block the UI)
+    const orgId = getOrgId();
+    tryFetch(() => apiClient.post(`/orgs/${orgId}/onboarding`, data)).catch(() => {
+      // API save failed silently — localStorage has the data
+    });
   }
 
   // -----------------------------------------------------------------------

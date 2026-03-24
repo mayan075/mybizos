@@ -107,6 +107,7 @@ function getInitials(name: string): string {
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const pathname = usePathname();
 
   const user = useMemo(() => getUser(), []);
@@ -115,9 +116,52 @@ export function Sidebar() {
   const orgName = onboarding?.businessName ?? user?.orgName ?? "My Business";
   const userInitials = getInitials(userName);
 
+  // Fetch real unread conversation count from API
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const orgId = getOrgId();
+        const result = await tryFetch(() =>
+          apiClient.get<{ data: { count: number } }>(`/orgs/${orgId}/conversations/unread-count`),
+        );
+        if (!cancelled && result) {
+          const data = typeof result === "object" && result !== null && "data" in result
+            ? (result as { data: { count: number } }).data
+            : null;
+          if (data && typeof data.count === "number" && data.count > 0) {
+            setUnreadCount(data.count);
+          } else {
+            setUnreadCount(null);
+          }
+        }
+      } catch {
+        // API unavailable — show no badge (not a fake number)
+        if (!cancelled) setUnreadCount(null);
+      }
+    }
+    fetchUnread();
+    // Poll every 30 seconds for updated count
+    const interval = setInterval(fetchUnread, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
   // Only show Admin section to platform admins
   const PLATFORM_ADMIN_EMAILS = ["mayan@northernremovals.com.au", "mayan0750@gmail.com"];
   const isAdmin = user?.email ? PLATFORM_ADMIN_EMAILS.includes(user.email) : false;
+
+  // Build nav sections with real unread count injected into Inbox badge
+  const dynamicNavSections = useMemo(() => {
+    return navSections.map((section) => ({
+      ...section,
+      items: section.items.map((item) => {
+        if (item.label === "Inbox" && unreadCount !== null && unreadCount > 0) {
+          return { ...item, badge: String(unreadCount) };
+        }
+        return item;
+      }),
+    }));
+  }, [unreadCount]);
 
   return (
     <aside
@@ -164,7 +208,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        {navSections.filter(s => s.title !== "Admin" || isAdmin).map((section, sectionIdx) => (
+        {dynamicNavSections.filter(s => s.title !== "Admin" || isAdmin).map((section, sectionIdx) => (
           <div key={sectionIdx} className={cn(sectionIdx > 0 && "mt-5")}>
             {section.title && !collapsed && (
               <p className="section-label px-3 mb-2">

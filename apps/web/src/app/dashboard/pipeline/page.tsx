@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,8 +16,6 @@ const stageTooltips: Record<string, string> = {
   "Scheduled": "The job is booked. Service appointment is on the calendar.",
   "Won": "Deal is closed and the job is complete. Revenue is counted here.",
 };
-
-import { formatCurrency } from "@/lib/utils";
 
 function formatValue(value: number): string {
   return formatCurrency(value);

@@ -323,50 +323,50 @@ function Hero() {
 
         {/* Floating glassmorphism cards around hero */}
         <div className="pointer-events-none relative mx-auto mt-16 max-w-5xl">
-          {/* Card 1 — top left */}
+          {/* Card 1 — top left: green accent */}
           <div
-            className="glass-card absolute -left-4 top-0 hidden px-4 py-3 shadow-2xl shadow-black/20 lg:block"
+            className="absolute -left-6 top-4 z-10 hidden rounded-2xl border border-green-500/20 bg-[#0d1a14]/90 px-4 py-3 shadow-lg shadow-green-500/10 backdrop-blur-xl lg:block"
             style={{ animation: "floatCard1 6s ease-in-out infinite" }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-500/20">
-                <CalendarCheck className="h-4 w-4 text-green-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/15 ring-1 ring-green-500/20">
+                <CalendarCheck className="h-4.5 w-4.5 text-green-400" />
               </div>
               <div>
-                <div className="text-xs font-semibold text-white/90">AI booked an appointment</div>
-                <div className="text-[11px] text-white/40">HVAC Install — Tomorrow 2pm</div>
+                <div className="text-[13px] font-semibold text-white/95">AI booked an appointment</div>
+                <div className="text-[11px] text-green-400/60">HVAC Install — Tomorrow 2pm</div>
               </div>
             </div>
           </div>
 
-          {/* Card 2 — top right */}
+          {/* Card 2 — top right: blue accent */}
           <div
-            className="glass-card absolute -right-4 top-8 hidden px-4 py-3 shadow-2xl shadow-black/20 lg:block"
+            className="absolute -right-6 top-10 z-10 hidden rounded-2xl border border-blue-500/20 bg-[#0d1420]/90 px-4 py-3 shadow-lg shadow-blue-500/10 backdrop-blur-xl lg:block"
             style={{ animation: "floatCard2 7s ease-in-out infinite" }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20">
-                <TrendingUp className="h-4 w-4 text-amber-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/15 ring-1 ring-blue-500/20">
+                <TrendingUp className="h-4.5 w-4.5 text-blue-400" />
               </div>
               <div>
-                <div className="text-xs font-semibold text-white/90">Lead scored 92</div>
-                <div className="text-[11px] text-white/40">High intent — water heater repair</div>
+                <div className="text-[13px] font-semibold text-white/95">Lead scored 92</div>
+                <div className="text-[11px] text-blue-400/60">High intent — water heater repair</div>
               </div>
             </div>
           </div>
 
-          {/* Card 3 — bottom center-right */}
+          {/* Card 3 — bottom right: amber/gold accent */}
           <div
-            className="glass-card absolute -right-8 bottom-12 hidden px-4 py-3 shadow-2xl shadow-black/20 lg:block"
+            className="absolute -right-10 bottom-16 z-10 hidden rounded-2xl border border-amber-500/20 bg-[#1a1608]/90 px-4 py-3 shadow-lg shadow-amber-500/10 backdrop-blur-xl lg:block"
             style={{ animation: "floatCard3 5s ease-in-out infinite" }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20">
-                <Star className="h-4 w-4 text-blue-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/20">
+                <Star className="h-4.5 w-4.5 text-amber-400" />
               </div>
               <div>
-                <div className="text-xs font-semibold text-white/90">Review responded</div>
-                <div className="text-[11px] text-white/40">5-star reply sent automatically</div>
+                <div className="text-[13px] font-semibold text-white/95">Review responded</div>
+                <div className="text-[11px] text-amber-400/60">5-star reply sent automatically</div>
               </div>
             </div>
           </div>

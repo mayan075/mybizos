@@ -269,10 +269,43 @@ export function isOnboardingComplete(): boolean {
   return data !== null && Boolean(data.completedAt);
 }
 
-/** Persist onboarding data to localStorage. */
+/** Persist onboarding data to localStorage (and optionally to API). */
 export function saveOnboardingData(data: OnboardingData): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/**
+ * Try to load onboarding data from the API if localStorage is empty.
+ * This handles the case where a user switches devices.
+ */
+export async function loadOnboardingFromApi(orgId: string): Promise<OnboardingData | null> {
+  if (typeof window === "undefined") return null;
+  // If we already have local data, use it
+  const local = getOnboardingData();
+  if (local) return local;
+
+  // Try API
+  try {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+    const token = localStorage.getItem("mybizos_token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE}/orgs/${orgId}/settings`, { headers });
+    if (res.ok) {
+      const json = await res.json() as { data?: { onboarding?: OnboardingData } };
+      const onboarding = json?.data?.onboarding;
+      if (onboarding && onboarding.completedAt) {
+        // Cache locally for future use
+        saveOnboardingData(onboarding);
+        return onboarding;
+      }
+    }
+  } catch {
+    // API unavailable
+  }
+  return null;
 }
 
 /** Clear onboarding data (for dev/testing). */
