@@ -279,7 +279,7 @@ export function FloatingDialer() {
 
               {/* Calling from */}
               <p className="text-center text-[10px] text-muted-foreground mt-2">
-                From: (704) 555-0001
+                From: +61 468 000 171
               </p>
             </div>
           )}

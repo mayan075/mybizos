@@ -106,9 +106,12 @@ authenticatedScheduling.patch('/appointments/:id', async (c) => {
       startTime: parsed.startTime ? new Date(parsed.startTime) : undefined,
       endTime: parsed.endTime ? new Date(parsed.endTime) : undefined,
     });
+    logger.info('Appointment updated in REAL DATABASE', { orgId, appointmentId });
     return c.json({ data: appointment });
-  } catch {
-    logger.warn('DB unavailable for appointment update, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for appointment update, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: appointmentId, ...parsed, updatedAt: new Date().toISOString() } });
   }
 });
@@ -123,10 +126,13 @@ authenticatedScheduling.get('/availability', async (c) => {
     const orgId = c.get('orgId');
     const userId = query.userId ?? '';
     const slots = await schedulingService.getAvailability(orgId, userId, query.date);
-    return c.json({ data: slots });
-  } catch {
-    logger.warn('DB unavailable for availability, using mock data');
-    return c.json({ data: getMockAvailability(query.date) });
+    logger.info('Availability served from REAL DATABASE', { orgId, date: query.date, slots: slots.length });
+    return c.json({ data: slots, _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for availability, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ data: getMockAvailability(query.date), _source: 'mock' });
   }
 });
 
@@ -137,9 +143,12 @@ scheduling.post('/public/book/:orgSlug', async (c) => {
   try {
     const { schedulingService } = await import('../services/scheduling-service.js');
     const appointment = await schedulingService.publicBook(orgSlug, parsed);
+    logger.info('Public booking created in REAL DATABASE', { orgSlug, appointmentId: appointment.id });
     return c.json({ data: appointment }, 201);
-  } catch {
-    logger.warn('DB unavailable for public booking, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for public booking, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: `apt_${Date.now()}`, orgSlug, ...parsed, status: 'scheduled', createdAt: new Date().toISOString() } }, 201);
   }
 });

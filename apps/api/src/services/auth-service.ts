@@ -91,12 +91,12 @@ export async function register(
     expiresAt.setDate(expiresAt.getDate() + 7);
     await db.insert(sessions).values({ userId: newUser.id, token, expiresAt });
 
-    logger.info('User registered', { userId: newUser.id, orgId: newOrg.id });
+    logger.info('User registered via REAL DATABASE', { userId: newUser.id, orgId: newOrg.id });
     return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner' }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, vertical: newOrg.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     // DB not available — return mock
-    logger.warn('Database unavailable for register, returning mock auth', {
+    logger.warn('Database unavailable for register, returning MOCK auth', {
       error: err instanceof Error ? err.message : String(err),
     });
     const mock = getMockAuthResult();
@@ -146,12 +146,12 @@ export async function login(
     await db.insert(sessions).values({ userId: user.id, token, expiresAt, ipAddress: _ipAddress ?? null, userAgent: _userAgent ?? null });
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    logger.info('User logged in', { userId: user.id });
+    logger.info('User logged in via REAL DATABASE', { userId: user.id, orgId: org.id });
     return { user: { id: user.id, email: user.email, name: user.name, role: membership.role }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     // DB not available — return mock
-    logger.warn('Database unavailable for login, returning mock auth', {
+    logger.warn('Database unavailable for login, returning MOCK auth', {
       error: err instanceof Error ? err.message : String(err),
     });
     const mock = getMockAuthResult();

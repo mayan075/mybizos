@@ -29,7 +29,14 @@ import {
   MessageSquare,
   Bot,
   CalendarPlus,
-  PartyPopper,
+  PhoneForwarded,
+  AlertTriangle,
+  UserCheck,
+  DollarSign,
+  Headphones,
+  Mic,
+  PhoneCall,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -40,6 +47,7 @@ import {
   type BusinessHours,
   type DayOfWeek,
   type PhoneSetupMode,
+  type AiReceptionistConfig,
   VERTICALS,
   COUNTRIES,
   TIMEZONES,
@@ -71,7 +79,7 @@ const verticalIconMap: Record<string, React.ElementType> = {
 };
 
 // ---------------------------------------------------------------------------
-// Step definitions
+// Step definitions — 7 steps, zero technical stuff
 // ---------------------------------------------------------------------------
 
 const STEPS = [
@@ -79,6 +87,7 @@ const STEPS = [
   { label: "Location", icon: MapPin },
   { label: "Services", icon: Briefcase },
   { label: "Hours", icon: Clock },
+  { label: "AI Receptionist", icon: Bot },
   { label: "Phone", icon: Phone },
   { label: "All set!", icon: Rocket },
 ];
@@ -116,32 +125,38 @@ export default function OnboardingPage() {
   // Step state
   const [step, setStep] = useState(0);
 
-  // Step 1
+  // Step 1 — Your business
   const [businessName, setBusinessName] = useState(user?.orgName ?? "");
   const [vertical, setVertical] = useState("");
   const [role, setRole] = useState<string>("Owner");
 
-  // Step 2
+  // Step 2 — Location
   const [country, setCountry] = useState("AU");
   const [city, setCity] = useState("");
   const [serviceArea, setServiceArea] = useState("");
   const [timezone, setTimezone] = useState(() => detectTimezone());
 
-  // Step 3
+  // Step 3 — Services
   const [services, setServices] = useState<OnboardingService[]>([]);
   const [newServiceName, setNewServiceName] = useState("");
 
-  // Step 4
+  // Step 4 — Hours
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
-  // Step 5
-  const [phoneMode, setPhoneMode] = useState<PhoneSetupMode>("skip");
+  // Step 5 — AI Receptionist
+  const [aiGreeting, setAiGreeting] = useState("");
+  const [transferEmergency, setTransferEmergency] = useState(true);
+  const [transferHuman, setTransferHuman] = useState(true);
+  const [transferHighValue, setTransferHighValue] = useState(false);
+  const [personalPhone, setPersonalPhone] = useState("");
+
+  // Step 6 — Phone number
+  const [phoneMode, setPhoneMode] = useState<PhoneSetupMode>("mybizos");
   const [phoneCountry, setPhoneCountry] = useState("AU");
   const [numberType, setNumberType] = useState("local");
-  const [twilioSid, setTwilioSid] = useState("");
-  const [twilioToken, setTwilioToken] = useState("");
+  const [existingNumber, setExistingNumber] = useState("");
 
-  // Step 6 confetti
+  // Step 7 — Confetti
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Load services when vertical changes
@@ -150,6 +165,15 @@ export default function OnboardingPage() {
       setServices(getServicesForVertical(vertical));
     }
   }, [vertical]);
+
+  // Auto-generate AI greeting when business name changes
+  useEffect(() => {
+    if (businessName.trim() && !aiGreeting) {
+      setAiGreeting(
+        `Hi, thanks for calling ${businessName.trim()}! This is our AI assistant. How can I help you today?`,
+      );
+    }
+  }, [businessName, aiGreeting]);
 
   // -----------------------------------------------------------------------
   // Navigation
@@ -166,11 +190,13 @@ export default function OnboardingPage() {
       case 3:
         return true;
       case 4:
+        return aiGreeting.trim().length > 0;
+      case 5:
         return true;
       default:
         return true;
     }
-  }, [step, businessName, vertical, country, city, services]);
+  }, [step, businessName, vertical, country, city, services, aiGreeting]);
 
   function handleNext() {
     if (!canAdvance()) return;
@@ -198,6 +224,15 @@ export default function OnboardingPage() {
       timezone: detectTimezone(),
       services: getServicesForVertical(vertical || "other").filter((s) => s.enabled),
       businessHours: DEFAULT_BUSINESS_HOURS,
+      aiReceptionist: {
+        greeting: `Hi, thanks for calling! This is our AI assistant. How can I help you today?`,
+        transferWhen: {
+          emergency: true,
+          customerRequestsHuman: true,
+          highValueQuote: false,
+        },
+        personalPhone: "",
+      },
       phoneSetup: { mode: "skip" },
       completedAt: new Date().toISOString(),
     };
@@ -216,12 +251,20 @@ export default function OnboardingPage() {
       timezone,
       services: services.filter((s) => s.enabled),
       businessHours: hours,
+      aiReceptionist: {
+        greeting: aiGreeting.trim(),
+        transferWhen: {
+          emergency: transferEmergency,
+          customerRequestsHuman: transferHuman,
+          highValueQuote: transferHighValue,
+        },
+        personalPhone: personalPhone.trim(),
+      },
       phoneSetup: {
         mode: phoneMode,
         country: phoneMode === "mybizos" ? phoneCountry : undefined,
         numberType: phoneMode === "mybizos" ? numberType : undefined,
-        twilioSid: phoneMode === "twilio" ? twilioSid : undefined,
-        twilioToken: phoneMode === "twilio" ? twilioToken : undefined,
+        existingNumber: phoneMode === "existing" ? existingNumber : undefined,
       },
       completedAt: new Date().toISOString(),
     };
@@ -302,7 +345,7 @@ export default function OnboardingPage() {
             Tell us about your business
           </h2>
           <p className="text-muted-foreground">
-            We'll use this to customize your dashboard and AI agent.
+            We&apos;ll use this to customize your AI assistant and dashboard.
           </p>
         </div>
 
@@ -586,7 +629,7 @@ export default function OnboardingPage() {
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-foreground">Business hours</h2>
           <p className="text-muted-foreground">
-            When can customers book appointments? Your AI agent will use these too.
+            When can customers book appointments? Your AI assistant will use these too.
           </p>
         </div>
 
@@ -665,10 +708,166 @@ export default function OnboardingPage() {
       <div className="space-y-8">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-foreground">
-            Get your phone number
+            Set up your AI receptionist
           </h2>
           <p className="text-muted-foreground">
-            Your AI agent needs a number to answer calls and send SMS. You can always set this up later.
+            Your AI receptionist answers calls 24/7, books appointments, and qualifies leads.
+          </p>
+        </div>
+
+        {/* Feature highlights */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center">
+            <Headphones className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium text-foreground">Answers 24/7</span>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center">
+            <CalendarPlus className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium text-foreground">Books appointments</span>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 text-center">
+            <DollarSign className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium text-foreground">Qualifies leads</span>
+          </div>
+        </div>
+
+        {/* Greeting */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <Mic className="h-4 w-4 text-muted-foreground" />
+            What should your AI say when it answers?
+          </label>
+          <textarea
+            value={aiGreeting}
+            onChange={(e) => setAiGreeting(e.target.value)}
+            rows={3}
+            placeholder="Hi, thanks for calling! How can I help you today?"
+            className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
+          />
+          <p className="text-xs text-muted-foreground">
+            We pre-filled this based on your business name. Feel free to customize it.
+          </p>
+        </div>
+
+        {/* Transfer rules */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-foreground">
+            When should your AI transfer the call to you?
+          </label>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setTransferEmergency(!transferEmergency)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                transferEmergency
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border bg-card",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                  transferEmergency
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30",
+                )}
+              >
+                {transferEmergency && <Check className="h-3 w-3" />}
+              </div>
+              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Emergency situations</p>
+                <p className="text-xs text-muted-foreground">Flooding, gas leaks, fire, etc.</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTransferHuman(!transferHuman)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                transferHuman
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border bg-card",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                  transferHuman
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30",
+                )}
+              >
+                {transferHuman && <Check className="h-3 w-3" />}
+              </div>
+              <UserCheck className="h-4 w-4 text-blue-500 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Customer requests a human</p>
+                <p className="text-xs text-muted-foreground">When they specifically ask to speak to someone</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTransferHighValue(!transferHighValue)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                transferHighValue
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border bg-card",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all",
+                  transferHighValue
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30",
+                )}
+              >
+                {transferHighValue && <Check className="h-3 w-3" />}
+              </div>
+              <DollarSign className="h-4 w-4 text-emerald-500 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">High-value quote request</p>
+                <p className="text-xs text-muted-foreground">Large jobs that need a personal touch</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Personal phone for transfers */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <PhoneForwarded className="h-4 w-4 text-muted-foreground" />
+            Your phone number (for transfers)
+          </label>
+          <input
+            type="tel"
+            value={personalPhone}
+            onChange={(e) => setPersonalPhone(e.target.value)}
+            placeholder="e.g. +61 400 123 456"
+            className="h-12 w-full rounded-xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          />
+          <p className="text-xs text-muted-foreground">
+            When your AI transfers a call, it will ring this number. You can change this later.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderStep6() {
+    return (
+      <div className="space-y-8">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold text-foreground">
+            Get your business phone number
+          </h2>
+          <p className="text-muted-foreground">
+            We&apos;ll set up a phone number for your business. Customers call this number and your AI answers.
           </p>
         </div>
 
@@ -691,10 +890,10 @@ export default function OnboardingPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  Get a MyBizOS number
+                  Get a new number from us
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  We provision a local number for you. From $2/mo + usage.
+                  We&apos;ll set up a local number for your business. Included in your plan.
                 </p>
               </div>
             </div>
@@ -724,63 +923,59 @@ export default function OnboardingPage() {
                     onChange={(e) => setNumberType(e.target.value)}
                     className="h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="local">Local ($2/mo)</option>
-                    <option value="tollfree">Toll-Free ($5/mo)</option>
-                    <option value="mobile">Mobile ($3/mo)</option>
+                    <option value="local">Local</option>
+                    <option value="tollfree">Toll-Free</option>
+                    <option value="mobile">Mobile</option>
                   </select>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll provision this number when you finish setup. You&apos;ll see it on your dashboard.
+              </p>
             </div>
           )}
 
-          {/* Twilio */}
+          {/* I already have a number */}
           <button
             type="button"
-            onClick={() => setPhoneMode("twilio")}
+            onClick={() => setPhoneMode("existing")}
             className={cn(
               "w-full rounded-xl border-2 p-5 text-left transition-all",
-              phoneMode === "twilio"
+              phoneMode === "existing"
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/30",
             )}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
-                <Phone className="h-5 w-5 text-red-500" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                <PhoneCall className="h-5 w-5 text-blue-500" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  Connect my Twilio
+                  I already have a number
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Already have a Twilio account? Bring your own number.
+                  Forward your existing business number to your AI receptionist.
                 </p>
               </div>
             </div>
           </button>
 
-          {phoneMode === "twilio" && (
-            <div className="ml-4 space-y-4 rounded-xl border border-border bg-card p-4">
+          {phoneMode === "existing" && (
+            <div className="ml-4 space-y-3 rounded-xl border border-border bg-card p-4">
               <div className="space-y-2">
-                <label className="text-xs font-medium text-foreground">Account SID</label>
+                <label className="text-xs font-medium text-foreground">Your business phone number</label>
                 <input
-                  type="text"
-                  value={twilioSid}
-                  onChange={(e) => setTwilioSid(e.target.value)}
-                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  type="tel"
+                  value={existingNumber}
+                  onChange={(e) => setExistingNumber(e.target.value)}
+                  placeholder="e.g. +61 2 9876 5432"
                   className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-foreground">Auth Token</label>
-                <input
-                  type="password"
-                  value={twilioToken}
-                  onChange={(e) => setTwilioToken(e.target.value)}
-                  placeholder="Your Twilio auth token"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll send you instructions on how to set up call forwarding from your existing number.
+              </p>
             </div>
           )}
 
@@ -814,7 +1009,7 @@ export default function OnboardingPage() {
     );
   }
 
-  function renderStep6() {
+  function renderStep7() {
     const enabledServices = services.filter((s) => s.enabled);
     const openDays = DAYS.filter(({ key }) => hours[key].open);
     const verticalLabel = VERTICALS.find((v) => v.value === vertical)?.label ?? vertical;
@@ -846,12 +1041,11 @@ export default function OnboardingPage() {
             </div>
           )}
           <h2 className="text-3xl font-bold text-foreground">
-            You're all set!
+            You&apos;re all set!
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
             <span className="font-semibold text-foreground">{businessName}</span> is
-            ready to go. Your AI agent will be customized for your{" "}
-            {verticalLabel.toLowerCase()} business.
+            ready to go. Your AI receptionist is configured and ready to handle calls.
           </p>
         </div>
 
@@ -879,13 +1073,19 @@ export default function OnboardingPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 px-5 py-4">
+            <Bot className="h-5 w-5 text-primary" />
+            <p className="text-sm text-foreground">
+              AI receptionist configured and ready
+            </p>
+          </div>
+          <div className="flex items-center gap-3 px-5 py-4">
             <Phone className="h-5 w-5 text-primary" />
             <p className="text-sm text-foreground">
               {phoneMode === "mybizos"
-                ? "MyBizOS number (provisioning...)"
-                : phoneMode === "twilio"
-                  ? "Twilio connected"
-                  : "Phone setup skipped"}
+                ? "Business number will be provisioned shortly"
+                : phoneMode === "existing"
+                  ? "Forwarding instructions will be sent"
+                  : "Phone setup skipped (set up anytime in Settings)"}
             </p>
           </div>
         </div>
@@ -914,12 +1114,12 @@ export default function OnboardingPage() {
           </button>
           <button
             type="button"
-            onClick={() => router.push("/dashboard/settings/phone")}
+            onClick={() => router.push("/dashboard/settings?tab=ai-agent")}
             className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-muted/50 transition-colors"
           >
             <Bot className="h-5 w-5 text-purple-500" />
             <span className="text-sm font-medium text-foreground">
-              Set up AI phone agent
+              Customize AI personality
             </span>
           </button>
           <button
@@ -941,7 +1141,7 @@ export default function OnboardingPage() {
   // Main render
   // -----------------------------------------------------------------------
 
-  const stepRenderers = [renderStep1, renderStep2, renderStep3, renderStep4, renderStep5, renderStep6];
+  const stepRenderers = [renderStep1, renderStep2, renderStep3, renderStep4, renderStep5, renderStep6, renderStep7];
   const isLastStep = step === STEPS.length - 1;
 
   return (
@@ -1019,7 +1219,7 @@ export default function OnboardingPage() {
                 </div>
                 <span
                   className={cn(
-                    "text-xs font-medium hidden md:inline",
+                    "text-xs font-medium hidden lg:inline",
                     isActive ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
@@ -1028,7 +1228,7 @@ export default function OnboardingPage() {
                 {i < STEPS.length - 1 && (
                   <div
                     className={cn(
-                      "h-px w-6 md:w-10",
+                      "h-px w-4 lg:w-8",
                       i < step ? "bg-success" : "bg-border",
                     )}
                   />

@@ -1243,7 +1243,7 @@ export default function CallsPage() {
 
                 {/* Calling from */}
                 <p className="text-center text-xs text-muted-foreground">
-                  Calling from: <span className="font-medium text-foreground">(704) 555-0001</span>
+                  Calling from: <span className="font-medium text-foreground">+61 468 000 171</span>
                 </p>
 
                 {/* Quick dial */}

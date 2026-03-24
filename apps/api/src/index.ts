@@ -62,12 +62,25 @@ app.get('/', (c) => {
   });
 });
 
-app.get('/health', (c) => {
+app.get('/health', async (c) => {
+  let dbStatus = 'unknown';
+  let dbError: string | null = null;
+  try {
+    const { db } = await import('@mybizos/db');
+    const { sql } = await import('drizzle-orm');
+    const result = await db.execute(sql`SELECT 1 as ok`);
+    dbStatus = result.rows && result.rows.length > 0 ? 'connected' : 'no-result';
+  } catch (err) {
+    dbStatus = 'disconnected';
+    dbError = err instanceof Error ? err.message : String(err);
+  }
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '0.1.0',
     environment: config.NODE_ENV,
+    database: dbStatus,
+    ...(dbError ? { dbError } : {}),
   });
 });
 
