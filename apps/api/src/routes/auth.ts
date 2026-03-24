@@ -19,6 +19,8 @@ const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   businessName: z.string().min(1, 'Business name is required'),
   vertical: z.enum([
+    'rubbish_removals',
+    'moving_company',
     'plumbing',
     'hvac',
     'electrical',
@@ -27,6 +29,11 @@ const registerSchema = z.object({
     'pest_control',
     'cleaning',
     'general_contractor',
+    'salon_spa',
+    'dental',
+    'auto_repair',
+    'real_estate',
+    'other',
   ], { message: 'Invalid business vertical' }),
 });
 

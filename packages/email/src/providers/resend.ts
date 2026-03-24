@@ -67,14 +67,15 @@ export class ResendProvider {
     textBody?: string,
     tag?: string,
   ): Promise<SendEmailResult> {
-    const { data, error } = await this.client.emails.send({
+    const payload: Record<string, unknown> = {
       from: from ?? this.defaultFrom,
       to: [to],
       subject,
-      html: htmlBody ?? undefined,
-      text: textBody ?? undefined,
-      tags: tag ? [{ name: "category", value: tag }] : undefined,
-    });
+    };
+    if (htmlBody) payload.html = htmlBody;
+    if (textBody) payload.text = textBody;
+    if (tag) payload.tags = [{ name: "category", value: tag }];
+    const { data, error } = await this.client.emails.send(payload as any);
 
     if (error) {
       throw new Error(`Resend email error: ${error.message}`);

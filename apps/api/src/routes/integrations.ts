@@ -130,8 +130,8 @@ integrations.get('/status', (c) => {
     };
 
     // Also include whether credentials are configured
-    (status[provider] as Record<string, unknown>)['credentialsConfigured'] = !!creds;
-    (status[provider] as Record<string, unknown>)['displayName'] = providerCfg.displayName;
+    (status[provider] as unknown as Record<string, unknown>)['credentialsConfigured'] = !!creds;
+    (status[provider] as unknown as Record<string, unknown>)['displayName'] = providerCfg.displayName;
   }
 
   return c.json({ status });
