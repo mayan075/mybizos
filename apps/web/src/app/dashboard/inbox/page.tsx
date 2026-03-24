@@ -13,6 +13,7 @@ import {
   Send,
   Paperclip,
   Smile,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -29,7 +30,7 @@ const channelIcons = {
 
 export default function InboxPage() {
   usePageTitle("Inbox");
-  const [selectedId, setSelectedId] = useState("conv1");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "ai">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
@@ -39,7 +40,7 @@ export default function InboxPage() {
   const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>(mockMessages);
 
   // Hooks (try API, fall back to mock data)
-  const { data: apiConversations, isLive: conversationsLive } = useConversations({ filter, search: searchQuery });
+  const { data: apiConversations, isLive: conversationsLive, isLoading } = useConversations({ filter, search: searchQuery });
 
   // Use API data if live, otherwise use local state for full interactivity
   const conversations = conversationsLive ? apiConversations : localConversations;
@@ -58,14 +59,16 @@ export default function InboxPage() {
     });
   }, [conversations, conversationsLive, filter, searchQuery]);
 
-  const selected = conversations.find((c) => c.id === selectedId);
-  const currentMessages = localMessages[selectedId] ?? [];
+  // Auto-select first conversation when not selected yet
+  const effectiveSelectedId = selectedId ?? (filtered.length > 0 ? filtered[0].id : null);
+  const selected = conversations.find((c) => c.id === effectiveSelectedId);
+  const currentMessages = effectiveSelectedId ? (localMessages[effectiveSelectedId] ?? []) : [];
   const unreadCount = conversations.filter((c) => c.unread).length;
 
-  const { mutate: sendMessageApi } = useSendMessage(selectedId);
+  const { mutate: sendMessageApi } = useSendMessage(effectiveSelectedId ?? "");
 
   function handleSend() {
-    if (!messageText.trim() || !selectedId) return;
+    if (!messageText.trim() || !effectiveSelectedId) return;
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -80,13 +83,13 @@ export default function InboxPage() {
 
     setLocalMessages((prev) => ({
       ...prev,
-      [selectedId]: [...(prev[selectedId] ?? []), newMsg],
+      [effectiveSelectedId]: [...(prev[effectiveSelectedId] ?? []), newMsg],
     }));
 
     // Update conversation last message
     setLocalConversations((prev) =>
       prev.map((c) =>
-        c.id === selectedId
+        c.id === effectiveSelectedId
           ? { ...c, lastMessage: messageText.trim(), time: "Just now", unread: false }
           : c,
       ),
@@ -101,7 +104,7 @@ export default function InboxPage() {
     setTimeout(() => {
       setLocalMessages((prev) => ({
         ...prev,
-        [selectedId]: (prev[selectedId] ?? []).map((m) =>
+        [effectiveSelectedId]: (prev[effectiveSelectedId] ?? []).map((m) =>
           m.id === newMsg.id ? { ...m, status: "delivered" as const } : m,
         ),
       }));
@@ -120,6 +123,40 @@ export default function InboxPage() {
     // Mark as read
     setLocalConversations((prev) =>
       prev.map((c) => (c.id === convId ? { ...c, unread: false } : c)),
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
+          <p className="text-sm text-muted-foreground mt-1">Loading conversations...</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Loading conversations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state when no conversations at all (API returned empty)
+  if (conversations.length === 0 && !searchQuery) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
+          <p className="text-sm text-muted-foreground mt-1">0 conversations</p>
+        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title="No conversations yet"
+          description="When customers text or call, their messages will appear here. Your AI agent handles them 24/7."
+          className="rounded-xl border border-border bg-card"
+        />
+      </div>
     );
   }
 
@@ -179,7 +216,7 @@ export default function InboxPage() {
                   onClick={() => handleSelectConversation(conv.id)}
                   className={cn(
                     "flex w-full items-start gap-3 border-b border-border px-4 py-3 text-left transition-colors",
-                    selectedId === conv.id
+                    effectiveSelectedId === conv.id
                       ? "bg-accent"
                       : "hover:bg-muted/30",
                   )}

@@ -32,6 +32,7 @@ import {
   Settings2,
   ChevronDown,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -45,7 +46,7 @@ import {
   formatE164ForDisplay,
 } from "@/lib/phone-utils";
 import { apiClient, tryFetch } from "@/lib/api-client";
-import { buildPath } from "@/lib/hooks/use-api";
+import { useApiQuery, buildPath } from "@/lib/hooks/use-api";
 import { getOnboardingData } from "@/lib/onboarding";
 import type { PhoneNumber as TwilioPhoneNumber } from "@/components/phone/pricing-data";
 
@@ -980,6 +981,12 @@ export default function CallsPage() {
   usePageTitle("Calls");
   const router = useRouter();
 
+  // Fetch call history via API, fall back to mock data on network error
+  const { data: callRecords, isLoading: callsLoading } = useApiQuery<CallRecord[]>(
+    "/orgs/:orgId/calls",
+    MOCK_CALLS,
+  );
+
   // Call history state
   const [activeTab, setActiveTab] = useState<CallTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1019,9 +1026,12 @@ export default function CallsPage() {
   const detectedCountry = detectCountry(rawDigits);
   const numberValid = isValidNumber(rawDigits);
 
+  // The actual list to filter from (API data or mock fallback)
+  const activeCalls = callsLoading ? [] : callRecords;
+
   // Filter calls
   const filteredCalls = useMemo(() => {
-    return MOCK_CALLS.filter((call) => {
+    return activeCalls.filter((call) => {
       // Tab filter
       if (activeTab === "inbound" && call.direction !== "inbound") return false;
       if (activeTab === "outbound" && call.direction !== "outbound") return false;
@@ -1038,11 +1048,11 @@ export default function CallsPage() {
 
       return true;
     });
-  }, [activeTab, searchQuery]);
+  }, [activeCalls, activeTab, searchQuery]);
 
   const selectedCall = useMemo(
-    () => MOCK_CALLS.find((c) => c.id === selectedCallId) ?? null,
-    [selectedCallId],
+    () => activeCalls.find((c) => c.id === selectedCallId) ?? null,
+    [activeCalls, selectedCallId],
   );
 
   // Call simulation
@@ -1155,13 +1165,32 @@ export default function CallsPage() {
     startCall(e164, activeCallContact);
   }, [rawDigits, numberValid, activeCallContact, startCall]);
 
+  const missedCount = activeCalls.filter((c) => c.outcome === "missed").length;
   const tabs: { key: CallTab; label: string; count?: number }[] = [
     { key: "all", label: "All" },
     { key: "inbound", label: "Inbound" },
     { key: "outbound", label: "Outbound" },
     { key: "ai", label: "AI Handled" },
-    { key: "missed", label: "Missed", count: MOCK_CALLS.filter((c) => c.outcome === "missed").length },
+    { key: "missed", label: "Missed", count: missedCount },
   ];
+
+  // Loading state
+  if (callsLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Calls</h1>
+            <p className="text-sm text-muted-foreground mt-1">Loading call history...</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Loading call history...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -1169,7 +1198,9 @@ export default function CallsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Calls</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage calls, view history, and make outbound calls
+            {activeCalls.length === 0
+              ? "No call history yet"
+              : "Manage calls, view history, and make outbound calls"}
           </p>
         </div>
         <Link
@@ -1240,9 +1271,18 @@ export default function CallsPage() {
               </div>
             ))}
             {filteredCalls.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground">
-                <PhoneCall className="h-8 w-8 mb-2 opacity-40" />
-                No calls found
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/5 border border-primary/10 mb-4">
+                  <PhoneCall className="h-7 w-7 text-primary/40" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">
+                  {activeCalls.length === 0 ? "No call history yet" : "No calls found"}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-[240px]">
+                  {activeCalls.length === 0
+                    ? "Connect your phone number to start receiving and making calls. Your AI agent will answer automatically."
+                    : "Try a different search or filter."}
+                </p>
               </div>
             )}
           </div>

@@ -11,6 +11,53 @@ import {
 } from "@/lib/mock-data";
 
 // --------------------------------------------------------
+// Empty-state defaults (shown for new accounts with no data)
+// --------------------------------------------------------
+
+const emptyStats: MockStat[] = [
+  {
+    label: "Leads Today",
+    value: "0",
+    change: "--",
+    trend: "up",
+    iconName: "Users",
+    color: "text-info",
+    bg: "bg-info/10",
+    href: "/dashboard/contacts",
+  },
+  {
+    label: "Appointments Booked",
+    value: "0",
+    change: "--",
+    trend: "up",
+    iconName: "CalendarCheck",
+    color: "text-success",
+    bg: "bg-success/10",
+    href: "/dashboard/scheduling",
+  },
+  {
+    label: "AI Calls Answered",
+    value: "0",
+    change: "--",
+    trend: "up",
+    iconName: "Phone",
+    color: "text-primary",
+    bg: "bg-primary/10",
+    href: "/dashboard/calls",
+  },
+  {
+    label: "Revenue This Month",
+    value: "$0",
+    change: "--",
+    trend: "up",
+    iconName: "DollarSign",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    href: "/dashboard/pipeline",
+  },
+];
+
+// --------------------------------------------------------
 // useDashboardStats
 // --------------------------------------------------------
 
@@ -42,4 +89,4 @@ function useRecentActivity() {
   );
 }
 
-export { useDashboardStats, useRecentActivity };
+export { useDashboardStats, useRecentActivity, emptyStats };

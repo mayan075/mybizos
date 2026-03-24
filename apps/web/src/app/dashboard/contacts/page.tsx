@@ -15,6 +15,7 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
@@ -88,7 +89,7 @@ export default function ContactsPage() {
   const [newSource, setNewSource] = useState("Phone");
 
   // Hook: fetches from API, falls back to mock data
-  const { data: apiContacts } = useContacts({ search });
+  const { data: apiContacts, isLoading } = useContacts({ search });
   const { mutate: createContact } = useCreateContact();
 
   // Merge API/mock contacts with locally added ones
@@ -189,6 +190,24 @@ export default function ContactsPage() {
     if (sortKey !== col) return <ArrowUpDown className="h-3 w-3" />;
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
+
+  // Loading state — show spinner while initial fetch is in progress
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
+            <p className="text-sm text-muted-foreground mt-1">Loading contacts...</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Loading contacts...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

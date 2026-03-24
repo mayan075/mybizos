@@ -10,11 +10,12 @@ import {
   User,
   MapPin,
   X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
-import { mockAppointments, type MockAppointment } from "@/lib/mock-data";
+import { type MockAppointment } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
@@ -75,7 +76,7 @@ export default function SchedulingPage() {
   const [newCustomer, setNewCustomer] = useState("");
 
   // Hook: fetches from API, falls back to mock data
-  const { data: apiAppointments, isLive } = useAppointments();
+  const { data: apiAppointments, isLive, isLoading } = useAppointments();
   const { mutate: createAppointmentApi } = useCreateAppointment();
 
   // Local additions for optimistic UI
@@ -83,9 +84,9 @@ export default function SchedulingPage() {
 
   // Merge API/mock data with local additions
   const appointments = useMemo(() => {
-    const base = isLive ? apiAppointments : mockAppointments;
-    return [...base, ...localAppointments];
-  }, [apiAppointments, isLive, localAppointments]);
+    if (isLoading) return [];
+    return [...apiAppointments, ...localAppointments];
+  }, [apiAppointments, isLoading, localAppointments]);
 
   const dates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const todayIndex = getTodayIndex(weekOffset);
@@ -150,6 +151,24 @@ export default function SchedulingPage() {
     setNewCustomer("");
     setNewTitle("AC Tune-Up");
     showToast(`Appointment booked: ${newApt.title} with ${newApt.customer}`);
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Scheduling</h1>
+            <p className="text-sm text-muted-foreground mt-1">Loading appointments...</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Loading appointments...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

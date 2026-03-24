@@ -43,7 +43,11 @@ function buildPath(template: string): string {
 
 /**
  * Fetches data from the API and falls back to `mockData`
- * if the request fails (e.g. backend not running).
+ * only when the API is completely unreachable (network error).
+ *
+ * While the initial fetch is in progress, returns `null` data
+ * and `isLoading: true` so pages can show a loading spinner
+ * instead of flashing mock data.
  *
  * @param endpoint  API path with `:orgId` placeholder
  * @param mockData  Fallback data used when API is unreachable
@@ -56,10 +60,12 @@ function useApiQuery<T>(
   params?: Record<string, string>,
   enabled = true,
 ): UseApiQueryResult<T> {
-  const [data, setData] = useState<T>(mockData);
-  const [isLoading, setIsLoading] = useState(false);
+  // Start with null data and loading=true so we never flash mock data
+  const [data, setData] = useState<T | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const hasFetched = useRef(false);
 
   // Keep a stable ref to the latest mockData so the effect
   // doesn't re-run when the parent creates a new object literal.
@@ -81,8 +87,6 @@ function useApiQuery<T>(
 
     if (result !== null) {
       // Unwrap { data: ... } wrapper if the API returns one.
-      // Some endpoints (like dashboard/activity) return raw arrays,
-      // while others (contacts, deals) wrap in { data: ... }.
       const unwrapped =
         result !== null &&
         typeof result === "object" &&
@@ -93,11 +97,12 @@ function useApiQuery<T>(
       setData(unwrapped);
       setIsLive(true);
     } else {
-      // API unavailable — use mock data
+      // API unavailable (network error) — use mock data as fallback
       setData(mockRef.current);
       setIsLive(false);
     }
 
+    hasFetched.current = true;
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, paramsKey, enabled]);
@@ -106,7 +111,13 @@ function useApiQuery<T>(
     fetchData();
   }, [fetchData]);
 
-  return { data, isLoading, error, isLive, refetch: fetchData };
+  // While loading (before first fetch completes), return mock data shape
+  // as null-ish to prevent rendering stale mock data.
+  // After fetch, return real data (which may be empty array/object from API
+  // or mock data on network error).
+  const resolvedData: T = data ?? mockRef.current;
+
+  return { data: resolvedData, isLoading, error, isLive, refetch: fetchData };
 }
 
 // --------------------------------------------------------

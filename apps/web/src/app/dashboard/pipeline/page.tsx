@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
+import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -40,8 +40,8 @@ function ScoreBadge({ score }: { score: number }) {
 
 export default function PipelinePage() {
   usePageTitle("Pipeline");
-  const { data: columnDefs } = usePipelines();
-  const { data: apiDeals } = useDeals();
+  const { data: columnDefs, isLoading: columnsLoading } = usePipelines();
+  const { data: apiDeals, isLoading: dealsLoading } = useDeals();
   const { mutate: createDealApi } = useCreateDeal();
   const { mutate: moveDealApi } = useMoveDeal();
 
@@ -56,6 +56,8 @@ export default function PipelinePage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newValue, setNewValue] = useState("");
+
+  const isLoading = columnsLoading || dealsLoading;
 
   // Use local state if available (after first mutation), otherwise API/mock data
   const currentDeals = deals ?? apiDeals;
@@ -137,6 +139,24 @@ export default function PipelinePage() {
     setNewContact("");
     setNewValue("");
     showToast(`Deal "${deal.title}" added`);
+  }
+
+  // Loading state — show spinner while initial fetch is in progress
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
+            <p className="text-sm text-muted-foreground mt-1">Loading deals...</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Loading pipeline...</p>
+        </div>
+      </div>
+    );
   }
 
   const allDeals = Object.values(currentDeals).flat();

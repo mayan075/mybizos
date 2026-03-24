@@ -11,9 +11,10 @@ import {
   Clock,
   MessageSquare,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDashboardStats, useRecentActivity } from "@/lib/hooks/use-dashboard";
+import { useDashboardStats, useRecentActivity, emptyStats } from "@/lib/hooks/use-dashboard";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { WelcomeBanner, GettingStartedChecklist } from "@/components/onboarding/getting-started";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -59,11 +60,22 @@ const timelineDotColors: Record<string, string> = {
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const router = useRouter();
-  const { data: dashboardData } = useDashboardStats();
-  const { data: recentActivity } = useRecentActivity();
+  const { data: dashboardData, isLoading: statsLoading, isLive: statsLive } = useDashboardStats();
+  const { data: recentActivity, isLoading: activityLoading } = useRecentActivity();
 
-  const stats = dashboardData.stats;
-  const upcomingAppointments = dashboardData.upcomingAppointments;
+  // When the API is live and returns data, use it. When loading, show zeros.
+  // Only use mock stats when API is unreachable (isLive=false after loading).
+  const stats = statsLoading
+    ? emptyStats
+    : statsLive
+      ? dashboardData.stats
+      : dashboardData.stats;
+
+  const upcomingAppointments = statsLoading
+    ? []
+    : dashboardData.upcomingAppointments;
+
+  const activityItems = activityLoading ? [] : recentActivity;
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -111,15 +123,23 @@ export default function DashboardPage() {
                       <span onClick={(e) => e.stopPropagation()} className="cursor-help" />
                     </Tooltip>
                   )}
-                  <div className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    {stat.change}
-                  </div>
+                  {stat.change !== "--" && (
+                    <div className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      {stat.change}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="mt-5">
                 <p className="text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
-                  {stat.value}
+                  {statsLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </span>
+                  ) : (
+                    stat.value
+                  )}
                 </p>
                 <p className="text-xs font-medium text-muted-foreground mt-1 uppercase tracking-wider">
                   {stat.label}
@@ -147,7 +167,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
-            {recentActivity.length === 0 ? (
+            {activityLoading ? (
+              <div className="flex flex-col items-center justify-center py-14">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mt-3">Loading activity...</p>
+              </div>
+            ) : activityItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
                   <Clock className="h-6 w-6 text-muted-foreground" />
@@ -162,10 +187,10 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="relative">
-                {recentActivity.map((item, idx) => {
+                {activityItems.map((item, idx) => {
                   const ItemIcon = iconMap[item.iconName] ?? Phone;
                   const dotColor = timelineDotColors[item.type] ?? "border-muted-foreground/30 bg-muted";
-                  const isLast = idx === recentActivity.length - 1;
+                  const isLast = idx === activityItems.length - 1;
                   return (
                     <div
                       key={item.id}
@@ -226,7 +251,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
-            {upcomingAppointments.length === 0 ? (
+            {statsLoading ? (
+              <div className="flex flex-col items-center justify-center py-14">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mt-3">Loading...</p>
+              </div>
+            ) : upcomingAppointments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
                   <CalendarCheck className="h-6 w-6 text-muted-foreground" />
