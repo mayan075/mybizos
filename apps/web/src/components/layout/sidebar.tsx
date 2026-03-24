@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -32,6 +32,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getUser } from "@/lib/auth";
 import { getOnboardingData } from "@/lib/onboarding";
+import { tryFetch, apiClient } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
 
 interface NavItem {
   label: string;
@@ -52,7 +54,7 @@ const navSections: NavSection[] = [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
       { label: "Contacts", href: "/dashboard/contacts", icon: Users, badge: null },
       { label: "Pipeline", href: "/dashboard/pipeline", icon: Kanban, badge: null },
-      { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: "3" },
+      { label: "Inbox", href: "/dashboard/inbox", icon: Inbox, badge: null },
       { label: "Calls", href: "/dashboard/calls", icon: Phone, badge: null },
       { label: "Scheduling", href: "/dashboard/scheduling", icon: CalendarDays, badge: null },
     ],

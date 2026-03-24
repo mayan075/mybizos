@@ -476,10 +476,18 @@ function SettingsContent() {
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // Load from localStorage on mount
+  // Load from API on mount, fall back to localStorage
   useEffect(() => {
-    setSettings(loadSettings());
-    setHydrated(true);
+    let cancelled = false;
+    async function load() {
+      const loaded = await loadSettingsFromApi();
+      if (!cancelled) {
+        setSettings(loaded);
+        setHydrated(true);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // --- Updaters ---
@@ -579,43 +587,43 @@ function SettingsContent() {
   }
 
   // --- Save Handlers ---
-  function handleSaveGeneral() {
+  async function handleSaveGeneral() {
     if (!validateGeneral()) {
       showToast("Please fix the errors below", "error");
       return;
     }
-    saveSettings(settings);
-    showToast("Settings saved!");
+    const saved = await saveSettingsToApi(settings);
+    showToast(saved ? "Settings saved!" : "Saved locally (API unavailable)");
   }
 
-  function handleSaveProfile() {
+  async function handleSaveProfile() {
     if (!validateProfileForm()) {
       showToast("Please fix the errors below", "error");
       return;
     }
-    saveSettings(settings);
+    const saved = await saveSettingsToApi(settings);
     if (currentPassword && newPassword) {
       // In a real app this would call an API
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     }
-    showToast("Profile saved!");
+    showToast(saved ? "Profile saved!" : "Saved locally (API unavailable)");
   }
 
-  function handleSaveAiAgent() {
-    saveSettings(settings);
-    showToast("AI agent configuration saved!");
+  async function handleSaveAiAgent() {
+    const saved = await saveSettingsToApi(settings);
+    showToast(saved ? "AI agent configuration saved!" : "Saved locally (API unavailable)");
   }
 
-  function handleSaveEmail() {
-    saveSettings(settings);
-    showToast("Email settings saved!");
+  async function handleSaveEmail() {
+    const saved = await saveSettingsToApi(settings);
+    showToast(saved ? "Email settings saved!" : "Saved locally (API unavailable)");
   }
 
-  function handleSaveIntegrations() {
-    saveSettings(settings);
-    showToast("Integration settings saved!");
+  async function handleSaveIntegrations() {
+    const saved = await saveSettingsToApi(settings);
+    showToast(saved ? "Integration settings saved!" : "Saved locally (API unavailable)");
   }
 
   // Don't render form until hydrated (avoids hydration mismatch)
@@ -1139,18 +1147,8 @@ function SettingsContent() {
                 <h3 className="text-sm font-semibold text-foreground">
                   Your Numbers
                 </h3>
-                {[
-                  {
-                    num: "+1 (704) 555-0001",
-                    name: "Main Business Line",
-                    routing: "AI answers, forwards to Jim",
-                  },
-                  {
-                    num: "+1 (704) 555-0002",
-                    name: "Marketing / Google Ads",
-                    routing: "AI answers, books appointments",
-                  },
-                ].map((n) => (
+                <p className="text-xs text-muted-foreground mb-2">Your real numbers will appear here once connected via Phone System settings.</p>
+                {([] as { num: string; name: string; routing: string }[]).map((n) => (
                   <div
                     key={n.num}
                     className="flex items-center justify-between rounded-lg border border-border p-3"
