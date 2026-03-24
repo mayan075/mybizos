@@ -1,5 +1,8 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
+
+// Load .env file in development. Safe to fail in production.
+dotenvConfig();
 
 /**
  * In production, all keys are required. In development, all keys default to
