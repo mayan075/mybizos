@@ -10,9 +10,9 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations.js";
-import { contacts } from "./contacts.js";
-import { users } from "./auth.js";
+import { organizations } from "./organizations";
+import { contacts } from "./contacts";
+import { users } from "./auth";
 
 export const dealStageEnum = pgEnum("deal_stage", [
   "new_lead",

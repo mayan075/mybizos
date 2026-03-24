@@ -35,3 +35,5 @@ coverage/
 *.tsbuildinfo
 
 .vercel
+.env
+apps/api/.env

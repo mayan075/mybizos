@@ -9,8 +9,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations.js";
-import { contacts } from "./contacts.js";
+import { organizations } from "./organizations";
+import { contacts } from "./contacts";
 
 // ── Enums ──
 

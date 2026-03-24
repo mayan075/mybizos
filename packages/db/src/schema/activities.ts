@@ -7,10 +7,10 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations.js";
-import { contacts } from "./contacts.js";
-import { deals } from "./pipeline.js";
-import { users } from "./auth.js";
+import { organizations } from "./organizations";
+import { contacts } from "./contacts";
+import { deals } from "./pipeline";
+import { users } from "./auth";
 
 export const activityTypeEnum = pgEnum("activity_type", [
   "call",

@@ -8,7 +8,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { users } from "./auth.js";
+import { users } from "./auth";
 
 export const verticalEnum = pgEnum("vertical", [
   "rubbish_removals",

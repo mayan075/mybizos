@@ -9,9 +9,9 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { organizations, verticalEnum } from "./organizations.js";
-import { contacts } from "./contacts.js";
-import { conversations } from "./communications.js";
+import { organizations, verticalEnum } from "./organizations";
+import { contacts } from "./contacts";
+import { conversations } from "./communications";
 
 export const aiAgentTypeEnum = pgEnum("ai_agent_type", [
   "phone",
