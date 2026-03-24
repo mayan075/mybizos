@@ -2,7 +2,6 @@
 
 import { useApiQuery, useApiMutation } from "./use-api";
 import {
-  mockDeals,
   mockPipelineColumns,
   type MockDeal,
   type MockPipelineColumn,

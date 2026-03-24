@@ -25,7 +25,7 @@ interface PhoneSettings {
   accountName: string;
   connectedAt: string;
   voice?: VoiceSettings;
-  routing?: Record<string, unknown>;
+  routing?: Record<string, { voiceUrl: string; smsUrl: string; configuredAt: string }>;
 }
 
 interface OrgSettings {
@@ -159,7 +159,10 @@ voiceSetup.post('/setup', async (c) => {
     const client = twilio.default(phone.accountSid, phone.authToken);
 
     // 1. Create TwiML App — voice URL points to our webhook
-    const webhookBaseUrl = config.APP_URL;
+    // Twilio requires a publicly accessible URL for webhooks (not localhost).
+    // Use APP_URL in production, or the Railway URL as fallback for dev.
+    const PRODUCTION_API_URL = 'https://mybizos-production.up.railway.app';
+    const webhookBaseUrl = config.APP_URL.includes('localhost') ? PRODUCTION_API_URL : config.APP_URL;
     const voiceUrl = `${webhookBaseUrl}/voice/twiml`;
     const statusCallbackUrl = `${webhookBaseUrl}/webhooks/twilio/status`;
 

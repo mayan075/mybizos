@@ -3,10 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useApiQuery, useApiMutation, getOrgId } from "./use-api";
 import {
-  mockContacts,
-  mockContactDetails,
   mockDefaultContact,
-  mockTimeline,
   type MockContact,
   type MockContactDetail,
   type MockTimelineEntry,
@@ -63,7 +60,7 @@ interface ContactWithTimeline {
 
 function useContact(id: string) {
   const fallback: ContactWithTimeline = {
-    contact: { ...mockDefaultContact, id, name: "Loading...", email: "", phone: "", source: "", score: 0, tags: [], status: "lead" as const, createdAt: new Date().toISOString() },
+    contact: { ...mockDefaultContact, id },
     timeline: [],
   };
 

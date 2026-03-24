@@ -3,8 +3,6 @@
 import { useMemo } from "react";
 import { useApiQuery, useApiMutation } from "./use-api";
 import {
-  mockConversations,
-  mockMessages,
   type MockConversation,
   type MockChatMessage,
 } from "@/lib/mock-data";

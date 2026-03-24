@@ -37,18 +37,8 @@ interface InvoiceDraft {
   terms: string;
 }
 
-// ── Mock Contacts ──
-
-const mockContacts = [
-  { id: "c1", name: "Sarah Johnson", email: "sarah.johnson@email.com", phone: "(555) 234-5678", address: "123 Oak St, Denver, CO 80201" },
-  { id: "c2", name: "Mike Thompson", email: "mike.thompson@email.com", phone: "(555) 345-6789", address: "456 Pine Ave, Denver, CO 80202" },
-  { id: "c3", name: "David Wilson", email: "david.wilson@email.com", phone: "(555) 456-7890", address: "789 Elm Blvd, Aurora, CO 80010" },
-  { id: "c4", name: "Jennifer Brown", email: "jennifer.brown@email.com", phone: "(555) 567-8901", address: "321 Maple Dr, Lakewood, CO 80226" },
-  { id: "c5", name: "Robert Lee", email: "robert.lee@email.com", phone: "(555) 678-9012", address: "654 Birch Ln, Boulder, CO 80301" },
-  { id: "c6", name: "Lisa Martinez", email: "lisa.martinez@email.com", phone: "(555) 789-0123", address: "987 Cedar Ct, Westminster, CO 80031" },
-  { id: "c7", name: "Tom Anderson", email: "tom.anderson@email.com", phone: "(555) 890-1234", address: "147 Spruce Way, Arvada, CO 80002" },
-  { id: "c8", name: "Amy Chen", email: "amy.chen@email.com", phone: "(555) 901-2345", address: "258 Willow Rd, Thornton, CO 80229" },
-];
+// Real contacts will come from the API; start empty
+const mockContacts: { id: string; name: string; email: string; phone: string; address: string }[] = [];
 
 // ── Helpers ──
 

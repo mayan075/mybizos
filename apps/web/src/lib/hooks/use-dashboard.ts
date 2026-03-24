@@ -2,9 +2,6 @@
 
 import { useApiQuery } from "./use-api";
 import {
-  mockStats,
-  mockActivity,
-  mockUpcomingAppointments,
   type MockStat,
   type MockActivityItem,
   type MockUpcomingAppointment,

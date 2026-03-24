@@ -256,7 +256,7 @@ export default function PipelinePage() {
                     setNewContact(e.target.value);
                     if (formErrors.contact) setFormErrors((prev) => ({ ...prev, contact: undefined }));
                   }}
-                  placeholder="Sarah Johnson"
+                  placeholder="Customer name"
                   className={cn(
                     "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
                     formErrors.contact

@@ -215,23 +215,8 @@ interface ContactAppointment {
   technician: string;
 }
 
-const contactAppointments: Record<string, ContactAppointment[]> = {
-  c1: [
-    { id: "ca1", service: "Full Load Pickup", date: "Mar 23, 2026", time: "10:00 AM - 11:00 AM", status: "confirmed", technician: "Mike Thompson" },
-    { id: "ca2", service: "Single Item Removal", date: "Mar 25, 2026", time: "2:00 PM - 3:00 PM", status: "scheduled", technician: "Jake Rivera" },
-  ],
-  c2: [
-    { id: "ca3", service: "Site Assessment", date: "Mar 19, 2026", time: "2:00 PM - 3:00 PM", status: "completed", technician: "Mike Thompson" },
-  ],
-  c3: [
-    { id: "ca4", service: "Full Load Pickup", date: "Mar 26, 2026", time: "9:00 AM - 10:00 AM", status: "scheduled", technician: "Jake Rivera" },
-    { id: "ca5", service: "Partial Load Pickup", date: "Mar 15, 2026", time: "11:00 AM - 12:30 PM", status: "completed", technician: "Mike Thompson" },
-  ],
-  c6: [
-    { id: "ca6", service: "Emergency Pipe Repair", date: "Mar 18, 2026", time: "4:00 PM - 5:30 PM", status: "completed", technician: "Jake Rivera" },
-    { id: "ca7", service: "Follow-up Inspection", date: "Mar 28, 2026", time: "10:00 AM - 10:30 AM", status: "scheduled", technician: "Jake Rivera" },
-  ],
-};
+// Real appointment data will come from the API
+const contactAppointments: Record<string, ContactAppointment[]> = {};
 
 // ============================================================
 // Appointment status badge helper

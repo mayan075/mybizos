@@ -2,7 +2,6 @@
 
 import { useApiQuery, useApiMutation } from "./use-api";
 import {
-  mockAppointments,
   type MockAppointment,
 } from "@/lib/mock-data";
 

@@ -56,88 +56,9 @@ interface MockRecipient {
   clickedAt: string | null;
 }
 
-const mockCampaigns: Record<string, MockCampaignDetail> = {
-  "camp-1": {
-    id: "camp-1",
-    name: "Spring Cleanout Special",
-    type: "email",
-    status: "sent",
-    subject: "Get 20% off your spring cleanout!",
-    bodyHtml: `<h2>Spring is Here!</h2><p>Get 20% off your annual cleanout. Book online or call us today.</p><p>Use code <strong>SPRING20</strong>.</p>`,
-    bodyText: null,
-    stats: {
-      sent: 842,
-      delivered: 830,
-      opened: 288,
-      clicked: 73,
-      bounced: 12,
-      unsubscribed: 5,
-    },
-    scheduledAt: null,
-    sentAt: "2026-03-15T10:00:00Z",
-    createdAt: "2026-03-14T08:30:00Z",
-  },
-  "camp-2": {
-    id: "camp-2",
-    name: "Same-Day Pickup Reminder",
-    type: "sms",
-    status: "sent",
-    subject: null,
-    bodyHtml: null,
-    bodyText: "Need rubbish removed? Northern Removals offers same-day pickup. Call (555) 123-4567 or book at northernremovals.com.au. Reply STOP to opt out.",
-    stats: {
-      sent: 1205,
-      delivered: 1190,
-      opened: 0,
-      clicked: 49,
-      bounced: 6,
-      unsubscribed: 9,
-    },
-    scheduledAt: null,
-    sentAt: "2026-03-10T14:00:00Z",
-    createdAt: "2026-03-09T11:00:00Z",
-  },
-  "camp-4": {
-    id: "camp-4",
-    name: "Summer AC Check Promo",
-    type: "email",
-    status: "draft",
-    subject: "Beat the heat — book your AC check today",
-    bodyHtml: `<h2>Summer is Coming!</h2><p>Book your AC inspection before the heat hits.</p>`,
-    bodyText: null,
-    stats: { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0 },
-    scheduledAt: null,
-    sentAt: null,
-    createdAt: "2026-03-20T09:15:00Z",
-  },
-  "camp-7": {
-    id: "camp-7",
-    name: "Referral Program Launch",
-    type: "email",
-    status: "draft",
-    subject: "Refer a friend, get $50 off!",
-    bodyHtml: `<h2>Spread the Word!</h2><p>Refer a friend to Northern Removals and you both get $50 off your next service.</p>`,
-    bodyText: null,
-    stats: { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0 },
-    scheduledAt: null,
-    sentAt: null,
-    createdAt: "2026-03-21T10:00:00Z",
-  },
-};
-
-const mockRecipients: MockRecipient[] = [
-  { id: "r1", name: "Sarah Johnson", email: "sarah.j@email.com", phone: "(555) 234-5678", status: "opened", sentAt: "2026-03-15T10:01:00Z", openedAt: "2026-03-15T10:45:00Z", clickedAt: null },
-  { id: "r2", name: "Mike Chen", email: "mike.chen@email.com", phone: "(555) 345-6789", status: "clicked", sentAt: "2026-03-15T10:01:00Z", openedAt: "2026-03-15T11:20:00Z", clickedAt: "2026-03-15T11:21:00Z" },
-  { id: "r3", name: "Emily Davis", email: "emily.d@email.com", phone: "(555) 456-7890", status: "delivered", sentAt: "2026-03-15T10:01:00Z", openedAt: null, clickedAt: null },
-  { id: "r4", name: "Robert Wilson", email: "rwilson@email.com", phone: "(555) 567-8901", status: "bounced", sentAt: "2026-03-15T10:01:00Z", openedAt: null, clickedAt: null },
-  { id: "r5", name: "Lisa Martinez", email: "lisamart@email.com", phone: "(555) 678-9012", status: "opened", sentAt: "2026-03-15T10:01:00Z", openedAt: "2026-03-15T14:30:00Z", clickedAt: null },
-  { id: "r6", name: "James Brown", email: "jbrown@email.com", phone: "(555) 789-0123", status: "unsubscribed", sentAt: "2026-03-15T10:01:00Z", openedAt: "2026-03-15T12:00:00Z", clickedAt: null },
-  { id: "r7", name: "Amanda Taylor", email: "ataylor@email.com", phone: "(555) 890-1234", status: "clicked", sentAt: "2026-03-15T10:02:00Z", openedAt: "2026-03-15T10:50:00Z", clickedAt: "2026-03-15T10:52:00Z" },
-  { id: "r8", name: "David Garcia", email: "dgarcia@email.com", phone: "(555) 901-2345", status: "delivered", sentAt: "2026-03-15T10:02:00Z", openedAt: null, clickedAt: null },
-  { id: "r9", name: "Karen White", email: "kwhite@email.com", phone: "(555) 012-3456", status: "opened", sentAt: "2026-03-15T10:02:00Z", openedAt: "2026-03-16T08:15:00Z", clickedAt: null },
-  { id: "r10", name: "Thomas Lee", email: "tlee@email.com", phone: "(555) 123-4568", status: "sent", sentAt: "2026-03-15T10:03:00Z", openedAt: null, clickedAt: null },
-];
-
+// Real campaign data will come from the API
+const mockCampaigns: Record<string, MockCampaignDetail> = {};
+const mockRecipients: MockRecipient[] = [];
 // ── Helpers ──
 
 const recipientStatusConfig: Record<
