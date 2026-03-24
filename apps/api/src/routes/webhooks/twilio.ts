@@ -1,11 +1,17 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { eq, and, desc } from 'drizzle-orm';
+import { db, conversations, withOrgScope } from '@mybizos/db';
 import { logger } from '../../middleware/logger.js';
 import { config } from '../../config.js';
 import { ClaudeClient } from '@mybizos/ai';
 import type { ClaudeMessage } from '@mybizos/ai';
 import { getPhoneAgentPrompt, getSmsAgentPrompt } from '@mybizos/ai';
 import { TwilioClient } from '@mybizos/integrations';
+import { resolveOrgByPhoneNumber, type ResolvedOrg } from '../../services/phone-routing-service.js';
+import { resolveContact } from '../../services/contact-resolution-service.js';
+import { conversationService } from '../../services/conversation-service.js';
+import { activityService } from '../../services/activity-service.js';
 
 const twilioWebhooks = new Hono();
 
@@ -398,6 +404,13 @@ VOICE CALL RULES:
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  POST /sms — Inbound SMS webhook: process message and reply via TwiML
+//
+//  Full flow: parse SMS → resolve org → find/create contact → find/create
+//  conversation → persist inbound message → call Claude → persist AI reply →
+//  log activity → return TwiML.
+//
+//  DB writes for messages + activity are fire-and-forget so we don't block
+//  the TwiML response that Twilio needs quickly.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 twilioWebhooks.post('/sms', async (c) => {
@@ -429,7 +442,92 @@ twilioWebhooks.post('/sms', async (c) => {
     });
   }
 
-  // Get or initialize SMS conversation for this phone number
+  // ── Step 1: Resolve org from the Twilio "To" number ─────────────────────
+  let resolvedOrg: ResolvedOrg | null = null;
+  let businessName = DEFAULT_BUSINESS.name;
+  let businessVertical: string = DEFAULT_BUSINESS.vertical;
+  let agentName = DEFAULT_BUSINESS.agentName;
+
+  try {
+    resolvedOrg = await resolveOrgByPhoneNumber(To);
+    if (resolvedOrg) {
+      businessName = resolvedOrg.orgName;
+      businessVertical = resolvedOrg.vertical;
+      // Use agent name from settings if available, else default
+      agentName = (resolvedOrg.settings as Record<string, unknown>)?.agentName as string ?? DEFAULT_BUSINESS.agentName;
+    } else {
+      logger.warn('No org found for Twilio number, using default business config', { to: To });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('Org resolution failed, using default', { to: To, error: msg });
+  }
+
+  // ── Step 2: Resolve contact (find or create) ───────────────────────────
+  let contactId: string | null = null;
+  let orgId: string | null = resolvedOrg?.orgId ?? null;
+
+  if (orgId) {
+    try {
+      const contact = await resolveContact(orgId, From, 'sms');
+      contactId = contact.id;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Contact resolution failed', { orgId, from: From, error: msg });
+    }
+  }
+
+  // ── Step 3: Find or create conversation ─────────────────────────────────
+  let conversationId: string | null = null;
+
+  if (orgId && contactId) {
+    try {
+      // Look for an existing open/snoozed SMS conversation with this contact
+      const [existingConvo] = await db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(and(
+          withOrgScope(conversations.orgId, orgId),
+          eq(conversations.contactId, contactId),
+          eq(conversations.channel, 'sms'),
+        ))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1);
+
+      if (existingConvo) {
+        conversationId = existingConvo.id;
+        logger.debug('Using existing SMS conversation', { conversationId, orgId, contactId });
+      } else {
+        // Create a new conversation
+        const newConvo = await conversationService.create(orgId, {
+          contactId,
+          channel: 'sms',
+        });
+        conversationId = newConvo.id;
+        logger.info('New SMS conversation created', { conversationId, orgId, contactId });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Conversation find/create failed', { orgId, contactId, error: msg });
+    }
+  }
+
+  // ── Step 4: Persist inbound message (fire-and-forget) ───────────────────
+  if (orgId && conversationId) {
+    conversationService.createMessage(orgId, conversationId, {
+      direction: 'inbound',
+      channel: 'sms',
+      senderType: 'contact',
+      senderId: contactId,
+      body: Body,
+      metadata: { messageSid: MessageSid, from: From, to: To },
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Failed to persist inbound SMS message', { conversationId, error: msg });
+    });
+  }
+
+  // ── Step 5: Get or initialize in-memory conversation for Claude context ─
   const conversationKey = `${From}:${To}`;
   let smsConvo = smsConversations.get(conversationKey);
   if (!smsConvo) {
@@ -443,15 +541,15 @@ twilioWebhooks.post('/sms', async (c) => {
   smsConvo.lastMessageAt = new Date().toISOString();
   smsConvo.messages.push({ role: 'user', content: Body });
 
-  // Call Claude for the SMS response
+  // ── Step 6: Call Claude for the SMS response ────────────────────────────
   let replyText: string;
 
   try {
     const claude = getClaudeClient();
     const systemPrompt = getSmsAgentPrompt({
-      businessName: DEFAULT_BUSINESS.name,
-      vertical: DEFAULT_BUSINESS.vertical,
-      agentName: DEFAULT_BUSINESS.agentName,
+      businessName,
+      vertical: businessVertical as Parameters<typeof getSmsAgentPrompt>[0]['vertical'],
+      agentName,
     });
 
     const response = await claude.chat(systemPrompt, smsConvo.messages, {
@@ -473,13 +571,47 @@ twilioWebhooks.post('/sms', async (c) => {
       error: message,
     });
 
-    replyText = `Thanks for reaching out to ${DEFAULT_BUSINESS.name}! We're having a small technical issue. Please call us or try again shortly.`;
+    replyText = `Thanks for your message. We'll get back to you shortly.`;
   }
 
-  // Store the AI reply in conversation history
+  // Store the AI reply in in-memory conversation history
   smsConvo.messages.push({ role: 'assistant', content: replyText });
 
-  // Respond using TwiML <Message> (Twilio sends the reply for us)
+  // ── Step 7: Persist AI response message (fire-and-forget) ───────────────
+  if (orgId && conversationId) {
+    conversationService.createMessage(orgId, conversationId, {
+      direction: 'outbound',
+      channel: 'sms',
+      senderType: 'ai',
+      body: replyText,
+      metadata: { messageSid: MessageSid, inReplyTo: From },
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Failed to persist AI SMS response', { conversationId, error: msg });
+    });
+  }
+
+  // ── Step 8: Log activity (fire-and-forget) ──────────────────────────────
+  if (orgId) {
+    activityService.logActivity(orgId, {
+      contactId,
+      type: 'sms',
+      title: 'Inbound SMS',
+      description: Body.length > 200 ? Body.substring(0, 200) + '...' : Body,
+      metadata: {
+        messageSid: MessageSid,
+        from: From,
+        to: To,
+        aiReplied: true,
+        conversationId,
+      },
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Failed to log SMS activity', { orgId, error: msg });
+    });
+  }
+
+  // ── Step 9: Return TwiML with AI response ───────────────────────────────
   const twiml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<Response>',

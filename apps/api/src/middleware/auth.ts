@@ -27,20 +27,64 @@ const DEV_USER: AuthUser = {
   role: 'owner',
 };
 
+// Cache the real dev user so we only query the DB once
+let cachedDevUser: AuthUser | null = null;
+
+/**
+ * In dev mode, try to find a real user + org from the database so that
+ * features like voice calling, phone system, etc. work against real data.
+ * Falls back to the hardcoded DEV_USER if the DB is not available.
+ */
+async function getDevUser(): Promise<AuthUser> {
+  if (cachedDevUser) return cachedDevUser;
+
+  try {
+    const { db, users, orgMembers } = await import('@mybizos/db');
+
+    // Find the first user that has an org membership
+    const result = await db
+      .select({
+        userId: users.id,
+        email: users.email,
+        orgId: orgMembers.orgId,
+        role: orgMembers.role,
+      })
+      .from(users)
+      .innerJoin(orgMembers, (await import('drizzle-orm')).eq(orgMembers.userId, users.id))
+      .limit(1);
+
+    if (result.length > 0 && result[0]) {
+      const row = result[0];
+      cachedDevUser = {
+        id: row.userId,
+        email: row.email,
+        orgId: row.orgId,
+        role: row.role as AuthUser['role'],
+      };
+      return cachedDevUser;
+    }
+  } catch {
+    // DB not available — fall through to hardcoded dev user
+  }
+
+  return DEV_USER;
+}
+
 /**
  * Auth middleware: extracts and validates the JWT from the Authorization header,
  * then sets the authenticated user on the Hono context.
  *
- * In development mode, if no Authorization header is provided, a demo user
- * is injected so the frontend can work without requiring login.
+ * In development mode, if no Authorization header is provided, a real user
+ * from the database is used (if available), otherwise falls back to DEV_USER.
  */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authorization = c.req.header('Authorization');
 
-  // Dev bypass: if no auth header and we're in development, use demo user
+  // Dev bypass: if no auth header and we're in development, use dev user
   if (!authorization) {
     if (config.NODE_ENV === 'development') {
-      c.set('user', DEV_USER);
+      const devUser = await getDevUser();
+      c.set('user', devUser);
       c.set('token', 'dev-bypass-token');
       await next();
       return;
@@ -55,7 +99,8 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     // Dev bypass: treat malformed auth as no auth in development
     if (config.NODE_ENV === 'development') {
-      c.set('user', DEV_USER);
+      const devUser = await getDevUser();
+      c.set('user', devUser);
       c.set('token', 'dev-bypass-token');
       await next();
       return;
@@ -81,9 +126,10 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
     await next();
   } catch {
-    // Dev bypass: if token validation fails in development, use demo user
+    // Dev bypass: if token validation fails in development, use dev user
     if (config.NODE_ENV === 'development') {
-      c.set('user', DEV_USER);
+      const devUser = await getDevUser();
+      c.set('user', devUser);
       c.set('token', 'dev-bypass-token');
       await next();
       return;
