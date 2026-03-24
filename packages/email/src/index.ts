@@ -1,6 +1,6 @@
 export {
-  PostmarkProvider,
-  type PostmarkConfig,
+  ResendProvider,
+  type ResendConfig,
   type SendEmailOptions,
   type SendEmailResult,
   type BatchMessage,
@@ -10,4 +10,4 @@ export {
   reviewRequestHtml,
   invoiceSentHtml,
   welcomeHtml,
-} from "./providers/postmark.js";
+} from "./providers/resend.js";

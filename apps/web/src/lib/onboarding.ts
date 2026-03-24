@@ -34,16 +34,26 @@ export type DayOfWeek =
 
 export type BusinessHours = Record<DayOfWeek, BusinessHoursDay>;
 
-export type PhoneSetupMode = "mybizos" | "twilio" | "skip";
+export type PhoneSetupMode = "mybizos" | "existing" | "skip";
 
 export interface PhoneSetup {
   mode: PhoneSetupMode;
-  /** MyBizOS number fields */
+  /** MyBizOS provisioned number */
   country?: string;
   numberType?: string;
-  /** Twilio fields */
-  twilioSid?: string;
-  twilioToken?: string;
+  selectedNumber?: string;
+  /** Existing number the customer already has */
+  existingNumber?: string;
+}
+
+export interface AiReceptionistConfig {
+  greeting: string;
+  transferWhen: {
+    emergency: boolean;
+    customerRequestsHuman: boolean;
+    highValueQuote: boolean;
+  };
+  personalPhone: string;
 }
 
 export interface OnboardingData {
@@ -64,7 +74,10 @@ export interface OnboardingData {
   /** Step 4 */
   businessHours: BusinessHours;
 
-  /** Step 5 */
+  /** Step 5 — AI receptionist config */
+  aiReceptionist: AiReceptionistConfig;
+
+  /** Step 6 — Phone number */
   phoneSetup: PhoneSetup;
 
   /** Metadata */

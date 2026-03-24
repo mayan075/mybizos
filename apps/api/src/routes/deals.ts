@@ -41,10 +41,13 @@ deals.get('/', async (c) => {
     const { dealService } = await import('../services/deal-service.js');
     const orgId = c.get('orgId');
     const result = await dealService.list(orgId);
-    return c.json({ data: result });
-  } catch {
-    logger.warn('DB unavailable for deals list, using mock data');
-    return c.json({ data: getFrontendDeals() });
+    logger.info('Deals list served from REAL DATABASE', { orgId, count: result.length });
+    return c.json({ data: result, _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for deals list, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ data: getFrontendDeals(), _source: 'mock' });
   }
 });
 
@@ -55,9 +58,12 @@ deals.post('/', async (c) => {
     const { dealService } = await import('../services/deal-service.js');
     const orgId = c.get('orgId');
     const deal = await dealService.create(orgId, { ...parsed, expectedCloseDate: parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null });
+    logger.info('Deal created in REAL DATABASE', { orgId, dealId: deal.id });
     return c.json({ data: deal }, 201);
-  } catch {
-    logger.warn('DB unavailable for deal create, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for deal create, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: `deal_${Date.now()}`, ...parsed, createdAt: new Date().toISOString() } }, 201);
   }
 });
@@ -70,9 +76,12 @@ deals.patch('/:id', async (c) => {
     const { dealService } = await import('../services/deal-service.js');
     const orgId = c.get('orgId');
     const deal = await dealService.update(orgId, dealId, { ...parsed, expectedCloseDate: parsed.expectedCloseDate !== undefined ? (parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null) : undefined });
+    logger.info('Deal updated in REAL DATABASE', { orgId, dealId });
     return c.json({ data: deal });
-  } catch {
-    logger.warn('DB unavailable for deal update, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for deal update, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: dealId, ...parsed, updatedAt: new Date().toISOString() } });
   }
 });
@@ -83,8 +92,11 @@ deals.delete('/:id', async (c) => {
     const orgId = c.get('orgId');
     const dealId = c.req.param('id');
     await dealService.remove(orgId, dealId);
-  } catch {
-    logger.warn('DB unavailable for deal delete');
+    logger.info('Deal deleted from REAL DATABASE', { orgId, dealId });
+  } catch (err) {
+    logger.warn('DB unavailable for deal delete, skipping', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
   return c.json({ data: { message: 'Deal deleted successfully' } });
 });

@@ -6,45 +6,28 @@ const emailWebhooks = new Hono();
 
 // ── Validation Schema ──
 
-const postmarkInboundSchema = z.object({
-  From: z.string(),
-  FromFull: z
-    .object({
-      Email: z.string().email(),
-      Name: z.string(),
-    })
-    .optional(),
-  To: z.string(),
-  ToFull: z
+const resendInboundSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  subject: z.string(),
+  text: z.string().optional().default(''),
+  html: z.string().optional().default(''),
+  created_at: z.string().optional().default(''),
+  headers: z
     .array(
       z.object({
-        Email: z.string().email(),
-        Name: z.string(),
-      }),
-    )
-    .optional(),
-  Subject: z.string(),
-  MessageID: z.string(),
-  TextBody: z.string().optional().default(''),
-  HtmlBody: z.string().optional().default(''),
-  Date: z.string(),
-  MailboxHash: z.string().optional().default(''),
-  Tag: z.string().optional().default(''),
-  Headers: z
-    .array(
-      z.object({
-        Name: z.string(),
-        Value: z.string(),
+        name: z.string(),
+        value: z.string(),
       }),
     )
     .optional()
     .default([]),
-  Attachments: z
+  attachments: z
     .array(
       z.object({
-        Name: z.string(),
-        ContentType: z.string(),
-        ContentLength: z.number(),
+        filename: z.string(),
+        content_type: z.string(),
+        size: z.number(),
       }),
     )
     .optional()
@@ -53,28 +36,27 @@ const postmarkInboundSchema = z.object({
 
 // ── Routes ──
 // This webhook endpoint does NOT use auth middleware since it is called
-// by Postmark's infrastructure. In production, requests will be validated
-// using Postmark's webhook signature or source IP allowlist.
+// by Resend's infrastructure. In production, requests will be validated
+// using Resend's webhook signature verification.
 
 /**
- * POST /webhooks/email/inbound — Postmark inbound email webhook
+ * POST /webhooks/email/inbound — Resend inbound email webhook
  *
  * Processes incoming emails, creates/updates conversations,
  * and optionally routes to AI for auto-reply.
  */
 emailWebhooks.post('/inbound', async (c) => {
   const body = await c.req.json();
-  const parsed = postmarkInboundSchema.parse(body);
+  const parsed = resendInboundSchema.parse(body);
 
-  const fromEmail = parsed.FromFull?.Email || parsed.From;
-  const fromName = parsed.FromFull?.Name || parsed.From;
+  const fromEmail = parsed.from;
+  const fromName = parsed.from;
 
   logger.info('Inbound email received', {
-    messageId: parsed.MessageID,
     from: fromEmail,
-    to: parsed.To,
-    subject: parsed.Subject,
-    hasAttachments: parsed.Attachments.length > 0,
+    to: parsed.to,
+    subject: parsed.subject,
+    hasAttachments: parsed.attachments.length > 0,
   });
 
   // In production:
@@ -87,18 +69,19 @@ emailWebhooks.post('/inbound', async (c) => {
 
   // Extract the org identifier from the recipient address
   // e.g., inbox+org_01@inbound.mybizos.com -> org_01
-  const mailboxHash = parsed.MailboxHash;
+  const toAddress = parsed.to;
+  const mailboxHash = toAddress.includes('+') ? toAddress.split('+')[1]?.split('@')[0] ?? '' : '';
   const orgId = mailboxHash || 'org_01'; // Fallback for development
 
   // Check for emergency keywords in subject or body
   const emergencyKeywords = ['flooding', 'gas leak', 'fire', 'emergency', 'burst pipe', 'urgent'];
-  const content = `${parsed.Subject} ${parsed.TextBody}`.toLowerCase();
+  const content = `${parsed.subject} ${parsed.text}`.toLowerCase();
   const hasEmergency = emergencyKeywords.some((kw) => content.includes(kw));
 
   if (hasEmergency) {
     logger.warn('Emergency keyword detected in inbound email', {
       from: fromEmail,
-      subject: parsed.Subject,
+      subject: parsed.subject,
       orgId,
     });
     // In production: trigger immediate owner alert via SMS/push notification
@@ -106,11 +89,11 @@ emailWebhooks.post('/inbound', async (c) => {
 
   // Mock: create a conversation record for the inbound email
   const result = {
-    messageId: parsed.MessageID,
+    messageId: `resend_${Date.now()}`,
     conversationId: `conv_email_${Date.now()}`,
     contactEmail: fromEmail,
     contactName: fromName,
-    subject: parsed.Subject,
+    subject: parsed.subject,
     processed: true,
     aiAutoReply: false,
     emergencyDetected: hasEmergency,

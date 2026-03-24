@@ -7,7 +7,7 @@ import {
 } from '@mybizos/db';
 import { and, gte, lte, isNull, eq, sql } from 'drizzle-orm';
 import { TwilioClient } from '@mybizos/integrations';
-import { PostmarkProvider, appointmentReminderHtml } from '@mybizos/email';
+import { ResendProvider, appointmentReminderHtml } from '@mybizos/email';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
@@ -23,7 +23,7 @@ import { logger } from '../middleware/logger.js';
  *    AND status is 'scheduled' or 'confirmed'
  * 2. For each appointment:
  *    - Send SMS reminder via Twilio
- *    - Send email reminder via Postmark
+ *    - Send email reminder via Resend
  *    - Mark appointment as reminded (set reminderSentAt)
  */
 export async function runAppointmentReminders(): Promise<{
@@ -71,9 +71,9 @@ export async function runAppointmentReminders(): Promise<{
     defaultFromNumber: config.TWILIO_PHONE_NUMBER,
   });
 
-  const postmark = new PostmarkProvider({
-    serverToken: config.POSTMARK_SERVER_TOKEN,
-    defaultFrom: config.POSTMARK_DEFAULT_FROM,
+  const resend = new ResendProvider({
+    apiKey: config.RESEND_API_KEY,
+    defaultFrom: config.RESEND_DEFAULT_FROM,
   });
 
   for (const row of upcomingAppointments) {
@@ -128,7 +128,7 @@ export async function runAppointmentReminders(): Promise<{
           timeStr,
         );
 
-        await postmark.sendEmail(
+        await resend.sendEmail(
           undefined,
           row.contactEmail,
           `Reminder: Your appointment with ${businessName} is in 1 hour`,

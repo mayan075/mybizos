@@ -60,16 +60,21 @@ contacts.get('/', async (c) => {
     const { contactService } = await import('../services/contact-service.js');
     const orgId = c.get('orgId');
     const result = await contactService.list(orgId, query);
+    logger.info('Contacts list served from REAL DATABASE', { orgId, count: result.contacts.length, total: result.total });
     return c.json({
       data: result.contacts,
       pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
+      _source: 'database',
     });
-  } catch {
-    logger.warn('DB unavailable for contacts list, using mock data');
+  } catch (err) {
+    logger.warn('DB unavailable for contacts list, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const result = getFrontendContacts(query);
     return c.json({
       data: result.data,
       pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
+      _source: 'mock',
     });
   }
 });
@@ -80,12 +85,15 @@ contacts.get('/:id', async (c) => {
     const { contactService } = await import('../services/contact-service.js');
     const orgId = c.get('orgId');
     const result = await contactService.getById(orgId, contactId);
-    return c.json({ data: result });
-  } catch {
-    logger.warn('DB unavailable for contact get, using mock data');
+    logger.info('Contact detail served from REAL DATABASE', { orgId, contactId });
+    return c.json({ data: result, _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for contact get, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const result = getFrontendContactById(contactId);
     if (!result) return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);
-    return c.json({ data: result });
+    return c.json({ data: result, _source: 'mock' });
   }
 });
 
@@ -96,9 +104,12 @@ contacts.post('/', async (c) => {
     const { contactService } = await import('../services/contact-service.js');
     const orgId = c.get('orgId');
     const contact = await contactService.create(orgId, parsed);
+    logger.info('Contact created in REAL DATABASE', { orgId, contactId: contact.id });
     return c.json({ data: contact }, 201);
-  } catch {
-    logger.warn('DB unavailable for contact create, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for contact create, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: `cnt_${Date.now()}`, ...parsed, orgId: 'org_01', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, 201);
   }
 });
@@ -111,9 +122,12 @@ contacts.patch('/:id', async (c) => {
     const { contactService } = await import('../services/contact-service.js');
     const orgId = c.get('orgId');
     const contact = await contactService.update(orgId, contactId, parsed);
+    logger.info('Contact updated in REAL DATABASE', { orgId, contactId });
     return c.json({ data: contact });
-  } catch {
-    logger.warn('DB unavailable for contact update, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for contact update, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     const existing = getMockContactById(contactId);
     return c.json({ data: { ...existing, ...parsed, updatedAt: new Date().toISOString() } });
   }
@@ -125,8 +139,11 @@ contacts.delete('/:id', async (c) => {
     const orgId = c.get('orgId');
     const contactId = c.req.param('id');
     await contactService.softDelete(orgId, contactId);
-  } catch {
-    logger.warn('DB unavailable for contact delete');
+    logger.info('Contact deleted from REAL DATABASE', { orgId, contactId });
+  } catch (err) {
+    logger.warn('DB unavailable for contact delete, skipping', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
   return c.json({ data: { message: 'Contact archived successfully' } });
 });

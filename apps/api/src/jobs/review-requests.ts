@@ -7,7 +7,7 @@ import {
 } from '@mybizos/db';
 import { and, lte, eq, sql } from 'drizzle-orm';
 import { TwilioClient } from '@mybizos/integrations';
-import { PostmarkProvider, reviewRequestHtml } from '@mybizos/email';
+import { ResendProvider, reviewRequestHtml } from '@mybizos/email';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { activityService } from '../services/activity-service.js';
@@ -77,9 +77,9 @@ export async function runReviewRequests(): Promise<{
     defaultFromNumber: config.TWILIO_PHONE_NUMBER,
   });
 
-  const postmark = new PostmarkProvider({
-    serverToken: config.POSTMARK_SERVER_TOKEN,
-    defaultFrom: config.POSTMARK_DEFAULT_FROM,
+  const resend = new ResendProvider({
+    apiKey: config.RESEND_API_KEY,
+    defaultFrom: config.RESEND_DEFAULT_FROM,
   });
 
   for (const row of completedAppointments) {
@@ -125,7 +125,7 @@ export async function runReviewRequests(): Promise<{
           feedbackUrl,
         );
 
-        await postmark.sendEmail(
+        await resend.sendEmail(
           undefined,
           row.contactEmail,
           `How was your experience with ${businessName}?`,

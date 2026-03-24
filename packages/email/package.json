@@ -13,8 +13,8 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "postmark": "^4.0.0",
-    "@mybizos/shared": "workspace:*"
+    "@mybizos/shared": "workspace:*",
+    "resend": "^6.9.4"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

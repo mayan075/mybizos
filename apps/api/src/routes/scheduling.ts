@@ -58,10 +58,13 @@ authenticatedScheduling.get('/appointments', async (c) => {
     const { schedulingService } = await import('../services/scheduling-service.js');
     const orgId = c.get('orgId');
     const appointments = await schedulingService.listAppointments(orgId);
-    return c.json({ data: appointments });
-  } catch {
-    logger.warn('DB unavailable for appointments list, using mock data');
-    return c.json({ data: getFrontendAppointments() });
+    logger.info('Appointments list served from REAL DATABASE', { orgId, count: appointments.length });
+    return c.json({ data: appointments, _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for appointments list, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ data: getFrontendAppointments(), _source: 'mock' });
   }
 });
 
@@ -81,9 +84,12 @@ authenticatedScheduling.post('/appointments', async (c) => {
       location: parsed.location,
       status: 'scheduled',
     });
+    logger.info('Appointment created in REAL DATABASE', { orgId, appointmentId: appointment.id });
     return c.json({ data: appointment }, 201);
-  } catch {
-    logger.warn('DB unavailable for appointment create, returning mock');
+  } catch (err) {
+    logger.warn('DB unavailable for appointment create, returning MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return c.json({ data: { id: `apt_${Date.now()}`, ...parsed, status: 'scheduled', createdAt: new Date().toISOString() } }, 201);
   }
 });

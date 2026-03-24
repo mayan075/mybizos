@@ -16,7 +16,7 @@ MyBizOS is an AI-native business operating system for local businesses (starting
 - **Auth:** Better Auth (self-hosted) — NOT NextAuth, NOT Clerk
 - **AI:** Claude API (Anthropic) via `@anthropic-ai/sdk`
 - **SMS/Voice:** Twilio + Vapi.ai (managed voice platform)
-- **Email:** Postmark — NOT SendGrid, NOT SES
+- **Email:** Resend — NOT SendGrid, NOT SES, NOT Postmark
 - **Payments:** Stripe Connect
 - **Validation:** Zod everywhere — all inputs, all API payloads
 

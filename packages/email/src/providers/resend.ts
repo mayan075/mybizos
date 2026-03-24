@@ -1,9 +1,9 @@
-import { ServerClient, type Message, Models } from "postmark";
+import { Resend } from "resend";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface PostmarkConfig {
-  serverToken: string;
+export interface ResendConfig {
+  apiKey: string;
   defaultFrom: string;
 }
 
@@ -16,7 +16,6 @@ export interface SendEmailOptions {
   replyTo?: string;
   tag?: string;
   metadata?: Record<string, string>;
-  messageStream?: string;
 }
 
 export interface SendEmailResult {
@@ -33,7 +32,6 @@ export interface BatchMessage {
   textBody?: string;
   tag?: string;
   metadata?: Record<string, string>;
-  messageStream?: string;
 }
 
 export interface BatchSendResult {
@@ -45,16 +43,16 @@ export interface BatchSendResult {
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
- * Postmark email provider for transactional emails.
+ * Resend email provider for transactional emails.
  * Used for appointment confirmations, reminders, review requests,
  * invoices, and welcome emails.
  */
-export class PostmarkProvider {
-  private client: ServerClient;
+export class ResendProvider {
+  private client: Resend;
   private defaultFrom: string;
 
-  constructor(config: PostmarkConfig) {
-    this.client = new ServerClient(config.serverToken);
+  constructor(config: ResendConfig) {
+    this.client = new Resend(config.apiKey);
     this.defaultFrom = config.defaultFrom;
   }
 
@@ -69,30 +67,32 @@ export class PostmarkProvider {
     textBody?: string,
     tag?: string,
   ): Promise<SendEmailResult> {
-    const message: Message = {
-      From: from ?? this.defaultFrom,
-      To: to,
-      Subject: subject,
-      HtmlBody: htmlBody ?? undefined,
-      TextBody: textBody ?? undefined,
-      Tag: tag,
-      MessageStream: "outbound",
-    };
+    const { data, error } = await this.client.emails.send({
+      from: from ?? this.defaultFrom,
+      to: [to],
+      subject,
+      html: htmlBody ?? undefined,
+      text: textBody ?? undefined,
+      tags: tag ? [{ name: "category", value: tag }] : undefined,
+    });
 
-    const response: Models.MessageSendingResponse = await this.client.sendEmail(message);
+    if (error) {
+      throw new Error(`Resend email error: ${error.message}`);
+    }
 
     return {
-      messageId: response.MessageID,
-      submittedAt: response.SubmittedAt,
-      to: response.To ?? to,
+      messageId: data?.id ?? "",
+      submittedAt: new Date().toISOString(),
+      to,
     };
   }
 
   /**
-   * Send a batch of up to 500 emails in a single API call.
+   * Send a batch of up to 100 emails in a single API call.
+   * Resend batch limit is 100 emails per request.
    */
   async sendBatch(messages: BatchMessage[]): Promise<BatchSendResult> {
-    const MAX_BATCH_SIZE = 500;
+    const MAX_BATCH_SIZE = 100;
 
     if (messages.length > MAX_BATCH_SIZE) {
       throw new Error(
@@ -100,38 +100,31 @@ export class PostmarkProvider {
       );
     }
 
-    const postmarkMessages: Message[] = messages.map((msg) => ({
-      From: msg.from ?? this.defaultFrom,
-      To: msg.to,
-      Subject: msg.subject,
-      HtmlBody: msg.htmlBody ?? undefined,
-      TextBody: msg.textBody ?? undefined,
-      Tag: msg.tag,
-      Metadata: msg.metadata,
-      MessageStream: msg.messageStream ?? "outbound",
+    const resendMessages = messages.map((msg) => ({
+      from: msg.from ?? this.defaultFrom,
+      to: [msg.to],
+      subject: msg.subject,
+      html: msg.htmlBody ?? undefined,
+      text: msg.textBody ?? undefined,
+      tags: msg.tag ? [{ name: "category", value: msg.tag }] : undefined,
     }));
 
-    const responses = await this.client.sendEmailBatch(postmarkMessages);
+    const { data, error } = await this.client.batch.send(resendMessages);
 
-    const results: SendEmailResult[] = [];
-    let totalFailed = 0;
-
-    for (const response of responses) {
-      if (response.ErrorCode === 0) {
-        results.push({
-          messageId: response.MessageID,
-          submittedAt: response.SubmittedAt,
-          to: response.To ?? "",
-        });
-      } else {
-        totalFailed++;
-      }
+    if (error) {
+      throw new Error(`Resend batch error: ${error.message}`);
     }
+
+    const results: SendEmailResult[] = (data?.data ?? []).map((item, idx) => ({
+      messageId: item.id,
+      submittedAt: new Date().toISOString(),
+      to: messages[idx]?.to ?? "",
+    }));
 
     return {
       results,
       totalSent: results.length,
-      totalFailed,
+      totalFailed: messages.length - results.length,
     };
   }
 

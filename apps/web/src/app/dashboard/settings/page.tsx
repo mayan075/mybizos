@@ -76,7 +76,7 @@ interface IntegrationStatus {
   vapi: boolean;
   stripe: boolean;
   googleCalendar: boolean;
-  postmark: boolean;
+  resend: boolean;
   quickbooks: boolean;
 }
 
@@ -187,7 +187,7 @@ const defaultSettings: AllSettings = {
     vapi: false,
     stripe: false,
     googleCalendar: false,
-    postmark: false,
+    resend: false,
     quickbooks: false,
   },
 };
@@ -1210,8 +1210,8 @@ function SettingsContent() {
                     configUrl: "",
                   },
                   {
-                    key: "postmark" as const,
-                    name: "Postmark",
+                    key: "resend" as const,
+                    name: "Resend",
                     desc: "Transactional email",
                     icon: Mail,
                     configUrl: "",
