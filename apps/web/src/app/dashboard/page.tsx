@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -11,12 +12,17 @@ import {
   Clock,
   MessageSquare,
   AlertTriangle,
+  Kanban,
+  Receipt,
+  CalendarDays,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useRecentActivity, emptyStats } from "@/lib/hooks/use-dashboard";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { WelcomeBanner, GettingStartedChecklist } from "@/components/onboarding/getting-started";
 import { Tooltip } from "@/components/ui/tooltip";
+import { getRecentlyViewed, type RecentlyViewedItem } from "@/lib/recently-viewed";
 import type { LucideIcon } from "lucide-react";
 
 const iconMap: Record<string, LucideIcon> = {
@@ -56,11 +62,33 @@ const timelineDotColors: Record<string, string> = {
   lead: "border-amber-400 bg-amber-50 dark:bg-amber-950/40",
 };
 
+const recentTypeIcons: Record<string, LucideIcon> = {
+  Contact: Users,
+  Deal: Kanban,
+  Invoice: Receipt,
+  Appointment: CalendarDays,
+  Page: Clock,
+};
+
+const recentTypeBg: Record<string, string> = {
+  Contact: "bg-blue-500/10 text-blue-600",
+  Deal: "bg-emerald-500/10 text-emerald-600",
+  Invoice: "bg-amber-500/10 text-amber-600",
+  Appointment: "bg-violet-500/10 text-violet-600",
+  Page: "bg-muted text-muted-foreground",
+};
+
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const router = useRouter();
   const { data: dashboardData, isLoading: statsLoading, isLive: statsLive } = useDashboardStats();
   const { data: recentActivity, isLoading: activityLoading } = useRecentActivity();
+
+  // Recently viewed items from localStorage
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([]);
+  useEffect(() => {
+    setRecentlyViewed(getRecentlyViewed().slice(0, 5));
+  }, []);
 
   // When the API is live and returns data, use it. When loading, show zeros.
   // Only use mock stats when API is unreachable (isLive=false after loading).
@@ -146,6 +174,41 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* Recently Viewed — only shown if there are items */}
+      {recentlyViewed.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <History className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
+              Recently Viewed
+            </h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {recentlyViewed.map((item) => {
+              const TypeIcon = recentTypeIcons[item.type] ?? Clock;
+              const typeBg = recentTypeBg[item.type] ?? "bg-muted text-muted-foreground";
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => router.push(item.path)}
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-left hover:shadow-sm hover:border-border transition-all duration-200 shrink-0 min-w-[200px] max-w-[280px] group"
+                >
+                  <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg shrink-0", typeBg)}>
+                    <TypeIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {item.label}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{item.type}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">

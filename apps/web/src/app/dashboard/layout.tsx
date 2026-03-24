@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/layout/command-palette";
 import { FloatingDialer } from "@/components/dialer/floating-dialer";
 import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
 import { isOnboardingComplete } from "@/lib/onboarding";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -32,6 +33,45 @@ export default function DashboardLayout({
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [pathname]);
+
+  // Swipe gesture support for mobile sidebar
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function onTouchStart(e: TouchEvent) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = Math.abs(touch.clientY - touchStartY);
+
+      // Only count horizontal swipes (not scrolling)
+      if (deltaY > Math.abs(deltaX)) return;
+
+      // Swipe right from left edge to open
+      if (!mobileSidebarOpen && touchStartX < 30 && deltaX > 60) {
+        setMobileSidebarOpen(true);
+      }
+      // Swipe left to close
+      if (mobileSidebarOpen && deltaX < -60) {
+        setMobileSidebarOpen(false);
+      }
+    }
+
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [mobileSidebarOpen]);
 
   // Guard: redirect to onboarding if not completed
   useEffect(() => {
@@ -85,18 +125,22 @@ export default function DashboardLayout({
         <Sidebar />
       </div>
 
-      {/* Mobile sidebar overlay */}
-      {mobileSidebarOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-          <div className="fixed inset-y-0 left-0 z-50 md:hidden">
-            <Sidebar />
-          </div>
-        </>
-      )}
+      {/* Mobile sidebar overlay — always rendered for smooth transitions */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden transition-opacity duration-300",
+          mobileSidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ease-out",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <Sidebar />
+      </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
