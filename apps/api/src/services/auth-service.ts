@@ -10,6 +10,8 @@ export interface JwtPayload {
   orgId: string;
   email: string;
   role: 'owner' | 'admin' | 'manager' | 'member';
+  name?: string;
+  orgName?: string;
 }
 
 export interface AuthResult {

@@ -728,7 +728,7 @@ twilioWebhooks.post('/outbound-call', async (c) => {
   }
 
   try {
-    const twilio = require('twilio');
+    const { default: twilio } = await import('twilio');
     const client = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
 
     const call = await client.calls.create({
