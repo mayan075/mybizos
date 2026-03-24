@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getOnboardingData } from "@/lib/onboarding";
 
 const navItems = [
   { label: "Dashboard", href: "/portal", icon: LayoutDashboard },
@@ -36,6 +37,8 @@ export default function PortalLayout({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const onboarding = useMemo(() => getOnboardingData(), []);
+  const businessName = onboarding?.businessName ?? "Your Business";
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -49,7 +52,7 @@ export default function PortalLayout({
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-semibold text-gray-900">
-                Precision HVAC & Plumbing
+                {businessName}
               </p>
               <p className="text-xs text-gray-500">Customer Portal</p>
             </div>
@@ -145,13 +148,10 @@ export default function PortalLayout({
           <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
             <div>
               <p className="text-sm font-medium text-gray-700">
-                Precision HVAC & Plumbing
+                {businessName}
               </p>
               <p className="text-xs text-gray-500">
-                (555) 234-5678 &middot; service@precisionhvac.com
-              </p>
-              <p className="text-xs text-gray-500">
-                123 Main Street, Suite 100, Anytown, TX 75001
+                {onboarding?.city ? `Serving ${onboarding.city}` : "Serving your area"}
               </p>
             </div>
             <p className="text-xs text-gray-400">

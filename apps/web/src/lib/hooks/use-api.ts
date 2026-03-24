@@ -79,25 +79,36 @@ function useApiQuery<T>(
     setIsLoading(true);
     setError(null);
 
-    const path = buildPath(endpoint);
-    // Fetch raw response — the API may wrap data in { data: ... }
-    const result = await tryFetch(() =>
-      apiClient.get<T | { data: T }>(path, params ? { params } : undefined),
-    );
+    try {
+      const path = buildPath(endpoint);
+      // Add 5-second timeout to prevent hanging
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
 
-    if (result !== null) {
-      // Unwrap { data: ... } wrapper if the API returns one.
-      const unwrapped =
-        result !== null &&
-        typeof result === "object" &&
-        !Array.isArray(result) &&
-        "data" in (result as Record<string, unknown>)
-          ? ((result as Record<string, unknown>).data as T)
-          : (result as T);
-      setData(unwrapped);
-      setIsLive(true);
-    } else {
-      // API unavailable (network error) — use mock data as fallback
+      const result = await tryFetch(() =>
+        apiClient.get<T | { data: T }>(path, { ...(params ? { params } : {}), signal: controller.signal }),
+      );
+
+      clearTimeout(timeout);
+
+      if (result !== null) {
+        // Unwrap { data: ... } wrapper if the API returns one.
+        const unwrapped =
+          result !== null &&
+          typeof result === "object" &&
+          !Array.isArray(result) &&
+          "data" in (result as Record<string, unknown>)
+            ? ((result as Record<string, unknown>).data as T)
+            : (result as T);
+        setData(unwrapped);
+        setIsLive(true);
+      } else {
+        // API unavailable (network error) — use mock data as fallback
+        setData(mockRef.current);
+        setIsLive(false);
+      }
+    } catch {
+      // Any error (404, 500, timeout, etc.) — fall back to mock data
       setData(mockRef.current);
       setIsLive(false);
     }

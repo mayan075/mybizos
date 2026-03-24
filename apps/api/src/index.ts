@@ -22,6 +22,9 @@ import { emailWebhookRoutes } from './routes/webhooks/email.js';
 import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
 import { stripeWebhookRoutes } from './routes/webhooks/stripe.js';
 import { integrationRoutes } from './routes/integrations.js';
+import { voiceTokenRoutes } from './routes/voice-token.js';
+import { voiceSetupRoutes } from './routes/voice-setup.js';
+import { voiceTwimlRoutes } from './routes/voice-twiml.js';
 import { adminRoutes } from './routes/admin.js';
 
 const app = new Hono();
@@ -104,6 +107,8 @@ app.route('/orgs/:orgId/sequences', sequenceRoutes);
 app.route('/orgs/:orgId', aiRoutes);
 app.route('/orgs/:orgId/phone-system', phoneSystemRoutes);
 app.route('/orgs/:orgId/integrations', integrationRoutes);
+app.route('/orgs/:orgId/voice', voiceTokenRoutes);
+app.route('/orgs/:orgId/voice', voiceSetupRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);
@@ -112,6 +117,7 @@ app.route('/', schedulingRoutes);
 app.route('/admin', adminRoutes);
 
 // Webhooks (no auth — called by third-party services)
+app.route('/voice', voiceTwimlRoutes);
 app.route('/webhooks/twilio', twilioWebhookRoutes);
 app.route('/webhooks/email', emailWebhookRoutes);
 app.route('/webhooks/vapi', vapiWebhookRoutes);

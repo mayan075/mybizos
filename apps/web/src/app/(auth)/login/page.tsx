@@ -36,7 +36,7 @@ interface LoginResponse {
   };
 }
 
-const DEMO_EMAIL = "jim@jimsplumbing.com";
+const DEMO_EMAIL = "mayan@northernremovals.com.au";
 const DEMO_PASSWORD = "demo1234";
 
 export default function LoginPage() {

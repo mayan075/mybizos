@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Send, Clock, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getOnboardingData } from "@/lib/onboarding";
 
 interface Message {
   id: string;
@@ -44,7 +45,19 @@ const initialMessages: Message[] = [
 ];
 
 export default function MessagesPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const onboarding = useMemo(() => getOnboardingData(), []);
+  const bizName = onboarding?.businessName ?? "Your Business";
+
+  // Replace hardcoded business name in initial messages with dynamic name
+  const dynamicMessages = useMemo(() => {
+    return initialMessages.map((m) =>
+      m.senderName === "Precision HVAC & Plumbing"
+        ? { ...m, senderName: bizName }
+        : m,
+    );
+  }, [bizName]);
+
+  const [messages, setMessages] = useState<Message[]>(dynamicMessages);
   const [newMessage, setNewMessage] = useState("");
 
   function handleSend() {

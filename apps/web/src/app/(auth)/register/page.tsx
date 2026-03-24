@@ -53,11 +53,11 @@ interface RegisterResponse {
 }
 
 const DEMO_FORM = {
-  name: "Jim Henderson",
-  businessName: "Jim's Plumbing",
-  email: "jim@jimsplumbing.com",
+  name: "Mayan Kotwal",
+  businessName: "Northern Removals",
+  email: "mayan@northernremovals.com.au",
   password: "demo1234",
-  vertical: "plumbing",
+  vertical: "rubbish_removals",
 };
 
 export default function RegisterPage() {
@@ -209,7 +209,7 @@ export default function RegisterPage() {
             )}
           >
             <Play className="h-3.5 w-3.5" />
-            Quick-fill with demo data (Jim&apos;s Plumbing)
+            Quick-fill with demo data (Northern Removals)
           </button>
 
           <form className="space-y-5" onSubmit={handleSubmit}>
@@ -259,7 +259,7 @@ export default function RegisterPage() {
                     type="text"
                     value={form.businessName}
                     onChange={(e) => update("businessName", e.target.value)}
-                    placeholder="Acme HVAC"
+                    placeholder="Northern Removals"
                     className={cn(
                       "h-11 w-full rounded-lg border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
                       fieldErrors["businessName"]
@@ -333,7 +333,7 @@ export default function RegisterPage() {
                   type="email"
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
-                  placeholder="john@acmehvac.com"
+                  placeholder="you@yourbusiness.com"
                   className={cn(
                     "h-11 w-full rounded-lg border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
                     fieldErrors["email"]

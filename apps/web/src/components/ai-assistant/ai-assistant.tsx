@@ -436,7 +436,7 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
                     key={suggestion}
                     type="button"
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full border-2 border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-50 transition-colors cursor-pointer shadow-sm"
                   >
                     <Sparkles className="h-3 w-3" />
                     {suggestion}
