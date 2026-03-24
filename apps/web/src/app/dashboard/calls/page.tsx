@@ -32,7 +32,6 @@ import {
   Settings2,
   ChevronDown,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -47,8 +46,10 @@ import {
 } from "@/lib/phone-utils";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { useApiQuery, buildPath } from "@/lib/hooks/use-api";
-import { getOnboardingData } from "@/lib/onboarding";
+import { CallsSkeleton } from "@/components/skeletons/calls-skeleton";
 import type { PhoneNumber as TwilioPhoneNumber } from "@/components/phone/pricing-data";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -109,7 +110,6 @@ function useCallerNumbers() {
     async function load() {
       setLoading(true);
 
-      // 1. Try API
       try {
         const path = buildPath("/orgs/:orgId/phone-system/numbers");
         const result = await tryFetch(() =>
@@ -123,31 +123,9 @@ function useCallerNumbers() {
               friendlyName: n.friendlyName,
             })),
           );
-          setLoading(false);
-          return;
         }
       } catch {
-        // API not available — fall through
-      }
-
-      // 2. Fallback: onboarding localStorage
-      try {
-        const onboarding = getOnboardingData();
-        if (onboarding?.phoneSetup) {
-          const setup = onboarding.phoneSetup;
-          const num = setup.selectedNumber ?? setup.existingNumber;
-          if (num) {
-            setNumbers([
-              {
-                sid: "onboarding",
-                phoneNumber: num,
-                friendlyName: "My Number",
-              },
-            ]);
-          }
-        }
-      } catch {
-        // No onboarding data
+        // API not available — no numbers to show
       }
 
       setLoading(false);
@@ -1004,6 +982,8 @@ export default function CallsPage() {
   const [activeCallContact, setActiveCallContact] = useState<string | null>(null);
   const [showCallSummary, setShowCallSummary] = useState(false);
   const [lastCallData, setLastCallData] = useState<CallRecord | null>(null);
+  const [callError, setCallError] = useState<string | null>(null);
+  const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
 
   // Caller-from state
   const { numbers: callerNumbers, loading: numbersLoading } = useCallerNumbers();
@@ -1020,6 +1000,7 @@ export default function CallsPage() {
   const selectedFrom = callerNumbers.find((n) => n.sid === selectedFromSid) ?? null;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Derived from rawDigits
   const displayFormatted = formatPhoneNumber(rawDigits);
@@ -1055,10 +1036,62 @@ export default function CallsPage() {
     [activeCalls, selectedCallId],
   );
 
-  // Call simulation
-  const startCall = useCallback((number: string, contactName: string | null) => {
+  // Poll for call status updates from Twilio
+  const startStatusPolling = useCallback((callSid: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/webhooks/twilio/call-status/${callSid}`);
+        if (!res.ok) return;
+
+        const data = await res.json() as { status: string; duration: number };
+        const status = data.status;
+
+        if (status === "in-progress" || status === "answered") {
+          setCallStatus("connected");
+          if (!timerRef.current) {
+            timerRef.current = setInterval(() => {
+              setCallTimer((prev) => prev + 1);
+            }, 1000);
+          }
+        } else if (status === "ringing") {
+          setCallStatus("ringing");
+        } else if (status === "completed" || status === "busy" || status === "no-answer" || status === "canceled" || status === "failed") {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          if (status === "failed") {
+            setCallError("Call failed. The number may be unreachable.");
+          } else if (status === "busy") {
+            setCallError("Line is busy. Try again later.");
+          } else if (status === "no-answer") {
+            setCallError("No answer. Try again later.");
+          }
+          // For completed calls, show summary
+          if (status === "completed" && callTimer > 0) {
+            setCallStatus("ended");
+          } else {
+            setCallStatus("idle");
+          }
+          setActiveCallSid(null);
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }, 2000);
+  }, [callTimer]);
+
+  // Real call via Twilio API
+  const startCall = useCallback(async (number: string, contactName: string | null) => {
     setActiveCallNumber(number);
     setActiveCallContact(contactName);
+    setCallError(null);
     setCallStatus("ringing");
     setCallTimer(0);
     setIsMuted(false);
@@ -1067,25 +1100,49 @@ export default function CallsPage() {
     setIsRecording(true);
     setShowCallSummary(false);
 
-    // Simulate ringing -> connected
-    setTimeout(() => {
-      setCallStatus("connected");
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setCallTimer((prev) => prev + 1);
-      }, 1000);
-    }, 2000);
-  }, []);
+    const fromNumber = selectedFrom?.phoneNumber;
+
+    try {
+      const res = await fetch(`${API_BASE}/webhooks/twilio/outbound-call`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: number,
+          ...(fromNumber ? { from: fromNumber } : {}),
+        }),
+      });
+
+      const data = await res.json() as { success?: boolean; callSid?: string; error?: string };
+
+      if (!res.ok || !data.success) {
+        setCallError(data.error || "Call failed. Check your Twilio setup.");
+        setCallStatus("idle");
+        return;
+      }
+
+      // Call initiated — start polling for real status
+      if (data.callSid) {
+        setActiveCallSid(data.callSid);
+        startStatusPolling(data.callSid);
+      }
+    } catch {
+      setCallError("Cannot reach the server. Make sure the API is running.");
+      setCallStatus("idle");
+    }
+  }, [selectedFrom, startStatusPolling]);
 
   const endCall = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
     setCallStatus("ended");
 
-    // Generate a mock summary for the ended call
-    const mockEndedCall: CallRecord = {
+    const endedCall: CallRecord = {
       id: `call-new-${Date.now()}`,
       contactName: activeCallContact,
       phoneNumber: activeCallNumber,
@@ -1094,18 +1151,15 @@ export default function CallsPage() {
       timestamp: new Date(),
       outcome: "qualified",
       aiHandled: false,
-      summary: `Outbound call to ${activeCallContact ?? formatE164ForDisplay(activeCallNumber)}. Call lasted ${formatDuration(callTimer)}. Discussion about service inquiry. Follow-up needed.`,
-      transcript: [
-        { speaker: "agent", text: "Hi, this is John from Acme HVAC & Plumbing. How are you doing today?", time: "0:00" },
-        { speaker: "caller", text: "Good, thanks for calling back.", time: "0:05" },
-        { speaker: "agent", text: "Of course! I wanted to follow up on your recent inquiry.", time: "0:10" },
-      ],
-      actionsTaken: ["Call logged", "Follow-up task created"],
-      recordingAvailable: true,
+      summary: `Outbound call to ${activeCallContact ?? formatE164ForDisplay(activeCallNumber)}. Call lasted ${formatDuration(callTimer)}.`,
+      transcript: [],
+      actionsTaken: ["Call logged"],
+      recordingAvailable: false,
     };
 
-    setLastCallData(mockEndedCall);
+    setLastCallData(endedCall);
     setShowCallSummary(true);
+    setActiveCallSid(null);
   }, [activeCallContact, activeCallNumber, callTimer]);
 
   const resetDialer = useCallback(() => {
@@ -1116,17 +1170,21 @@ export default function CallsPage() {
     setActiveCallNumber("");
     setActiveCallContact(null);
     setRawDigits("");
+    setCallError(null);
+    setActiveCallSid(null);
   }, []);
 
-  // Cleanup timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
 
   // Handle keypad press
   const handleKeyPress = useCallback((digit: string) => {
+    setCallError(null);
     setRawDigits((prev) => {
       const max = maxDigitsForCountry(prev);
       if (prev.length >= max) return prev;
@@ -1136,6 +1194,7 @@ export default function CallsPage() {
 
   // Handle backspace
   const handleBackspace = useCallback(() => {
+    setCallError(null);
     setRawDigits((prev) => {
       if (prev.length === 0) return "";
       return prev.slice(0, -1);
@@ -1144,6 +1203,7 @@ export default function CallsPage() {
 
   // Handle text input (paste support)
   const handleInputChange = useCallback((value: string) => {
+    setCallError(null);
     const digits = stripToDigits(value);
     const max = maxDigitsForCountry(digits);
     setRawDigits(digits.slice(0, max));
@@ -1159,10 +1219,11 @@ export default function CallsPage() {
     }
   }, [callStatus, showCallSummary]);
 
-  const handleCallButton = useCallback(() => {
+  const handleCallButton = useCallback(async () => {
     if (!numberValid) return;
+    setCallError(null);
     const e164 = toE164(rawDigits);
-    startCall(e164, activeCallContact);
+    await startCall(e164, activeCallContact);
   }, [rawDigits, numberValid, activeCallContact, startCall]);
 
   const missedCount = activeCalls.filter((c) => c.outcome === "missed").length;
@@ -1174,22 +1235,9 @@ export default function CallsPage() {
     { key: "missed", label: "Missed", count: missedCount },
   ];
 
-  // Loading state
+  // Loading state — show skeleton while initial fetch is in progress
   if (callsLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Calls</h1>
-            <p className="text-sm text-muted-foreground mt-1">Loading call history...</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground mt-3">Loading call history...</p>
-        </div>
-      </div>
-    );
+    return <CallsSkeleton />;
   }
 
   return (
@@ -1364,10 +1412,10 @@ export default function CallsPage() {
                 {/* Call button */}
                 <button
                   onClick={handleCallButton}
-                  disabled={!numberValid}
+                  disabled={!numberValid || (callerNumbers.length === 0 && !numbersLoading)}
                   className={cn(
                     "flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold transition-all shadow-lg",
-                    numberValid
+                    numberValid && callerNumbers.length > 0
                       ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/20"
                       : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                   )}
@@ -1375,6 +1423,14 @@ export default function CallsPage() {
                   <Phone className="h-4 w-4" />
                   Call
                 </button>
+
+                {/* Inline error message */}
+                {callError && (
+                  <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{callError}</span>
+                  </div>
+                )}
 
                 {/* Calling from — dynamic */}
                 <div className="text-center">

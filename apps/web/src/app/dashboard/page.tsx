@@ -11,7 +11,6 @@ import {
   Clock,
   MessageSquare,
   AlertTriangle,
-  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useRecentActivity, emptyStats } from "@/lib/hooks/use-dashboard";
@@ -134,9 +133,7 @@ export default function DashboardPage() {
               <div className="mt-5">
                 <p className="text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
                   {statsLoading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </span>
+                    <span className="inline-block h-8 w-16 animate-pulse rounded-md bg-muted" />
                   ) : (
                     stat.value
                   )}
@@ -168,9 +165,17 @@ export default function DashboardPage() {
 
           <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
             {activityLoading ? (
-              <div className="flex flex-col items-center justify-center py-14">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mt-3">Loading activity...</p>
+              <div className="space-y-0">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-4 px-5 py-4">
+                    <div className="h-9 w-9 rounded-xl animate-pulse bg-muted shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 rounded-md animate-pulse bg-muted" />
+                      <div className="h-3 w-1/2 rounded-md animate-pulse bg-muted" />
+                    </div>
+                    <div className="h-3 w-12 rounded-md animate-pulse bg-muted shrink-0" />
+                  </div>
+                ))}
               </div>
             ) : activityItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
@@ -252,9 +257,17 @@ export default function DashboardPage() {
 
           <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
             {statsLoading ? (
-              <div className="flex flex-col items-center justify-center py-14">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mt-3">Loading...</p>
+              <div className="space-y-0">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-5 py-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 w-32 rounded-md animate-pulse bg-muted" />
+                      <div className="h-5 w-16 rounded-full animate-pulse bg-muted" />
+                    </div>
+                    <div className="h-3 w-24 rounded-md animate-pulse bg-muted" />
+                    <div className="h-3 w-36 rounded-md animate-pulse bg-muted" />
+                  </div>
+                ))}
               </div>
             ) : upcomingAppointments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">

@@ -24,14 +24,13 @@ import {
 } from "@/lib/phone-utils";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { buildPath } from "@/lib/hooks/use-api";
-import { getOnboardingData } from "@/lib/onboarding";
 import type { PhoneNumber } from "@/components/phone/pricing-data";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type FloatingCallStatus = "idle" | "ringing" | "connected" | "on-hold" | "ended";
+type FloatingCallStatus = "idle" | "calling" | "ringing" | "connected" | "on-hold" | "ended";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -58,8 +57,10 @@ const KEYPAD_KEYS = [
   { digit: "#", letters: "" },
 ];
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 /* -------------------------------------------------------------------------- */
-/*  Hook: useCallerNumbers                                                     */
+/*  Hook: useCallerNumbers — ONLY real Twilio numbers from the API             */
 /* -------------------------------------------------------------------------- */
 
 interface CallerNumber {
@@ -80,7 +81,6 @@ function useCallerNumbers() {
     async function load() {
       setLoading(true);
 
-      // 1. Try API
       try {
         const path = buildPath("/orgs/:orgId/phone-system/numbers");
         const result = await tryFetch(() =>
@@ -94,31 +94,9 @@ function useCallerNumbers() {
               friendlyName: n.friendlyName,
             })),
           );
-          setLoading(false);
-          return;
         }
       } catch {
-        // API not available — fall through to onboarding data
-      }
-
-      // 2. Fallback: onboarding localStorage
-      try {
-        const onboarding = getOnboardingData();
-        if (onboarding?.phoneSetup) {
-          const setup = onboarding.phoneSetup;
-          const num = setup.selectedNumber ?? setup.existingNumber;
-          if (num) {
-            setNumbers([
-              {
-                sid: "onboarding",
-                phoneNumber: num,
-                friendlyName: "My Number",
-              },
-            ]);
-          }
-        }
-      } catch {
-        // No onboarding data either
+        // API not available — no numbers to show
       }
 
       setLoading(false);
@@ -158,22 +136,75 @@ export function FloatingDialer() {
   const [callTimer, setCallTimer] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [activeContactName, setActiveContactName] = useState<string | null>(null);
+  const [callError, setCallError] = useState<string | null>(null);
+  const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Derived
   const displayFormatted = formatPhoneNumber(rawDigits);
   const detectedCountry = detectCountry(rawDigits);
   const numberValid = isValidNumber(rawDigits);
 
-  // Cleanup timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
 
+  // Poll for call status updates from Twilio
+  const startStatusPolling = useCallback((callSid: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/webhooks/twilio/call-status/${callSid}`);
+        if (!res.ok) return;
+
+        const data = await res.json() as { status: string; duration: number };
+        const status = data.status;
+
+        if (status === "in-progress" || status === "answered") {
+          setCallStatus("connected");
+          // Start the timer if not already running
+          if (!timerRef.current) {
+            timerRef.current = setInterval(() => {
+              setCallTimer((prev) => prev + 1);
+            }, 1000);
+          }
+        } else if (status === "ringing") {
+          setCallStatus("ringing");
+        } else if (status === "completed" || status === "busy" || status === "no-answer" || status === "canceled" || status === "failed") {
+          // Call ended
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          if (status === "failed") {
+            setCallError("Call failed. The number may be unreachable.");
+          } else if (status === "busy") {
+            setCallError("Line is busy. Try again later.");
+          } else if (status === "no-answer") {
+            setCallError("No answer. Try again later.");
+          }
+          setCallStatus("idle");
+          setActiveCallSid(null);
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }, 2000);
+  }, []);
+
   const handleKeyPress = useCallback((digit: string) => {
+    setCallError(null);
     setRawDigits((prev) => {
       const max = maxDigitsForCountry(prev);
       if (prev.length >= max) return prev;
@@ -182,6 +213,7 @@ export function FloatingDialer() {
   }, []);
 
   const handleBackspace = useCallback(() => {
+    setCallError(null);
     setRawDigits((prev) => {
       if (prev.length === 0) return "";
       return prev.slice(0, -1);
@@ -189,7 +221,7 @@ export function FloatingDialer() {
   }, []);
 
   const handleInputChange = useCallback((value: string) => {
-    // Allow pasting any format — strip to digits
+    setCallError(null);
     const digits = stripToDigits(value);
     const max = maxDigitsForCountry(digits);
     setRawDigits(digits.slice(0, max));
@@ -197,62 +229,61 @@ export function FloatingDialer() {
 
   const startCall = useCallback(async () => {
     if (!numberValid) return;
+    setCallError(null);
 
     const toNumber = toE164(rawDigits);
     const fromNumber = selectedFrom?.phoneNumber;
-    if (!fromNumber) {
-      alert("No phone number configured. Go to Settings → Phone System to set one up.");
-      return;
-    }
 
-    // Show "Calling..." status
-    setCallStatus("ringing");
+    // Show "Calling..." status immediately
+    setCallStatus("calling");
     setCallTimer(0);
     setIsMuted(false);
 
     try {
-      // Make REAL call via Twilio through our API
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/webhooks/twilio/outbound-call`, {
+      const res = await fetch(`${API_BASE}/webhooks/twilio/outbound-call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: toNumber, from: fromNumber }),
+        body: JSON.stringify({
+          to: toNumber,
+          ...(fromNumber ? { from: fromNumber } : {}),
+        }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Call failed" }));
-        alert(err.error || "Call failed. Check your Twilio setup.");
+      const data = await res.json() as { success?: boolean; callSid?: string; error?: string; status?: string };
+
+      if (!res.ok || !data.success) {
+        setCallError(data.error || "Call failed. Check your Twilio setup.");
         setCallStatus("idle");
         return;
       }
 
-      // Call initiated — show "Ringing..."
-      // After 3 seconds assume connected (Twilio will handle the real state via webhooks)
-      setTimeout(() => {
-        setCallStatus("connected");
-        timerRef.current = setInterval(() => {
-          setCallTimer((prev) => prev + 1);
-        }, 1000);
-      }, 3000);
+      // Call initiated — move to ringing and start polling
+      setCallStatus("ringing");
+      if (data.callSid) {
+        setActiveCallSid(data.callSid);
+        startStatusPolling(data.callSid);
+      }
     } catch {
-      // API not reachable — fall back to simulated call
-      setTimeout(() => {
-        setCallStatus("connected");
-        timerRef.current = setInterval(() => {
-          setCallTimer((prev) => prev + 1);
-        }, 1000);
-      }, 2000);
+      setCallError("Cannot reach the server. Make sure the API is running.");
+      setCallStatus("idle");
     }
-  }, [numberValid, rawDigits, selectedFrom]);
+  }, [numberValid, rawDigits, selectedFrom, startStatusPolling]);
 
   const endCall = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
     setCallStatus("idle");
     setCallTimer(0);
     setRawDigits("");
     setActiveContactName(null);
+    setActiveCallSid(null);
+    setCallError(null);
   }, []);
 
   const toggleOpen = () => {
@@ -260,7 +291,7 @@ export function FloatingDialer() {
     setIsMinimized(false);
   };
 
-  const isCallActive = callStatus === "ringing" || callStatus === "connected" || callStatus === "on-hold";
+  const isCallActive = callStatus === "calling" || callStatus === "ringing" || callStatus === "connected" || callStatus === "on-hold";
 
   return (
     <div className="fixed bottom-5 right-5 sm:right-24 z-50 flex flex-col items-end gap-3">
@@ -317,11 +348,13 @@ export function FloatingDialer() {
               {/* Status */}
               <span className={cn(
                 "text-xs font-medium mt-1 px-2 py-0.5 rounded-full",
-                callStatus === "ringing"
-                  ? "text-amber-600 bg-amber-500/10 animate-pulse"
-                  : "text-emerald-600 bg-emerald-500/10",
+                callStatus === "calling"
+                  ? "text-blue-600 bg-blue-500/10 animate-pulse"
+                  : callStatus === "ringing"
+                    ? "text-amber-600 bg-amber-500/10 animate-pulse"
+                    : "text-emerald-600 bg-emerald-500/10",
               )}>
-                {callStatus === "ringing" ? "Ringing..." : "Connected"}
+                {callStatus === "calling" ? "Calling..." : callStatus === "ringing" ? "Ringing..." : "Connected"}
               </span>
 
               {/* Timer */}
@@ -405,10 +438,10 @@ export function FloatingDialer() {
               {/* Call button */}
               <button
                 onClick={startCall}
-                disabled={!numberValid}
+                disabled={!numberValid || (callerNumbers.length === 0 && !numbersLoading)}
                 className={cn(
                   "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold mt-3 transition-all",
-                  numberValid
+                  numberValid && callerNumbers.length > 0
                     ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-lg shadow-emerald-600/20"
                     : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                 )}
@@ -416,6 +449,14 @@ export function FloatingDialer() {
                 <Phone className="h-3.5 w-3.5" />
                 Call
               </button>
+
+              {/* Inline error message */}
+              {callError && (
+                <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-2.5 py-2 text-[10px] text-red-600">
+                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>{callError}</span>
+                </div>
+              )}
 
               {/* Calling from — dynamic */}
               <div className="mt-2 text-center">

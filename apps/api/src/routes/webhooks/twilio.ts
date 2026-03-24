@@ -706,44 +706,295 @@ twilioWebhooks.get('/health', async (c) => {
   });
 });
 
+// ── In-memory outbound call status store ────────────────────────────────────
+
+interface OutboundCallStatus {
+  callSid: string;
+  to: string;
+  from: string;
+  status: string;
+  duration: number;
+  startedAt: string;
+  updatedAt: string;
+}
+
+const outboundCallStatusStore = new Map<string, OutboundCallStatus>();
+
+/**
+ * Auto-clean outbound call statuses older than 1 hour.
+ */
+function cleanStaleOutboundStatuses(): void {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [callSid, entry] of outboundCallStatusStore) {
+    if (new Date(entry.startedAt).getTime() < oneHourAgo) {
+      outboundCallStatusStore.delete(callSid);
+    }
+  }
+}
+
+setInterval(cleanStaleOutboundStatuses, 10 * 60 * 1000);
+
+// ── Helper: look up org's Twilio numbers ────────────────────────────────────
+
+async function getOrgTwilioNumbers(
+  accountSid: string,
+  authToken: string,
+): Promise<Array<{ sid: string; phoneNumber: string; friendlyName: string }>> {
+  try {
+    const numbers = await TwilioClient.listPhoneNumbers(accountSid, authToken);
+    return numbers.map((n) => ({
+      sid: n.sid,
+      phoneNumber: n.phoneNumber,
+      friendlyName: n.friendlyName,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ── Outbound Call ───────────────────────────────────────────────────────────
 // Makes a real outbound call via Twilio
 
 const outboundCallSchema = z.object({
-  to: z.string().min(10),
-  from: z.string().min(10),
+  to: z.string().min(10, 'Destination number is required'),
+  from: z.string().min(10).optional(),
 });
 
 twilioWebhooks.post('/outbound-call', async (c) => {
   const body = await c.req.json();
   const parsed = outboundCallSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: 'Invalid phone numbers', details: parsed.error.flatten() }, 400);
+    return c.json(
+      { error: 'Invalid phone number. Please enter a valid number to call.', code: 'VALIDATION_ERROR', status: 400 },
+      400,
+    );
   }
 
-  const { to, from } = parsed.data;
+  const { to } = parsed.data;
+  let { from } = parsed.data;
 
   if (!config.TWILIO_ACCOUNT_SID || !config.TWILIO_AUTH_TOKEN) {
-    return c.json({ error: 'Twilio not configured. Add credentials in Admin Settings.' }, 400);
+    return c.json(
+      { error: 'Twilio not configured. Add credentials in Settings > Phone System.', code: 'NO_TWILIO_CONFIG', status: 400 },
+      400,
+    );
+  }
+
+  // If no "from" number provided, auto-detect from the account's Twilio numbers
+  if (!from) {
+    // First try env var
+    if (config.TWILIO_PHONE_NUMBER) {
+      from = config.TWILIO_PHONE_NUMBER;
+      logger.info('Using TWILIO_PHONE_NUMBER from env', { from });
+    } else {
+      // Look up numbers from Twilio API
+      const twilioNumbers = await getOrgTwilioNumbers(
+        config.TWILIO_ACCOUNT_SID,
+        config.TWILIO_AUTH_TOKEN,
+      );
+
+      if (twilioNumbers.length === 0) {
+        return c.json(
+          {
+            error: 'No Twilio phone number configured. Go to Settings > Phone System to set up a number.',
+            code: 'NO_TWILIO_NUMBER',
+            status: 400,
+          },
+          400,
+        );
+      }
+
+      const firstNumber = twilioNumbers[0];
+      if (!firstNumber) {
+        return c.json(
+          { error: 'No Twilio phone number found on account.', code: 'NO_TWILIO_NUMBER', status: 400 },
+          400,
+        );
+      }
+      from = firstNumber.phoneNumber;
+      logger.info('Auto-detected Twilio number for outbound call', {
+        from,
+        friendlyName: firstNumber.friendlyName,
+      });
+    }
+  } else {
+    // Verify the provided "from" number is actually owned by this Twilio account
+    const twilioNumbers = await getOrgTwilioNumbers(
+      config.TWILIO_ACCOUNT_SID,
+      config.TWILIO_AUTH_TOKEN,
+    );
+
+    const isValidFrom = twilioNumbers.some((n) => n.phoneNumber === from);
+    // Also allow the env-configured number
+    const isEnvNumber = config.TWILIO_PHONE_NUMBER && from === config.TWILIO_PHONE_NUMBER;
+
+    if (!isValidFrom && !isEnvNumber) {
+      logger.warn('Outbound call attempted with non-Twilio from number', { from, to });
+      return c.json(
+        {
+          error: `The number ${from} is not a verified Twilio number on your account. Please select a valid Twilio number.`,
+          code: 'INVALID_FROM_NUMBER',
+          status: 400,
+        },
+        400,
+      );
+    }
   }
 
   try {
     const { default: twilio } = await import('twilio');
     const client = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
 
+    // Build proper TwiML: Dial the destination number
+    const twimlStr = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<Response>',
+      `  <Dial callerId="${escapeXml(from)}" timeout="30">`,
+      `    <Number>${escapeXml(to)}</Number>`,
+      '  </Dial>',
+      '</Response>',
+    ].join('\n');
+
+    // Status callback URL for tracking call progress
+    const statusCallbackUrl = `${config.APP_URL}/webhooks/twilio/outbound-status`;
+
     const call = await client.calls.create({
       to,
       from,
-      twiml: '<Response><Dial>' + to + '</Dial></Response>',
+      twiml: twimlStr,
+      statusCallback: statusCallbackUrl,
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+      statusCallbackMethod: 'POST',
     });
 
-    logger.info('Outbound call initiated', { callSid: call.sid, to, from });
+    // Store initial status
+    outboundCallStatusStore.set(call.sid, {
+      callSid: call.sid,
+      to,
+      from,
+      status: call.status || 'queued',
+      duration: 0,
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    logger.info('Outbound call initiated', { callSid: call.sid, to, from, status: call.status });
     return c.json({ success: true, callSid: call.sid, status: call.status });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Call failed';
     logger.error('Outbound call failed', { error: message, to, from });
-    return c.json({ error: message }, 500);
+
+    // Parse common Twilio errors into user-friendly messages
+    if (message.includes('not verified') || message.includes('not a valid phone number')) {
+      return c.json(
+        { error: `The source number ${from} is not verified with Twilio. Check your phone setup.`, code: 'UNVERIFIED_NUMBER', status: 400 },
+        400,
+      );
+    }
+    if (message.includes('not a valid') || message.includes('invalid')) {
+      return c.json(
+        { error: 'Invalid phone number format. Make sure numbers are in E.164 format (e.g., +61404576080).', code: 'INVALID_NUMBER', status: 400 },
+        400,
+      );
+    }
+
+    return c.json({ error: message, code: 'CALL_FAILED', status: 500 }, 500);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  POST /outbound-status — Status callback for outbound calls
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const outboundStatusSchema = z.object({
+  CallSid: z.string(),
+  CallStatus: z.string(),
+  CallDuration: z.string().optional(),
+  From: z.string().optional(),
+  To: z.string().optional(),
+}).passthrough();
+
+twilioWebhooks.post('/outbound-status', async (c) => {
+  const body = await c.req.parseBody();
+  const parsed = outboundStatusSchema.safeParse(body);
+
+  if (!parsed.success) {
+    logger.warn('Invalid outbound status payload');
+    return c.json({ received: true });
+  }
+
+  const { CallSid, CallStatus, CallDuration } = parsed.data;
+
+  logger.info('Outbound call status update', {
+    callSid: CallSid,
+    status: CallStatus,
+    duration: CallDuration ?? '0',
+  });
+
+  // Update stored status
+  const existing = outboundCallStatusStore.get(CallSid);
+  if (existing) {
+    existing.status = CallStatus;
+    existing.duration = CallDuration ? parseInt(CallDuration, 10) : 0;
+    existing.updatedAt = new Date().toISOString();
+  } else {
+    outboundCallStatusStore.set(CallSid, {
+      callSid: CallSid,
+      to: parsed.data.To ?? '',
+      from: parsed.data.From ?? '',
+      status: CallStatus,
+      duration: CallDuration ? parseInt(CallDuration, 10) : 0,
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return c.json({ received: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  GET /call-status/:callSid — Frontend polls this to get real call status
+// ═══════════════════════════════════════════════════════════════════════════════
+
+twilioWebhooks.get('/call-status/:callSid', async (c) => {
+  const callSid = c.req.param('callSid');
+
+  // Check our in-memory store first (updated by status callbacks)
+  const stored = outboundCallStatusStore.get(callSid);
+  if (stored) {
+    return c.json({
+      callSid: stored.callSid,
+      status: stored.status,
+      duration: stored.duration,
+      from: stored.from,
+      to: stored.to,
+    });
+  }
+
+  // If not in store, try fetching live from Twilio
+  if (config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN) {
+    try {
+      const { default: twilio } = await import('twilio');
+      const client = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
+      const call = await client.calls(callSid).fetch();
+
+      return c.json({
+        callSid: call.sid,
+        status: call.status,
+        duration: call.duration ? parseInt(call.duration, 10) : 0,
+        from: call.from,
+        to: call.to,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      logger.warn('Failed to fetch call status from Twilio', { callSid, error: message });
+    }
+  }
+
+  return c.json(
+    { error: 'Call not found', code: 'NOT_FOUND', status: 404 },
+    404,
+  );
 });
 
 export { twilioWebhooks as twilioWebhookRoutes };

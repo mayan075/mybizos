@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban, Loader2 } from "lucide-react";
+import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PipelineSkeleton } from "@/components/skeletons/pipeline-skeleton";
 import type { MockDeal } from "@/lib/mock-data";
 
 const stageTooltips: Record<string, string> = {
@@ -141,22 +142,9 @@ export default function PipelinePage() {
     showToast(`Deal "${deal.title}" added`);
   }
 
-  // Loading state — show spinner while initial fetch is in progress
+  // Loading state — show skeleton while initial fetch is in progress
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
-            <p className="text-sm text-muted-foreground mt-1">Loading deals...</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground mt-3">Loading pipeline...</p>
-        </div>
-      </div>
-    );
+    return <PipelineSkeleton />;
   }
 
   const allDeals = Object.values(currentDeals).flat();

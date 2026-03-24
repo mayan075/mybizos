@@ -132,7 +132,7 @@ export function Sidebar() {
 
       {/* Logo area */}
       <div className="flex h-16 items-center justify-between px-4">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
+        <Link href="/dashboard" prefetch={true} className="flex items-center gap-3 group">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl gradient-accent shadow-sm transition-transform duration-200 group-hover:scale-[1.05]">
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
@@ -183,6 +183,7 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={true}
                     className={cn(
                       "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-200",
                       isActive
