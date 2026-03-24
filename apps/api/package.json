@@ -18,6 +18,7 @@
     "@mybizos/integrations": "workspace:*",
     "@mybizos/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.3.1",
     "drizzle-orm": "^0.38.4",
     "hono": "^4.7.0",
     "jsonwebtoken": "^9.0.3",

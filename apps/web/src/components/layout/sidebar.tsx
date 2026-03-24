@@ -113,6 +113,10 @@ export function Sidebar() {
   const orgName = onboarding?.businessName ?? user?.orgName ?? "Demo Business";
   const userInitials = getInitials(userName);
 
+  // Only show Admin section to platform admins
+  const PLATFORM_ADMIN_EMAILS = ["mayan@northernremovals.com.au", "mayan0750@gmail.com"];
+  const isAdmin = user?.email ? PLATFORM_ADMIN_EMAILS.includes(user.email) : false;
+
   return (
     <aside
       className={cn(
@@ -158,7 +162,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        {navSections.map((section, sectionIdx) => (
+        {navSections.filter(s => s.title !== "Admin" || isAdmin).map((section, sectionIdx) => (
           <div key={sectionIdx} className={cn(sectionIdx > 0 && "mt-5")}>
             {section.title && !collapsed && (
               <p className="section-label px-3 mb-2">

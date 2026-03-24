@@ -85,7 +85,7 @@ export async function register(
 
     await db.insert(orgMembers).values({ orgId: newOrg.id, userId: newUser.id, role: 'owner', isActive: true });
 
-    const token = generateToken({ userId: newUser.id, orgId: newOrg.id, email: newUser.email, role: 'owner' });
+    const token = generateToken({ userId: newUser.id, orgId: newOrg.id, email: newUser.email, role: 'owner', name: newUser.name, orgName: newOrg.name });
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -103,7 +103,7 @@ export async function register(
     mock.user.email = email;
     mock.user.name = name;
     mock.org.name = businessName;
-    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner' });
+    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner', name: mock.user.name, orgName: mock.org.name });
     return mock;
   }
 }
@@ -140,7 +140,7 @@ export async function login(
     const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
-    const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role });
+    const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     await db.insert(sessions).values({ userId: user.id, token, expiresAt, ipAddress: _ipAddress ?? null, userAgent: _userAgent ?? null });
@@ -156,7 +156,7 @@ export async function login(
     });
     const mock = getMockAuthResult();
     mock.user.email = email;
-    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner' });
+    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner', name: mock.user.name, orgName: mock.org.name });
     return mock;
   }
 }

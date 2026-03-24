@@ -706,4 +706,44 @@ twilioWebhooks.get('/health', async (c) => {
   });
 });
 
+// ── Outbound Call ───────────────────────────────────────────────────────────
+// Makes a real outbound call via Twilio
+
+const outboundCallSchema = z.object({
+  to: z.string().min(10),
+  from: z.string().min(10),
+});
+
+twilioWebhooks.post('/outbound-call', async (c) => {
+  const body = await c.req.json();
+  const parsed = outboundCallSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid phone numbers', details: parsed.error.flatten() }, 400);
+  }
+
+  const { to, from } = parsed.data;
+
+  if (!config.TWILIO_ACCOUNT_SID || !config.TWILIO_AUTH_TOKEN) {
+    return c.json({ error: 'Twilio not configured. Add credentials in Admin Settings.' }, 400);
+  }
+
+  try {
+    const twilio = require('twilio');
+    const client = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
+
+    const call = await client.calls.create({
+      to,
+      from,
+      twiml: '<Response><Dial>' + to + '</Dial></Response>',
+    });
+
+    logger.info('Outbound call initiated', { callSid: call.sid, to, from });
+    return c.json({ success: true, callSid: call.sid, status: call.status });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Call failed';
+    logger.error('Outbound call failed', { error: message, to, from });
+    return c.json({ error: message }, 500);
+  }
+});
+
 export { twilioWebhooks as twilioWebhookRoutes };
