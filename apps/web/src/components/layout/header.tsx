@@ -147,6 +147,18 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowNotifications(false);
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   function handleNotificationClick(id: string, href: string) {
     setReadNotifications((prev) => new Set([...prev, id]));
     setShowNotifications(false);
@@ -164,17 +176,13 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
   }
 
   return (
-    <header className="flex h-16 items-center justify-between bg-card/80 backdrop-blur-xl px-4 sm:px-6 relative">
-      {/* Subtle bottom shadow instead of border */}
-      <div className="absolute inset-x-0 bottom-0 h-px bg-border/50" />
-      <div className="absolute inset-x-0 bottom-0 h-[1px] shadow-[0_1px_3px_0_oklch(0_0_0/0.04)]" />
-
+    <header className="relative z-40 flex h-16 items-center justify-between bg-card border-b border-border/50 px-4 sm:px-6">
       {/* Left: Mobile menu + Org name */}
       <div className="flex items-center gap-3">
         {onToggleMobileSidebar && (
           <button
             onClick={onToggleMobileSidebar}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all duration-200 hover:scale-[1.04] md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors md:hidden"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" />
@@ -186,20 +194,20 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
         </span>
       </div>
 
-      {/* Center: Search bar — rounded-full, subtle shadow */}
+      {/* Center: Search bar */}
       <button
         onClick={onOpenCommandPalette}
         className={cn(
           "hidden sm:flex h-9 w-full max-w-md items-center gap-2.5 rounded-full",
           "bg-muted/40 px-4 text-sm text-muted-foreground",
-          "shadow-[0_0_0_1px_oklch(0_0_0/0.04),0_1px_2px_0_oklch(0_0_0/0.03)]",
-          "hover:bg-muted/60 hover:shadow-[0_0_0_1px_oklch(0_0_0/0.06),0_2px_4px_0_oklch(0_0_0/0.04)]",
+          "border border-border/40",
+          "hover:bg-muted/60 hover:border-border/60",
           "transition-all duration-200",
         )}
       >
         <Search className="h-4 w-4 text-muted-foreground/70" />
         <span className="flex-1 text-left">Search contacts, deals...</span>
-        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded-md bg-background/80 px-1.5 text-[10px] font-medium text-muted-foreground shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
+        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded-md bg-background/80 px-1.5 text-[10px] font-medium text-muted-foreground border border-border/40">
           <span className="text-xs">&#8984;</span>K
         </kbd>
       </button>
@@ -213,8 +221,8 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
             className={cn(
               "relative flex h-9 w-9 items-center justify-center rounded-xl",
               "text-muted-foreground hover:text-foreground",
-              "hover:bg-muted/60 hover:scale-[1.06]",
-              "transition-all duration-200",
+              "hover:bg-muted/60",
+              "transition-colors",
               showNotifications && "bg-muted/60 text-foreground",
             )}
           >
@@ -228,7 +236,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
 
           {/* Notification dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 rounded-2xl bg-popover shadow-[0_16px_48px_-12px_oklch(0_0_0/0.15),0_0_0_1px_oklch(0_0_0/0.04)] z-50">
+            <div className="absolute right-0 top-full mt-2 w-96 rounded-xl bg-popover border border-border/60 shadow-lg z-[60]">
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-foreground tracking-tight">Notifications</h3>
@@ -256,7 +264,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif.id, notif.href)}
                       className={cn(
-                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-all duration-150",
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
                         "hover:bg-muted/40 rounded-lg mx-1",
                         !isRead && "bg-primary/[0.03]",
                       )}
@@ -281,7 +289,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
                         <p className="text-[11px] text-muted-foreground/60 mt-1">{notif.time}</p>
                       </div>
                       {!isRead && (
-                        <div className="h-2 w-2 rounded-full gradient-accent shrink-0 mt-2" />
+                        <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
                       )}
                     </button>
                   );
@@ -307,20 +315,20 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
             onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
             className={cn(
               "flex items-center gap-2 rounded-xl px-2 py-1.5",
-              "hover:bg-muted/60 hover:scale-[1.02]",
-              "transition-all duration-200",
+              "hover:bg-muted/60",
+              "transition-colors",
               showUserMenu && "bg-muted/60",
             )}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full gradient-accent text-primary-foreground text-xs font-bold shadow-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
               {userInitials}
             </div>
             <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", showUserMenu && "rotate-180")} />
           </button>
 
-          {/* User dropdown */}
+          {/* User dropdown — positioned below avatar, proper z-index */}
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-popover shadow-[0_16px_48px_-12px_oklch(0_0_0/0.15),0_0_0_1px_oklch(0_0_0/0.04)] z-50">
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-popover border border-border/60 shadow-lg z-[60]">
               <div className="px-4 py-3.5">
                 <p className="text-sm font-semibold text-foreground tracking-tight">{userName}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{userEmail}</p>
@@ -329,14 +337,14 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
               <div className="p-1.5">
                 <button
                   onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings?tab=profile"); }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-all duration-150"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
                 >
                   <User className="h-4 w-4 text-muted-foreground" />
                   Profile
                 </button>
                 <button
                   onClick={() => { setShowUserMenu(false); router.push("/dashboard/settings"); }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-all duration-150"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
                 >
                   <Settings className="h-4 w-4 text-muted-foreground" />
                   Settings
@@ -346,7 +354,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
               <div className="p-1.5">
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-destructive hover:bg-destructive/8 transition-all duration-150"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/8 transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
                   Log out

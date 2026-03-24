@@ -276,10 +276,7 @@ html {
   100% { background-position: 0% 50%; }
 }
 
-@keyframes progressRing {
-  from { stroke-dashoffset: var(--ring-circumference, 251.2); }
-  to { stroke-dashoffset: var(--ring-offset, 0); }
-}
+/* progressRing animation removed — replaced with simple progress bar */
 
 /* ---- Dot Grid Background ---- */
 .dot-grid {
@@ -390,15 +387,15 @@ html {
 /* ---- Premium Utilities ---- */
 @layer utilities {
   .card-elevated {
-    border: none;
-    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
     background-color: var(--color-card);
-    box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.04), 0 1px 2px -1px oklch(0 0 0 / 0.04);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
 
   .card-elevated:hover {
-    box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.06), 0 2px 4px -2px oklch(0 0 0 / 0.04);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
     transform: translateY(-1px);
   }
 
@@ -416,17 +413,18 @@ html {
   }
 
   .stat-card {
-    border: none;
-    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background-color: var(--color-card);
     position: relative;
     overflow: hidden;
-    box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.04), 0 1px 2px -1px oklch(0 0 0 / 0.03), inset 0 1px 0 0 oklch(1 0 0 / 0.06);
-    transition: box-shadow 0.25s ease, transform 0.25s ease;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
 
   .stat-card:hover {
-    box-shadow: 0 8px 16px -4px oklch(0 0 0 / 0.08), 0 4px 6px -2px oklch(0 0 0 / 0.04), inset 0 1px 0 0 oklch(1 0 0 / 0.08);
-    transform: translateY(-2px);
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
   }
 
   .section-label {

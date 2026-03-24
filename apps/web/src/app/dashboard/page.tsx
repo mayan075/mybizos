@@ -40,12 +40,12 @@ const statTooltips: Record<string, string> = {
     "Total value of deals marked as Won in your pipeline this month.",
 };
 
-/* Subtle gradient tints per stat card — different hue for each */
-const statGradients = [
-  "bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/40 dark:from-blue-950/30 dark:via-card dark:to-indigo-950/20",
-  "bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 dark:from-emerald-950/30 dark:via-card dark:to-teal-950/20",
-  "bg-gradient-to-br from-violet-50/80 via-white to-purple-50/40 dark:from-violet-950/30 dark:via-card dark:to-purple-950/20",
-  "bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 dark:from-amber-950/30 dark:via-card dark:to-orange-950/20",
+/* Clean white cards with colored top border — Stripe-style */
+const statBorderColors = [
+  "border-t-blue-500",
+  "border-t-emerald-500",
+  "border-t-violet-500",
+  "border-t-amber-500",
 ];
 
 /* Timeline dot colors keyed by activity type */
@@ -66,11 +66,11 @@ export default function DashboardPage() {
   const upcomingAppointments = dashboardData.upcomingAppointments;
 
   return (
-    <div className="space-y-8 max-w-[1400px]">
-      {/* Welcome banner for first-time users */}
+    <div className="space-y-6 max-w-[1400px]">
+      {/* Welcome banner — dismissable, shown only for first-time users */}
       <WelcomeBanner />
 
-      {/* Page header — heavier weight, tighter tracking */}
+      {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
@@ -78,22 +78,24 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Getting Started Checklist */}
+      {/* Getting Started Checklist — the main onboarding widget */}
       <GettingStartedChecklist />
 
-      {/* Stat cards — gradient backgrounds, no borders, rounded-2xl */}
+      {/* Stat cards — white cards with colored top border (Stripe-style) */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, idx) => {
           const Icon = iconMap[stat.iconName] ?? Users;
           const tooltip = statTooltips[stat.label];
-          const gradient = statGradients[idx % statGradients.length];
+          const borderColor = statBorderColors[idx % statBorderColors.length];
           return (
             <button
               key={stat.label}
               onClick={() => router.push(stat.href)}
               className={cn(
-                "stat-card p-6 text-left cursor-pointer group",
-                gradient,
+                "relative p-6 text-left cursor-pointer group",
+                "rounded-xl bg-card border border-border/60 border-t-2",
+                borderColor,
+                "shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5",
               )}
             >
               <div className="flex items-center justify-between">
@@ -130,7 +132,7 @@ export default function DashboardPage() {
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent activity -- takes 2 cols, organic timeline feel */}
+        {/* Recent activity -- takes 2 cols */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground tracking-tight">
@@ -144,7 +146,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="card-elevated p-1">
+          <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
             {recentActivity.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
@@ -223,7 +225,7 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="card-elevated p-1">
+          <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
             {upcomingAppointments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
@@ -277,22 +279,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Keyboard shortcuts hint — subtler, more refined */}
+      {/* Keyboard shortcuts hint */}
       <div className="flex items-center justify-center gap-5 py-3 text-[11px] text-muted-foreground/50">
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium border border-border/40">
             Ctrl+K
           </kbd>
           Command palette
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium border border-border/40">
             Ctrl+N
           </kbd>
           New contact
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium shadow-[0_0_0_1px_oklch(0_0_0/0.06)]">
+          <kbd className="inline-flex h-5 items-center rounded-md bg-muted/50 px-1.5 text-[10px] font-medium border border-border/40">
             Ctrl+Shift+N
           </kbd>
           New deal
