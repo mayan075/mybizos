@@ -30,9 +30,24 @@ import {
   Delete,
   Star,
   Settings2,
+  ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import {
+  formatPhoneNumber,
+  detectCountry,
+  toE164,
+  isValidNumber,
+  stripToDigits,
+  maxDigitsForCountry,
+  formatE164ForDisplay,
+} from "@/lib/phone-utils";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { buildPath } from "@/lib/hooks/use-api";
+import { getOnboardingData } from "@/lib/onboarding";
+import type { PhoneNumber as TwilioPhoneNumber } from "@/components/phone/pricing-data";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -69,6 +84,78 @@ interface QuickDialContact {
   initials: string;
   phone: string;
   color: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Hook: useCallerNumbers                                                     */
+/* -------------------------------------------------------------------------- */
+
+interface CallerNumber {
+  sid: string;
+  phoneNumber: string;
+  friendlyName: string;
+}
+
+function useCallerNumbers() {
+  const [numbers, setNumbers] = useState<CallerNumber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const didFetch = useRef(false);
+
+  useEffect(() => {
+    if (didFetch.current) return;
+    didFetch.current = true;
+
+    async function load() {
+      setLoading(true);
+
+      // 1. Try API
+      try {
+        const path = buildPath("/orgs/:orgId/phone-system/numbers");
+        const result = await tryFetch(() =>
+          apiClient.get<{ numbers: TwilioPhoneNumber[] }>(path),
+        );
+        if (result && result.numbers.length > 0) {
+          setNumbers(
+            result.numbers.map((n) => ({
+              sid: n.sid,
+              phoneNumber: n.phoneNumber,
+              friendlyName: n.friendlyName,
+            })),
+          );
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // API not available — fall through
+      }
+
+      // 2. Fallback: onboarding localStorage
+      try {
+        const onboarding = getOnboardingData();
+        if (onboarding?.phoneSetup) {
+          const setup = onboarding.phoneSetup;
+          const num = setup.selectedNumber ?? setup.existingNumber;
+          if (num) {
+            setNumbers([
+              {
+                sid: "onboarding",
+                phoneNumber: num,
+                friendlyName: "My Number",
+              },
+            ]);
+          }
+        }
+      } catch {
+        // No onboarding data
+      }
+
+      setLoading(false);
+    }
+
+    load();
+  }, []);
+
+  return { numbers, loading };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -391,26 +478,6 @@ function formatTimestamp(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function formatPhoneDisplay(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  return raw;
-}
-
-function formatPhoneInput(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  if (digits.length <= 1) return `+${digits}`;
-  if (digits.length <= 4) return `+${digits[0]} (${digits.slice(1)}`;
-  if (digits.length <= 7) return `+${digits[0]} (${digits.slice(1, 4)}) ${digits.slice(4)}`;
-  return `+${digits[0]} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
-}
-
 const OUTCOME_CONFIG: Record<CallOutcome, { label: string; className: string }> = {
   booked: { label: "Booked", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
   qualified: { label: "Qualified", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
@@ -456,7 +523,7 @@ function CallListItem({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const displayName = call.contactName ?? formatPhoneDisplay(call.phoneNumber);
+  const displayName = call.contactName ?? formatE164ForDisplay(call.phoneNumber);
   const initials = call.contactName
     ? call.contactName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "#";
@@ -607,7 +674,7 @@ function ActiveCallView({
           {contactName ?? "Unknown Caller"}
         </h3>
         <p className="text-sm text-muted-foreground">
-          {formatPhoneDisplay(phoneNumber)}
+          {formatE164ForDisplay(phoneNumber)}
         </p>
         <div className="mt-3 flex items-center gap-2">
           <span className={cn(
@@ -871,7 +938,6 @@ function CallSummaryView({
 
 function CallDetailPanel({ call }: { call: CallRecord }) {
   const router = useRouter();
-  const displayName = call.contactName ?? formatPhoneDisplay(call.phoneNumber);
 
   return (
     <div className="border-t border-border bg-muted/20 p-4 space-y-3">
@@ -919,8 +985,8 @@ export default function CallsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  // Dialer state
-  const [phoneInput, setPhoneInput] = useState("");
+  // Dialer state — raw digits (no formatting in state)
+  const [rawDigits, setRawDigits] = useState("");
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callTimer, setCallTimer] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -932,7 +998,26 @@ export default function CallsPage() {
   const [showCallSummary, setShowCallSummary] = useState(false);
   const [lastCallData, setLastCallData] = useState<CallRecord | null>(null);
 
+  // Caller-from state
+  const { numbers: callerNumbers, loading: numbersLoading } = useCallerNumbers();
+  const [selectedFromSid, setSelectedFromSid] = useState<string | null>(null);
+  const [showFromDropdown, setShowFromDropdown] = useState(false);
+
+  // Auto-select first number when loaded
+  useEffect(() => {
+    if (callerNumbers.length > 0 && selectedFromSid === null) {
+      setSelectedFromSid(callerNumbers[0].sid);
+    }
+  }, [callerNumbers, selectedFromSid]);
+
+  const selectedFrom = callerNumbers.find((n) => n.sid === selectedFromSid) ?? null;
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Derived from rawDigits
+  const displayFormatted = formatPhoneNumber(rawDigits);
+  const detectedCountry = detectCountry(rawDigits);
+  const numberValid = isValidNumber(rawDigits);
 
   // Filter calls
   const filteredCalls = useMemo(() => {
@@ -999,7 +1084,7 @@ export default function CallsPage() {
       timestamp: new Date(),
       outcome: "qualified",
       aiHandled: false,
-      summary: `Outbound call to ${activeCallContact ?? formatPhoneDisplay(activeCallNumber)}. Call lasted ${formatDuration(callTimer)}. Discussion about service inquiry. Follow-up needed.`,
+      summary: `Outbound call to ${activeCallContact ?? formatE164ForDisplay(activeCallNumber)}. Call lasted ${formatDuration(callTimer)}. Discussion about service inquiry. Follow-up needed.`,
       transcript: [
         { speaker: "agent", text: "Hi, this is John from Acme HVAC & Plumbing. How are you doing today?", time: "0:00" },
         { speaker: "caller", text: "Good, thanks for calling back.", time: "0:05" },
@@ -1020,7 +1105,7 @@ export default function CallsPage() {
     setLastCallData(null);
     setActiveCallNumber("");
     setActiveCallContact(null);
-    setPhoneInput("");
+    setRawDigits("");
   }, []);
 
   // Cleanup timer on unmount
@@ -1032,36 +1117,43 @@ export default function CallsPage() {
 
   // Handle keypad press
   const handleKeyPress = useCallback((digit: string) => {
-    setPhoneInput((prev) => {
-      const digits = prev.replace(/\D/g, "");
-      if (digits.length >= 11) return prev;
-      return formatPhoneInput(digits + digit);
+    setRawDigits((prev) => {
+      const max = maxDigitsForCountry(prev);
+      if (prev.length >= max) return prev;
+      return prev + digit;
     });
   }, []);
 
   // Handle backspace
   const handleBackspace = useCallback(() => {
-    setPhoneInput((prev) => {
-      const digits = prev.replace(/\D/g, "");
-      if (digits.length === 0) return "";
-      return formatPhoneInput(digits.slice(0, -1));
+    setRawDigits((prev) => {
+      if (prev.length === 0) return "";
+      return prev.slice(0, -1);
     });
+  }, []);
+
+  // Handle text input (paste support)
+  const handleInputChange = useCallback((value: string) => {
+    const digits = stripToDigits(value);
+    const max = maxDigitsForCountry(digits);
+    setRawDigits(digits.slice(0, max));
   }, []);
 
   // Click a contact in call history -> fill dialer
   const handleSelectContact = useCallback((call: CallRecord) => {
     setSelectedCallId(call.id);
     if (callStatus === "idle" && !showCallSummary) {
-      setPhoneInput(formatPhoneInput(call.phoneNumber.replace(/\D/g, "")));
+      const digits = stripToDigits(call.phoneNumber);
+      setRawDigits(digits);
       setActiveCallContact(call.contactName);
     }
   }, [callStatus, showCallSummary]);
 
   const handleCallButton = useCallback(() => {
-    const digits = phoneInput.replace(/\D/g, "");
-    if (digits.length < 10) return;
-    startCall(phoneInput, activeCallContact);
-  }, [phoneInput, activeCallContact, startCall]);
+    if (!numberValid) return;
+    const e164 = toE164(rawDigits);
+    startCall(e164, activeCallContact);
+  }, [rawDigits, numberValid, activeCallContact, startCall]);
 
   const tabs: { key: CallTab; label: string; count?: number }[] = [
     { key: "all", label: "All" },
@@ -1188,8 +1280,9 @@ export default function CallsPage() {
               call={lastCallData}
               onClose={resetDialer}
               onCallAgain={() => {
+                const digits = stripToDigits(lastCallData.phoneNumber);
                 resetDialer();
-                setPhoneInput(formatPhoneInput(lastCallData.phoneNumber.replace(/\D/g, "")));
+                setRawDigits(digits);
                 setActiveCallContact(lastCallData.contactName);
               }}
             />
@@ -1199,22 +1292,24 @@ export default function CallsPage() {
           {callStatus === "idle" && !showCallSummary && (
             <div className="flex flex-col h-full items-center justify-center">
               <div className="w-full max-w-xs space-y-6">
-                {/* Phone input */}
+                {/* Phone input with country flag */}
                 <div className="text-center">
-                  <div className="relative">
+                  <div className="relative flex items-center">
+                    {rawDigits.length > 0 && (
+                      <span className="text-2xl mr-1.5 shrink-0" title={detectedCountry.name}>
+                        {detectedCountry.flag}
+                      </span>
+                    )}
                     <input
-                      value={phoneInput}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, "");
-                        setPhoneInput(formatPhoneInput(digits));
-                      }}
-                      placeholder="+1 (___) ___-____"
+                      value={displayFormatted}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      placeholder="Enter number..."
                       className="w-full text-center text-2xl font-light tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-2"
                     />
-                    {phoneInput && (
+                    {rawDigits.length > 0 && (
                       <button
                         onClick={handleBackspace}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
                       >
                         <Delete className="h-5 w-5" />
                       </button>
@@ -1229,10 +1324,10 @@ export default function CallsPage() {
                 {/* Call button */}
                 <button
                   onClick={handleCallButton}
-                  disabled={phoneInput.replace(/\D/g, "").length < 10}
+                  disabled={!numberValid}
                   className={cn(
                     "flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold transition-all shadow-lg",
-                    phoneInput.replace(/\D/g, "").length >= 10
+                    numberValid
                       ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/20"
                       : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                   )}
@@ -1241,10 +1336,69 @@ export default function CallsPage() {
                   Call
                 </button>
 
-                {/* Calling from */}
-                <p className="text-center text-xs text-muted-foreground">
-                  Calling from: <span className="font-medium text-foreground">+61 468 000 171</span>
-                </p>
+                {/* Calling from — dynamic */}
+                <div className="text-center">
+                  {numbersLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading numbers...</p>
+                  ) : callerNumbers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      <span>
+                        No number configured &mdash;{" "}
+                        <Link href="/dashboard/settings/phone" className="text-primary hover:underline font-medium">
+                          Set up in Phone Settings
+                        </Link>
+                      </span>
+                    </p>
+                  ) : callerNumbers.length === 1 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Calling from:{" "}
+                      <span className="font-medium text-foreground">
+                        {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
+                      </span>
+                    </p>
+                  ) : (
+                    /* Multiple numbers — dropdown */
+                    <div className="relative inline-block">
+                      <button
+                        onClick={() => setShowFromDropdown(!showFromDropdown)}
+                        className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
+                      >
+                        Calling from:{" "}
+                        <span className="font-medium text-foreground">
+                          {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
+                        </span>
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                      {showFromDropdown && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[220px] z-10">
+                          {callerNumbers.map((num) => (
+                            <button
+                              key={num.sid}
+                              onClick={() => {
+                                setSelectedFromSid(num.sid);
+                                setShowFromDropdown(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors",
+                                num.sid === selectedFromSid && "bg-muted font-medium",
+                              )}
+                            >
+                              <span className="text-foreground">
+                                {formatE164ForDisplay(num.phoneNumber)}
+                              </span>
+                              {num.friendlyName && (
+                                <span className="text-muted-foreground ml-2 text-xs">
+                                  {num.friendlyName}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Quick dial */}
                 <div>
@@ -1256,7 +1410,8 @@ export default function CallsPage() {
                       <button
                         key={contact.phone}
                         onClick={() => {
-                          setPhoneInput(formatPhoneInput(contact.phone.replace(/\D/g, "")));
+                          const digits = stripToDigits(contact.phone);
+                          setRawDigits(digits);
                           setActiveCallContact(contact.name);
                         }}
                         className="flex flex-col items-center gap-1.5 group"

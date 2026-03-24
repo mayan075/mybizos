@@ -10,9 +10,10 @@ import {
   MessageSquare,
   CalendarDays,
   X,
-  Sparkles,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getOnboardingData } from "@/lib/onboarding";
@@ -35,7 +36,6 @@ interface OnboardingStep {
   description: string;
   href: string;
   icon: React.ElementType;
-  /** How to detect this step is done */
   checkKey: string;
 }
 
@@ -124,64 +124,8 @@ function dismissGettingStarted(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Progress Ring SVG Component
-// ---------------------------------------------------------------------------
-
-function ProgressRing({
-  progress,
-  size = 40,
-  strokeWidth = 3,
-}: {
-  progress: number;
-  size?: number;
-  strokeWidth?: number;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} className="shrink-0 -rotate-90">
-      {/* Background ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        className="text-muted/60"
-      />
-      {/* Progress ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="url(#progressGradient)"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        className="progress-ring-circle"
-        style={{
-          "--ring-circumference": circumference,
-          "--ring-offset": offset,
-          transition: "stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-        } as React.CSSProperties}
-      />
-      <defs>
-        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="oklch(0.42 0.17 265)" />
-          <stop offset="100%" stopColor="oklch(0.48 0.2 295)" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Welcome Banner Component — Glassmorphism
+// WelcomeBanner — clean Notion-style info banner with left accent border
+// Dismissable. Once dismissed, only the Getting Started checklist shows.
 // ---------------------------------------------------------------------------
 
 export function WelcomeBanner() {
@@ -201,45 +145,24 @@ export function WelcomeBanner() {
   if (!visible) return null;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden p-6 bg-gradient-to-br from-primary/5 via-primary/10 to-violet-500/5 border border-primary/10">
-      {/* Decorative gradient orbs */}
-      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10" />
-      <div className="absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-violet-500/10" />
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-accent shadow-sm">
-            <Sparkles className="h-6 w-6 text-primary-foreground" />
+    <div className="relative rounded-xl bg-card border border-border/60 border-l-4 border-l-primary p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground tracking-tight">
+            <h2 className="text-base font-semibold text-foreground tracking-tight">
               Welcome to MyBizOS!
             </h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-xl leading-relaxed">
-              We are excited to help {businessName} grow. Here are 3 things to get started:
+            <p className="text-sm text-muted-foreground mt-0.5 max-w-xl leading-relaxed">
+              We&apos;re excited to help {businessName} grow. Complete the steps below to get started.
             </p>
-            <div className="flex flex-wrap gap-3 mt-4">
-              <QuickAction
-                href="/dashboard/contacts"
-                label="Add a contact"
-                step="1"
-              />
-              <QuickAction
-                href="/dashboard/settings"
-                label="Set up your phone"
-                step="2"
-              />
-              <QuickAction
-                href="/dashboard/scheduling"
-                label="Create a booking page"
-                step="3"
-              />
-            </div>
           </div>
         </div>
         <button
           onClick={handleDismiss}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-all duration-200 hover:scale-[1.05]"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
           aria-label="Dismiss welcome banner"
         >
           <X className="h-4 w-4" />
@@ -249,37 +172,8 @@ export function WelcomeBanner() {
   );
 }
 
-function QuickAction({
-  href,
-  label,
-  step,
-}: {
-  href: string;
-  label: string;
-  step: string;
-}) {
-  const router = useRouter();
-  return (
-    <button
-      onClick={() => router.push(href)}
-      className={cn(
-        "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium text-foreground",
-        "bg-card/80 backdrop-blur-sm",
-        "shadow-[0_0_0_1px_oklch(0_0_0/0.04),0_1px_2px_0_oklch(0_0_0/0.03)]",
-        "hover:shadow-[0_0_0_1px_oklch(0.42_0.17_265/0.3),0_2px_4px_0_oklch(0_0_0/0.04)]",
-        "hover:text-primary transition-all duration-200 hover:scale-[1.02]",
-      )}
-    >
-      <span className="flex h-5 w-5 items-center justify-center rounded-full gradient-accent text-[10px] font-bold text-primary-foreground">
-        {step}
-      </span>
-      {label}
-    </button>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Getting Started Checklist Component — with Progress Ring
+// Getting Started Checklist — clean design with progress bar
 // ---------------------------------------------------------------------------
 
 export function GettingStartedChecklist() {
@@ -321,51 +215,63 @@ export function GettingStartedChecklist() {
 
   const completedCount = STEPS.filter((s) => completed.has(s.id)).length;
   const allDone = completedCount === STEPS.length;
-  const progress = (completedCount / STEPS.length) * 100;
+  const progressPercent = (completedCount / STEPS.length) * 100;
 
   // Hide if dismissed or all done
   if (dismissed || allDone) return null;
 
   return (
-    <div className="card-elevated overflow-hidden">
-      {/* Header with progress ring */}
-      <div className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-4">
-          <ProgressRing progress={progress} size={44} strokeWidth={3.5} />
-          <div>
-            <h2 className="text-sm font-semibold text-foreground tracking-tight">
-              Getting Started
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {completedCount} of {STEPS.length} complete
-            </span>
+    <div className="rounded-xl bg-card border border-border/60 overflow-hidden shadow-sm">
+      {/* Header with text progress and thin bar */}
+      <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Sparkles className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground tracking-tight">
+                Getting Started
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {completedCount} of {STEPS.length} complete
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              aria-label={collapsed ? "Expand checklist" : "Collapse checklist"}
+            >
+              {collapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              aria-label="Dismiss getting started"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
-            aria-label={collapsed ? "Expand checklist" : "Collapse checklist"}
-          >
-            {collapsed ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronUp className="h-4 w-4" />
-            )}
-          </button>
-          <button
-            onClick={handleDismiss}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200"
-            aria-label="Dismiss getting started"
-          >
-            <X className="h-4 w-4" />
-          </button>
+
+        {/* Thin progress bar */}
+        <div className="mt-3 h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 
-      {/* Steps */}
+      {/* Steps list */}
       {!collapsed && (
-        <div className="px-2 pb-2">
+        <div className="px-3 pb-3">
           {STEPS.map((step) => {
             const isDone = completed.has(step.id);
             const StepIcon = step.icon;
@@ -374,7 +280,7 @@ export function GettingStartedChecklist() {
               <div
                 key={step.id}
                 className={cn(
-                  "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200",
+                  "flex items-center gap-3.5 px-3 py-3 rounded-lg transition-colors",
                   isDone
                     ? "opacity-50"
                     : "hover:bg-muted/30 cursor-pointer",
@@ -385,31 +291,27 @@ export function GettingStartedChecklist() {
                   }
                 }}
               >
-                {/* Check circle */}
+                {/* Checkbox */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!isDone) handleComplete(step.id);
                   }}
                   className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-200",
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors",
                     isDone
                       ? "bg-success text-white"
-                      : "border-2 border-muted-foreground/20 hover:border-primary text-transparent hover:text-primary hover:scale-110",
+                      : "border-2 border-border hover:border-primary",
                   )}
                 >
-                  {isDone ? (
-                    <CheckCircle2 className="h-4 w-4" />
-                  ) : (
-                    <Circle className="h-4 w-4" />
-                  )}
+                  {isDone && <CheckCircle2 className="h-3.5 w-3.5" />}
                 </button>
 
                 {/* Icon */}
                 <div
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200",
-                    isDone ? "bg-muted/50" : "bg-primary/8 group-hover:scale-[1.05]",
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                    isDone ? "bg-muted/50" : "bg-primary/8",
                   )}
                 >
                   <StepIcon
@@ -437,10 +339,11 @@ export function GettingStartedChecklist() {
                   </p>
                 </div>
 
-                {/* Action arrow for incomplete steps */}
+                {/* Action link for incomplete steps */}
                 {!isDone && (
-                  <span className="text-xs font-semibold text-primary shrink-0">
+                  <span className="flex items-center gap-1 text-xs font-semibold text-primary shrink-0">
                     Start
+                    <ArrowRight className="h-3 w-3" />
                   </span>
                 )}
               </div>
