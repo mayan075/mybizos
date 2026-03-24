@@ -22,6 +22,7 @@ import { emailWebhookRoutes } from './routes/webhooks/email.js';
 import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
 import { stripeWebhookRoutes } from './routes/webhooks/stripe.js';
 import { integrationRoutes } from './routes/integrations.js';
+import { adminRoutes } from './routes/admin.js';
 
 const app = new Hono();
 
@@ -106,6 +107,9 @@ app.route('/orgs/:orgId/integrations', integrationRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);
+
+// Admin routes (no org prefix — platform-level)
+app.route('/admin', adminRoutes);
 
 // Webhooks (no auth — called by third-party services)
 app.route('/webhooks/twilio', twilioWebhookRoutes);

@@ -24,6 +24,10 @@ import {
   UsersRound,
   FileInput,
   Activity,
+  Shield,
+  AlertCircle,
+  HeartPulse,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUser } from "@/lib/auth";
@@ -77,7 +81,16 @@ const navSections: NavSection[] = [
       { label: "Team", href: "/dashboard/team", icon: UsersRound, badge: null },
       { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: null },
       { label: "Activity", href: "/dashboard/activity", icon: Activity, badge: null },
+      { label: "Integrations", href: "/dashboard/integrations", icon: Plug, badge: null },
       { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { label: "Platform Settings", href: "/dashboard/admin/settings", icon: Shield, badge: null },
+      { label: "Issues", href: "/dashboard/admin/issues", icon: AlertCircle, badge: null },
+      { label: "System Health", href: "/dashboard/admin/health", icon: HeartPulse, badge: null },
     ],
   },
 ];

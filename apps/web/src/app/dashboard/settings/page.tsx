@@ -416,6 +416,12 @@ function SettingsContent() {
     []
   );
 
+  const updateEmail = useCallback(
+    (patch: Partial<EmailSettings>) =>
+      setSettings((s) => ({ ...s, email: { ...s.email, ...patch } })),
+    []
+  );
+
   const updateIntegration = useCallback(
     (key: keyof IntegrationStatus, value: boolean) =>
       setSettings((s) => ({
@@ -500,6 +506,11 @@ function SettingsContent() {
   function handleSaveAiAgent() {
     saveSettings(settings);
     showToast("AI agent configuration saved!");
+  }
+
+  function handleSaveEmail() {
+    saveSettings(settings);
+    showToast("Email settings saved!");
   }
 
   function handleSaveIntegrations() {
@@ -1060,121 +1071,184 @@ function SettingsContent() {
           )}
 
           {/* ============================================================= */}
-          {/* AI AGENT TAB                                                   */}
+          {/* AI RECEPTIONIST TAB                                              */}
           {/* ============================================================= */}
           {activeTab === "ai-agent" && (
-            <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-              <h2 className="text-base font-semibold text-foreground">
-                AI Phone Agent Configuration
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Configure how your AI agent handles inbound calls and messages.
-              </p>
+            <div className="space-y-6">
+              {/* Greeting & Voice */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+                <h2 className="text-base font-semibold text-foreground">
+                  AI Receptionist
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure how your AI receptionist handles calls, books appointments, and qualifies leads.
+                </p>
 
-              <div className="space-y-4">
-                <InputField
-                  label="Agent Name"
-                  value={settings.aiAgent.agentName}
-                  onChange={(v) => updateAiAgent({ agentName: v })}
-                />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Greeting Message
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={settings.aiAgent.greeting}
+                      onChange={(e) =>
+                        updateAiAgent({ greeting: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      What your AI says when it answers the phone. Includes AI disclosure per compliance rules.
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Voice Selection
-                  </label>
-                  <select
-                    value={settings.aiAgent.voice}
-                    onChange={(e) =>
-                      updateAiAgent({ voice: e.target.value })
-                    }
-                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Voice Style
+                    </label>
+                    <select
+                      value={settings.aiAgent.voice}
+                      onChange={(e) =>
+                        updateAiAgent({ voice: e.target.value })
+                      }
+                      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                    >
+                      {VOICES.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* When to transfer */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  When to Transfer to You
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Choose when the AI should transfer the call to your personal phone.
+                </p>
+
+                {([
+                  {
+                    key: "transferEmergency" as const,
+                    title: "Emergency situations",
+                    desc: "Flooding, gas leaks, fire, or other urgent situations",
+                  },
+                  {
+                    key: "transferHuman" as const,
+                    title: "Customer requests a human",
+                    desc: "When the caller specifically asks to speak to a person",
+                  },
+                  {
+                    key: "transferHighValue" as const,
+                    title: "High-value quote requests",
+                    desc: "Large jobs that need a personal touch",
+                  },
+                ] as const).map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center justify-between rounded-lg border border-border p-4"
                   >
-                    {VOICES.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                    </div>
+                    <ToggleSwitch
+                      enabled={settings.aiAgent[item.key]}
+                      onToggle={() =>
+                        updateAiAgent({ [item.key]: !settings.aiAgent[item.key] })
+                      }
+                    />
+                  </div>
+                ))}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Greeting Message
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={settings.aiAgent.greeting}
-                    onChange={(e) =>
-                      updateAiAgent({ greeting: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Must include AI disclosure and recording notice per
-                    compliance rules.
-                  </p>
-                </div>
+                <InputField
+                  icon={Phone}
+                  label="Your Personal Number (for transfers)"
+                  value={settings.aiAgent.personalPhone}
+                  onChange={(v) => updateAiAgent({ personalPhone: v })}
+                  placeholder="+1 555 123 4567"
+                />
+              </div>
 
-                {/* Toggle rows */}
-                {(
-                  [
-                    {
-                      key: "answerCalls" as const,
-                      title: "Answer calls",
-                      desc: "AI agent answers inbound phone calls automatically",
-                    },
-                    {
-                      key: "autoRespondSms" as const,
-                      title: "Auto-respond SMS",
-                      desc: "AI responds to incoming text messages automatically",
-                    },
-                    {
-                      key: "leadScoring" as const,
-                      title: "Lead scoring",
-                      desc: "AI automatically scores leads based on conversation analysis",
-                    },
-                    {
-                      key: "autoBook" as const,
-                      title: "Auto-book appointments",
-                      desc: "Allow AI to book appointments without human approval",
-                    },
-                    {
-                      key: "emergencyEscalation" as const,
-                      title: "Emergency escalation",
-                      desc: "Instantly alert owner for emergency keywords (flooding, gas leak, fire)",
-                    },
-                    {
-                      key: "priceQuoting" as const,
-                      title: "Price quoting",
-                      desc: "AI provides price ranges only (never exact pricing)",
-                    },
-                  ] as const
-                ).map((toggle) => (
+              {/* AI Capabilities */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  AI Capabilities
+                </h2>
+
+                {([
+                  {
+                    key: "answerCalls" as const,
+                    title: "Answer calls",
+                    desc: "AI receptionist answers inbound phone calls automatically",
+                  },
+                  {
+                    key: "autoRespondSms" as const,
+                    title: "Auto-respond SMS",
+                    desc: "AI responds to incoming text messages automatically",
+                  },
+                  {
+                    key: "autoBook" as const,
+                    title: "Auto-book appointments",
+                    desc: "Allow AI to book appointments without human approval",
+                  },
+                  {
+                    key: "leadScoring" as const,
+                    title: "Lead scoring",
+                    desc: "AI automatically scores leads based on conversation",
+                  },
+                  {
+                    key: "emergencyEscalation" as const,
+                    title: "Emergency escalation",
+                    desc: "Instantly alert you for emergency keywords (flooding, gas leak, fire)",
+                  },
+                  {
+                    key: "priceQuoting" as const,
+                    title: "Price quoting",
+                    desc: "AI provides price ranges (never exact pricing)",
+                  },
+                ] as const).map((toggle) => (
                   <div
                     key={toggle.key}
                     className="flex items-center justify-between rounded-lg border border-border p-4"
                   >
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {toggle.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {toggle.desc}
-                      </p>
+                      <p className="text-sm font-medium text-foreground">{toggle.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{toggle.desc}</p>
                     </div>
                     <ToggleSwitch
                       enabled={settings.aiAgent[toggle.key]}
                       onToggle={() =>
-                        updateAiAgent({
-                          [toggle.key]: !settings.aiAgent[toggle.key],
-                        })
+                        updateAiAgent({ [toggle.key]: !settings.aiAgent[toggle.key] })
                       }
                     />
                   </div>
                 ))}
               </div>
 
-              <div className="flex justify-end pt-2">
+              {/* AI Personality Notes */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  AI Personality Notes
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Special instructions for how your AI should behave. These are applied to every call.
+                </p>
+                <textarea
+                  rows={4}
+                  value={settings.aiAgent.personalityNotes}
+                  onChange={(e) => updateAiAgent({ personalityNotes: e.target.value })}
+                  placeholder="e.g. Be extra friendly, always mention our 5-year warranty, ask about their timeline..."
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end">
                 <button
                   onClick={handleSaveAiAgent}
                   className={cn(
@@ -1184,7 +1258,157 @@ function SettingsContent() {
                   )}
                 >
                   <Save className="h-4 w-4" />
-                  Save Configuration
+                  Save AI Configuration
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================= */}
+          {/* EMAIL TAB                                                       */}
+          {/* ============================================================= */}
+          {activeTab === "email" && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+                <h2 className="text-base font-semibold text-foreground">
+                  Email Settings
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure how MyBizOS sends emails on your behalf.
+                </p>
+
+                <div className="space-y-4">
+                  <InputField
+                    icon={Mail}
+                    label="Business Email Address"
+                    value={settings.email.businessEmail}
+                    onChange={(v) => updateEmail({ businessEmail: v })}
+                    placeholder="info@yourbusiness.com"
+                    type="email"
+                  />
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Email Signature
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={settings.email.emailSignature}
+                      onChange={(e) => updateEmail({ emailSignature: e.target.value })}
+                      placeholder="Best regards,&#10;Your Business Name&#10;(555) 123-4567"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Automated emails */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  Automated Emails
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Toggle which automated emails your customers receive.
+                </p>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Appointment confirmations
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send a confirmation email when an appointment is booked
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={settings.email.sendConfirmations}
+                    onToggle={() =>
+                      updateEmail({ sendConfirmations: !settings.email.sendConfirmations })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Appointment reminders
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Send reminders 24 hours and 1 hour before the appointment
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={settings.email.sendReminders}
+                    onToggle={() =>
+                      updateEmail({ sendReminders: !settings.email.sendReminders })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Review requests
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Ask customers for a review after their service is complete
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={settings.email.sendReviewRequests}
+                    onToggle={() =>
+                      updateEmail({ sendReviewRequests: !settings.email.sendReviewRequests })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Email preview */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  Email Preview
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Here is what your appointment confirmation email looks like.
+                </p>
+                <div className="rounded-lg border border-border bg-muted/30 p-5 space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    From: {settings.email.businessEmail || "info@yourbusiness.com"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Subject: Your appointment is confirmed
+                  </div>
+                  <div className="border-t border-border pt-3 space-y-2">
+                    <p className="text-sm text-foreground">
+                      Hi [Customer Name],
+                    </p>
+                    <p className="text-sm text-foreground">
+                      Your appointment has been confirmed for [Date] at [Time].
+                    </p>
+                    <p className="text-sm text-foreground">
+                      Service: [Service Name]
+                    </p>
+                    <p className="text-sm text-foreground">
+                      If you need to reschedule, please call us or reply to this email.
+                    </p>
+                    <div className="pt-2 text-sm text-muted-foreground whitespace-pre-line">
+                      {settings.email.emailSignature || "Best regards,\nYour Business"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveEmail}
+                  className={cn(
+                    "flex h-9 items-center gap-2 rounded-lg px-4",
+                    "bg-primary text-primary-foreground text-sm font-medium",
+                    "hover:bg-primary/90 transition-colors"
+                  )}
+                >
+                  <Save className="h-4 w-4" />
+                  Save Email Settings
                 </button>
               </div>
             </div>

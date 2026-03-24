@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Share2,
   Facebook,
@@ -25,9 +26,12 @@ import {
   Image as ImageIcon,
   X,
   Check,
+  Plug,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { apiClient, tryFetch } from "@/lib/api-client";
 
 // ── Types ──
 
@@ -94,9 +98,30 @@ function PlatformIcon({ platform, className }: { platform: Platform; className?:
   }
 }
 
-// ── Mock Data ──
+// ── API Integration Types ──
 
-const CONNECTED_ACCOUNTS: ConnectedAccount[] = [
+interface IntegrationConnectionStatus {
+  connected: boolean;
+  provider: string;
+  accountName: string | null;
+  accountId: string | null;
+  connectedAt: string | null;
+  expiresAt: string | null;
+  credentialsConfigured: boolean;
+  displayName: string;
+}
+
+const PLATFORM_TO_PROVIDER: Record<Platform, string | null> = {
+  facebook: "facebook",
+  instagram: "instagram",
+  google_business: "google_business",
+  linkedin: null, // Not yet supported via OAuth
+  nextdoor: null, // Not yet supported via OAuth
+};
+
+// ── Mock Data (fallback when API is unavailable) ──
+
+const FALLBACK_ACCOUNTS: ConnectedAccount[] = [
   { platform: "facebook", name: "Acme HVAC & Plumbing", connected: true, avatarInitials: "AH" },
   { platform: "instagram", name: "", connected: false, avatarInitials: "" },
   { platform: "google_business", name: "Acme HVAC — Austin, TX", connected: true, avatarInitials: "AH" },
@@ -305,6 +330,55 @@ export default function SocialPage() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
+  const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, IntegrationConnectionStatus>>({});
+  const [statusLoading, setStatusLoading] = useState(true);
+
+  // Fetch real integration statuses from API
+  const fetchIntegrationStatuses = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const result = await tryFetch(() =>
+        apiClient.get<{ status: Record<string, IntegrationConnectionStatus> }>(
+          "/orgs/demo/integrations/status",
+        ),
+      );
+      if (result) {
+        setIntegrationStatuses(result.status);
+      }
+    } catch {
+      // Fall back to mock data silently
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIntegrationStatuses();
+  }, [fetchIntegrationStatuses]);
+
+  // Build connected accounts from real statuses, falling back to mock data
+  const CONNECTED_ACCOUNTS: ConnectedAccount[] = useMemo(() => {
+    if (Object.keys(integrationStatuses).length === 0) {
+      return FALLBACK_ACCOUNTS;
+    }
+
+    return FALLBACK_ACCOUNTS.map((fallback) => {
+      const providerKey = PLATFORM_TO_PROVIDER[fallback.platform];
+      if (!providerKey) return fallback;
+
+      const apiStatus = integrationStatuses[providerKey];
+      if (!apiStatus) return fallback;
+
+      return {
+        ...fallback,
+        connected: apiStatus.connected,
+        name: apiStatus.accountName ?? fallback.name,
+        avatarInitials: apiStatus.accountName
+          ? apiStatus.accountName.substring(0, 2).toUpperCase()
+          : fallback.avatarInitials,
+      };
+    });
+  }, [integrationStatuses]);
 
   // Current week calculation
   const currentWeekStart = useMemo(() => {
@@ -404,7 +478,19 @@ export default function SocialPage() {
 
       {/* Connected Accounts */}
       <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Connected Accounts</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground">
+            Connected Accounts
+            {statusLoading && <Loader2 className="inline-block h-3 w-3 animate-spin ml-2" />}
+          </h2>
+          <Link
+            href="/dashboard/integrations"
+            className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+          >
+            <Plug className="h-3 w-3" />
+            Manage Integrations
+          </Link>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {CONNECTED_ACCOUNTS.map((account) => (
             <div
@@ -437,9 +523,13 @@ export default function SocialPage() {
                       {account.name}
                     </p>
                   ) : (
-                    <button className="text-sm font-medium text-primary hover:underline">
+                    <Link
+                      href="/dashboard/integrations"
+                      className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Plug className="h-3 w-3" />
                       Connect
-                    </button>
+                    </Link>
                   )}
                 </div>
                 {account.connected && (

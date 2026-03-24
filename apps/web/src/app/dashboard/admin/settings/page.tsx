@@ -21,9 +21,15 @@ import {
   DollarSign,
   Trash2,
   Zap,
+  Plug,
+  Facebook,
+  Instagram,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { apiClient, tryFetch } from "@/lib/api-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,6 +55,14 @@ interface AdminSettings {
   stripe: {
     secretKey: string;
     webhookSecret: string;
+  };
+  oauth: {
+    facebookAppId: string;
+    facebookAppSecret: string;
+    googleClientId: string;
+    googleClientSecret: string;
+    quickbooksClientId: string;
+    quickbooksClientSecret: string;
   };
 }
 
@@ -104,6 +118,14 @@ const defaultSettings: AdminSettings = {
   resend: { apiKey: "" },
   anthropic: { apiKey: "" },
   stripe: { secretKey: "", webhookSecret: "" },
+  oauth: {
+    facebookAppId: "",
+    facebookAppSecret: "",
+    googleClientId: "",
+    googleClientSecret: "",
+    quickbooksClientId: "",
+    quickbooksClientSecret: "",
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -636,6 +658,257 @@ export default function AdminSettingsPage() {
               Save
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ── OAuth Integration Credentials ── */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Plug className="h-5 w-5 text-primary" />
+            OAuth Integration Credentials
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Configure developer credentials for third-party OAuth integrations.
+            Org owners use these to connect their accounts in the Integrations page.
+          </p>
+        </div>
+
+        {/* Meta (Facebook / Instagram) */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+                <Facebook className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Meta (Facebook / Instagram)</h3>
+                <p className="text-xs text-muted-foreground">Social media posting and messaging</p>
+              </div>
+            </div>
+            <a
+              href="https://developers.facebook.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Developer Portal
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          <div className="rounded-lg bg-blue-50/50 border border-blue-100 p-3">
+            <p className="text-xs text-blue-700">
+              Create a Meta App at developers.facebook.com. Enable Facebook Login and add
+              pages_manage_posts, pages_messaging, instagram_basic, and instagram_content_publish
+              as permissions.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SecretInput
+              label="Facebook App ID"
+              value={settings.oauth.facebookAppId}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, facebookAppId: v },
+                }))
+              }
+              placeholder="123456789012345"
+            />
+            <SecretInput
+              label="Facebook App Secret"
+              value={settings.oauth.facebookAppSecret}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, facebookAppSecret: v },
+                }))
+              }
+              placeholder="abcdef1234567890abcdef1234567890"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              saveAdminSettings(settings);
+              // Sync to API backend
+              try {
+                await tryFetch(() =>
+                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
+                    credentials: [
+                      { key: "FACEBOOK_APP_ID", value: settings.oauth.facebookAppId },
+                      { key: "FACEBOOK_APP_SECRET", value: settings.oauth.facebookAppSecret },
+                    ],
+                  }),
+                );
+              } catch { /* API offline — saved locally */ }
+              showToast("Meta credentials saved!");
+            }}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Save className="h-3.5 w-3.5" />
+            Save Meta Credentials
+          </button>
+        </div>
+
+        {/* Google */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
+                <Globe className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Google (GBP, Ads, Analytics, Calendar)</h3>
+                <p className="text-xs text-muted-foreground">Business Profile, Ads, Analytics, Calendar</p>
+              </div>
+            </div>
+            <a
+              href="https://console.cloud.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Cloud Console
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          <div className="rounded-lg bg-emerald-50/50 border border-emerald-100 p-3">
+            <p className="text-xs text-emerald-700">
+              Create a Google Cloud project. Enable the Google Business Profile, Google Ads,
+              Analytics, and Calendar APIs. Create OAuth 2.0 credentials (Web application type)
+              and add your redirect URIs.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SecretInput
+              label="Google Client ID"
+              value={settings.oauth.googleClientId}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, googleClientId: v },
+                }))
+              }
+              placeholder="xxxxx.apps.googleusercontent.com"
+            />
+            <SecretInput
+              label="Google Client Secret"
+              value={settings.oauth.googleClientSecret}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, googleClientSecret: v },
+                }))
+              }
+              placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              saveAdminSettings(settings);
+              try {
+                await tryFetch(() =>
+                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
+                    credentials: [
+                      { key: "GOOGLE_CLIENT_ID", value: settings.oauth.googleClientId },
+                      { key: "GOOGLE_CLIENT_SECRET", value: settings.oauth.googleClientSecret },
+                    ],
+                  }),
+                );
+              } catch { /* API offline — saved locally */ }
+              showToast("Google credentials saved!");
+            }}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Save className="h-3.5 w-3.5" />
+            Save Google Credentials
+          </button>
+        </div>
+
+        {/* QuickBooks */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10">
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">QuickBooks (Intuit)</h3>
+                <p className="text-xs text-muted-foreground">Accounting, invoicing, and customer sync</p>
+              </div>
+            </div>
+            <a
+              href="https://developer.intuit.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Developer Portal
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          <div className="rounded-lg bg-green-50/50 border border-green-100 p-3">
+            <p className="text-xs text-green-700">
+              Create an Intuit Developer account. Register a new app and select the
+              QuickBooks Online Accounting scope. Copy your Client ID and Client Secret.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SecretInput
+              label="Intuit Client ID"
+              value={settings.oauth.quickbooksClientId}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, quickbooksClientId: v },
+                }))
+              }
+              placeholder="ABxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            />
+            <SecretInput
+              label="Intuit Client Secret"
+              value={settings.oauth.quickbooksClientSecret}
+              onChange={(v) =>
+                setSettings((s) => ({
+                  ...s,
+                  oauth: { ...s.oauth, quickbooksClientSecret: v },
+                }))
+              }
+              placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              saveAdminSettings(settings);
+              try {
+                await tryFetch(() =>
+                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
+                    credentials: [
+                      { key: "QUICKBOOKS_CLIENT_ID", value: settings.oauth.quickbooksClientId },
+                      { key: "QUICKBOOKS_CLIENT_SECRET", value: settings.oauth.quickbooksClientSecret },
+                    ],
+                  }),
+                );
+              } catch { /* API offline — saved locally */ }
+              showToast("QuickBooks credentials saved!");
+            }}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Save className="h-3.5 w-3.5" />
+            Save QuickBooks Credentials
+          </button>
         </div>
       </div>
 
