@@ -38,102 +38,8 @@ interface AutomationTemplate {
   steps: string[];
 }
 
-// ── Mock Data ──
-
-const mockAutomations: AutomationTemplate[] = [
-  {
-    id: "auto-1",
-    name: "Speed to Lead",
-    description:
-      "Instantly engage new contacts with an SMS and assign a follow-up task to the owner.",
-    triggerDescription: "When a new contact is created",
-    stepCount: 3,
-    active: true,
-    runCount: 847,
-    lastRun: "2026-03-22T09:15:00Z",
-    category: "lead",
-    icon: UserPlus,
-    steps: [
-      "Trigger: New contact created",
-      "Send SMS within 60 seconds",
-      "Create task for owner",
-    ],
-  },
-  {
-    id: "auto-2",
-    name: "No-Show Follow-Up",
-    description:
-      "Automatically re-engage customers who missed their appointment with a multi-step sequence.",
-    triggerDescription: "When an appointment is marked as no-show",
-    stepCount: 5,
-    active: true,
-    runCount: 213,
-    lastRun: "2026-03-21T16:30:00Z",
-    category: "follow-up",
-    icon: CalendarX,
-    steps: [
-      "Trigger: Appointment no-show",
-      "Wait 1 hour",
-      'Send SMS: "We missed you"',
-      "Wait 24 hours",
-      "Send email with rebooking link",
-    ],
-  },
-  {
-    id: "auto-3",
-    name: "Post-Job Review Request",
-    description:
-      "Request reviews after completed jobs with intelligent follow-up if no response.",
-    triggerDescription: "When an appointment is completed",
-    stepCount: 5,
-    active: true,
-    runCount: 392,
-    lastRun: "2026-03-22T08:00:00Z",
-    category: "review",
-    icon: Star,
-    steps: [
-      "Trigger: Appointment completed",
-      "Wait 24 hours",
-      "Send SMS review request",
-      "AI Decision: Review received?",
-      "If no review in 3 days: Send email",
-    ],
-  },
-  {
-    id: "auto-4",
-    name: "Birthday Outreach",
-    description:
-      "Delight customers with a personalized birthday message and exclusive discount.",
-    triggerDescription: "When it's a contact's birthday",
-    stepCount: 2,
-    active: false,
-    runCount: 56,
-    lastRun: "2026-03-18T07:00:00Z",
-    category: "outreach",
-    icon: Cake,
-    steps: [
-      "Trigger: Contact birthday",
-      'Send SMS: "Happy Birthday!" with discount',
-    ],
-  },
-  {
-    id: "auto-5",
-    name: "Stale Deal Alert",
-    description:
-      "Keep your pipeline moving by alerting owners when deals sit too long in a stage.",
-    triggerDescription: "When a deal stays in a stage for over 7 days",
-    stepCount: 2,
-    active: true,
-    runCount: 134,
-    lastRun: "2026-03-22T06:00:00Z",
-    category: "alert",
-    icon: AlertTriangle,
-    steps: [
-      "Trigger: Deal in stage > 7 days",
-      "Send notification to owner",
-    ],
-  },
-];
+// Real automations will come from the API; start with empty array
+const mockAutomations: AutomationTemplate[] = [];
 
 // ── Helpers ──
 
@@ -494,7 +400,7 @@ export default function AutomationsPage() {
             <p className="text-xs text-muted-foreground mb-4">
               {search
                 ? `No results matching "${search}"`
-                : "Get started by creating your first automation"}
+                : "No automations yet. Create workflows to automate your business."}
             </p>
             <Link
               href="/dashboard/automations/new"

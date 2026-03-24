@@ -32,65 +32,8 @@ interface MockEstimate {
   validUntil: string;
 }
 
-// ── Mock Data ──
-
-const mockEstimates: MockEstimate[] = [
-  {
-    id: "est-001",
-    number: "EST-001",
-    customerName: "Karen White",
-    customerEmail: "karen.white@email.com",
-    service: "Full Load Removal",
-    amount: 4500,
-    status: "sent",
-    issueDate: "2026-03-18",
-    validUntil: "2026-04-17",
-  },
-  {
-    id: "est-002",
-    number: "EST-002",
-    customerName: "James Rodriguez",
-    customerEmail: "james.rodriguez@email.com",
-    service: "Skip Bin Hire",
-    amount: 2800,
-    status: "approved",
-    issueDate: "2026-03-10",
-    validUntil: "2026-04-09",
-  },
-  {
-    id: "est-003",
-    number: "EST-003",
-    customerName: "Patricia Davis",
-    customerEmail: "patricia.davis@email.com",
-    service: "Full Bathroom Renovation",
-    amount: 12000,
-    status: "sent",
-    issueDate: "2026-03-15",
-    validUntil: "2026-04-14",
-  },
-  {
-    id: "est-004",
-    number: "EST-004",
-    customerName: "William Garcia",
-    customerEmail: "william.garcia@email.com",
-    service: "Sewer Line Repair",
-    amount: 3500,
-    status: "expired",
-    issueDate: "2026-02-01",
-    validUntil: "2026-03-03",
-  },
-  {
-    id: "est-005",
-    number: "EST-005",
-    customerName: "Nancy Taylor",
-    customerEmail: "nancy.taylor@email.com",
-    service: "Whole-Home Re-pipe",
-    amount: 8900,
-    status: "draft",
-    issueDate: "2026-03-22",
-    validUntil: "2026-04-21",
-  },
-];
+// Real estimates will come from the API; start with empty array
+const mockEstimates: MockEstimate[] = [];
 
 // ── Helpers ──
 
@@ -411,7 +354,7 @@ export default function EstimatesPage() {
                     <p className="text-xs text-muted-foreground mb-4">
                       {search
                         ? `No results matching "${search}"`
-                        : "Create your first estimate to start quoting jobs"}
+                        : "No estimates yet. Create an estimate for a potential job."}
                     </p>
                     <button
                       onClick={() => showToast("Estimate builder coming soon")}

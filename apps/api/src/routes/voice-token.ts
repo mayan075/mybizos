@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
-import { db, organizations } from '@mybizos/db';
 
 const voiceToken = new Hono();
 
@@ -34,29 +33,58 @@ interface OrgSettings {
   [key: string]: unknown;
 }
 
+// ── Helper: Load phone settings with DB + cache fallback ────────────────────
+
+async function loadPhoneSettings(orgId: string): Promise<PhoneSettings | null> {
+  try {
+    const { db, organizations } = await import('@mybizos/db');
+
+    const [org] = await db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, orgId));
+
+    if (!org) {
+      logger.warn('Org not found in DB for voice-token, trying phone-system cache', { orgId });
+      // Fall back to phone-system's in-memory cache
+      try {
+        const { getPhoneSettingsFromCache } = await import('./phone-system.js');
+        return getPhoneSettingsFromCache(orgId);
+      } catch {
+        return null;
+      }
+    }
+
+    const settings = org.settings as OrgSettings | null;
+    return settings?.phone ?? null;
+  } catch (err) {
+    logger.warn('DB query failed for voice-token, trying phone-system cache', {
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // DB unavailable — fall back to phone-system's in-memory cache
+    try {
+      const { getPhoneSettingsFromCache } = await import('./phone-system.js');
+      return getPhoneSettingsFromCache(orgId);
+    } catch {
+      return null;
+    }
+  }
+}
+
 // ── GET /token — Generate a Twilio Voice access token for the browser ──────
 
 voiceToken.get('/token', async (c) => {
   const orgId = c.get('orgId');
   const user = c.get('user');
 
+  logger.info('Voice token requested', { orgId, userId: user.id });
+
   // Load org settings to get Twilio credentials + voice config
-  const [org] = await db
-    .select({ settings: organizations.settings })
-    .from(organizations)
-    .where(eq(organizations.id, orgId));
-
-  if (!org) {
-    return c.json(
-      { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
-      404,
-    );
-  }
-
-  const settings = org.settings as OrgSettings | null;
-  const phone = settings?.phone;
+  const phone = await loadPhoneSettings(orgId);
 
   if (!phone?.accountSid || !phone?.authToken) {
+    logger.warn('Voice token: no phone config found', { orgId });
     return c.json(
       {
         error: 'Phone system not connected. Go to Settings > Phone System to connect your Twilio account.',
@@ -68,6 +96,7 @@ voiceToken.get('/token', async (c) => {
   }
 
   if (!phone.voice?.twimlAppSid || !phone.voice?.apiKeySid || !phone.voice?.apiKeySecret) {
+    logger.info('Voice token: needs setup', { orgId });
     return c.json(
       {
         error: 'Browser calling not set up. Run voice setup first.',
@@ -116,7 +145,7 @@ voiceToken.get('/token', async (c) => {
     logger.error('Failed to generate voice token', { orgId, error: message });
 
     return c.json(
-      { error: 'Failed to generate voice token. Check your Twilio configuration.', code: 'TOKEN_ERROR', status: 500 },
+      { error: `Failed to generate voice token: ${message}`, code: 'TOKEN_ERROR', status: 500 },
       500,
     );
   }

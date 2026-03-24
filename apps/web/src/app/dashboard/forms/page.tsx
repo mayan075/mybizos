@@ -70,106 +70,8 @@ const embedTypeConfig: Record<
   },
 };
 
-// ── Mock Data ──
-
-const mockForms: MockForm[] = [
-  {
-    id: "form-1",
-    name: "Contact Us",
-    fieldCount: 4,
-    submissionCount: 234,
-    status: "active",
-    embedType: "website",
-    createdAt: "2026-01-15T10:00:00Z",
-    lastSubmission: "2026-03-22T08:45:00Z",
-    recentSubmissions: [
-      {
-        id: "sub-1",
-        data: { Name: "Sarah Johnson", Email: "sarah@email.com", Phone: "(555) 123-4567", Message: "Need a quote for AC repair" },
-        submittedAt: "2026-03-22T08:45:00Z",
-        source: "Website",
-      },
-      {
-        id: "sub-2",
-        data: { Name: "Mike Rodriguez", Email: "mike.r@gmail.com", Phone: "(555) 234-5678", Message: "Furnace making strange noise" },
-        submittedAt: "2026-03-21T14:20:00Z",
-        source: "Website",
-      },
-      {
-        id: "sub-3",
-        data: { Name: "Lisa Chen", Email: "lisa.chen@outlook.com", Phone: "(555) 345-6789", Message: "Annual maintenance scheduling" },
-        submittedAt: "2026-03-21T09:10:00Z",
-        source: "Website",
-      },
-    ],
-  },
-  {
-    id: "form-2",
-    name: "Free Quote Request",
-    fieldCount: 6,
-    submissionCount: 89,
-    status: "active",
-    embedType: "landing_page",
-    createdAt: "2026-02-01T14:00:00Z",
-    lastSubmission: "2026-03-21T16:30:00Z",
-    recentSubmissions: [
-      {
-        id: "sub-4",
-        data: { Name: "Tom Baker", Email: "tombaker@email.com", Phone: "(555) 456-7890", "Service Needed": "HVAC", "Preferred Date": "03/25/2026", Issue: "Central AC not cooling" },
-        submittedAt: "2026-03-21T16:30:00Z",
-        source: "Landing Page",
-      },
-      {
-        id: "sub-5",
-        data: { Name: "Anna Kim", Email: "anna.k@gmail.com", Phone: "(555) 567-8901", "Service Needed": "Plumbing", "Preferred Date": "03/24/2026", Issue: "Leaking kitchen faucet" },
-        submittedAt: "2026-03-20T11:15:00Z",
-        source: "Landing Page",
-      },
-    ],
-  },
-  {
-    id: "form-3",
-    name: "Emergency Service Request",
-    fieldCount: 5,
-    submissionCount: 42,
-    status: "active",
-    embedType: "popup",
-    createdAt: "2026-02-10T09:00:00Z",
-    lastSubmission: "2026-03-20T22:15:00Z",
-    recentSubmissions: [
-      {
-        id: "sub-6",
-        data: { Name: "Dave Wilson", Phone: "(555) 678-9012", Address: "123 Oak St", "Emergency Type": "Water Leak", Details: "Pipe burst in basement" },
-        submittedAt: "2026-03-20T22:15:00Z",
-        source: "Popup",
-      },
-    ],
-  },
-  {
-    id: "form-4",
-    name: "Seasonal Tune-Up Signup",
-    fieldCount: 3,
-    submissionCount: 156,
-    status: "inactive",
-    embedType: "email_campaign",
-    createdAt: "2026-01-20T08:00:00Z",
-    lastSubmission: "2026-03-15T10:00:00Z",
-    recentSubmissions: [
-      {
-        id: "sub-7",
-        data: { Name: "Karen Price", Email: "karenp@email.com", "Preferred Time": "Morning" },
-        submittedAt: "2026-03-15T10:00:00Z",
-        source: "Email",
-      },
-      {
-        id: "sub-8",
-        data: { Name: "Bob Martinez", Email: "bobm@gmail.com", "Preferred Time": "Afternoon" },
-        submittedAt: "2026-03-14T15:30:00Z",
-        source: "Email",
-      },
-    ],
-  },
-];
+// Real forms will come from the API; start with empty array
+const mockForms: MockForm[] = [];
 
 // ── Helpers ──
 
@@ -489,7 +391,7 @@ export default function FormsPage() {
             <p className="text-xs text-muted-foreground mb-4">
               {search
                 ? `No results matching "${search}"`
-                : "Get started by creating your first form"}
+                : "No forms yet. Create a lead capture form for your website."}
             </p>
             <Link
               href="/dashboard/forms/new"

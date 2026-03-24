@@ -48,193 +48,10 @@ interface ReviewCampaign {
   reviewCount: number;
 }
 
-// ── Mock Data ──
+// Real reviews will come from the API; start with empty arrays
+const MOCK_REVIEWS: Review[] = [];
 
-const MOCK_REVIEWS: Review[] = [
-  {
-    id: "r1",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Absolutely outstanding service! Dave came out within 2 hours of my call for a burst pipe emergency. He was professional, explained everything clearly, and had it fixed in under an hour. Will definitely use Smith Plumbing again.",
-    reviewerName: "Sarah Johnson",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/abc123",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-21T14:30:00"),
-  },
-  {
-    id: "r2",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Best plumber in town! They installed our new tankless water heater and the whole process was seamless. Fair pricing, showed up on time, cleaned up after themselves. 10/10.",
-    reviewerName: "Mike Chen",
-    aiResponse:
-      "Thank you so much for the wonderful 5-star review, Mike! We're thrilled to hear the tankless water heater installation went smoothly. Your kind words mean the world to our team. We look forward to serving you again!",
-    responsePosted: true,
-    reviewUrl: "https://g.co/review/def456",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-19T10:00:00"),
-  },
-  {
-    id: "r3",
-    platform: "google",
-    rating: 4,
-    reviewText:
-      "Good work on fixing our kitchen faucet. The tech was knowledgeable and friendly. Only reason for 4 stars is the scheduling — had to wait 3 days for the appointment. Otherwise great service.",
-    reviewerName: "Lisa Wang",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/ghi789",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-18T16:45:00"),
-  },
-  {
-    id: "r4",
-    platform: "facebook",
-    rating: 5,
-    reviewText:
-      "Called Smith Plumbing for a clogged drain and they had someone here the same day. Very impressed with the professionalism and the price was very reasonable. Highly recommend!",
-    reviewerName: "James Wilson",
-    aiResponse:
-      "Thank you for your kind words, James! We pride ourselves on fast response times and fair pricing. We're glad we could help with the clogged drain. Don't hesitate to reach out if you need anything in the future!",
-    responsePosted: true,
-    reviewUrl: null,
-    sentiment: "positive",
-    createdAt: new Date("2026-03-17T09:15:00"),
-  },
-  {
-    id: "r5",
-    platform: "google",
-    rating: 3,
-    reviewText:
-      "The actual repair work was fine, but communication could be improved. I wasn't given a clear time window and the tech arrived 45 minutes late without any heads up. The fix itself seems solid though.",
-    reviewerName: "Robert Garcia",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/jkl012",
-    sentiment: "neutral",
-    createdAt: new Date("2026-03-16T11:30:00"),
-  },
-  {
-    id: "r6",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Second time using Smith Plumbing and they never disappoint. Had a toilet replacement done — quick, clean, and professional. Their prices are competitive and the warranty gives peace of mind.",
-    reviewerName: "Amanda Thompson",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/mno345",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-15T13:20:00"),
-  },
-  {
-    id: "r7",
-    platform: "facebook",
-    rating: 4,
-    reviewText:
-      "Good experience overall. They replaced our old water heater with a more efficient model. Installation was clean and they walked us through how to use it. Would recommend.",
-    reviewerName: "David Park",
-    aiResponse:
-      "Thank you for the great review, David! We're glad the water heater installation went well and that our team took the time to walk you through everything. Enjoy your new efficient water heater!",
-    responsePosted: true,
-    reviewUrl: null,
-    sentiment: "positive",
-    createdAt: new Date("2026-03-14T15:00:00"),
-  },
-  {
-    id: "r8",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Emergency gas line repair at 10 PM and they showed up within 30 minutes. Can't say enough about how grateful we are. Professional, fast, and they made sure everything was safe before leaving.",
-    reviewerName: "Jennifer Lee",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/pqr678",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-13T22:45:00"),
-  },
-  {
-    id: "r9",
-    platform: "yelp",
-    rating: 2,
-    reviewText:
-      "Had a leak fixed but it started dripping again two weeks later. Had to call them back out. They fixed it at no charge which was good, but shouldn't have happened in the first place.",
-    reviewerName: "Tom Bradley",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://yelp.com/biz/review/stu901",
-    sentiment: "negative",
-    createdAt: new Date("2026-03-12T08:30:00"),
-  },
-  {
-    id: "r10",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "I've been using Smith Plumbing for all our commercial properties and they consistently deliver excellent work. Their team is reliable, skilled, and always leaves the work area spotless.",
-    reviewerName: "Karen Mitchell",
-    aiResponse:
-      "Thank you for your continued trust in our team, Karen! It's a pleasure to work on your commercial properties. We take pride in delivering consistent, high-quality service. Looking forward to our continued partnership!",
-    responsePosted: true,
-    reviewUrl: "https://g.co/review/vwx234",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-10T11:00:00"),
-  },
-  {
-    id: "r11",
-    platform: "facebook",
-    rating: 4,
-    reviewText:
-      "Hired them for a bathroom renovation plumbing. The work was excellent and they coordinated well with our contractor. Slightly over the initial quote but they explained why and it was fair.",
-    reviewerName: "Eric Nguyen",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: null,
-    sentiment: "positive",
-    createdAt: new Date("2026-03-08T14:15:00"),
-  },
-  {
-    id: "r12",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Fantastic experience from start to finish. Called for a sewer line inspection, they came with a camera, showed me exactly what was going on, and gave me honest options. No upselling, just good honest work.",
-    reviewerName: "Patricia Adams",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/yza567",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-06T09:45:00"),
-  },
-];
-
-const MOCK_CAMPAIGNS: ReviewCampaign[] = [
-  {
-    id: "c1",
-    name: "Post-Appointment Review Request",
-    triggerType: "after_appointment",
-    delayHours: 24,
-    channel: "sms",
-    isActive: true,
-    sentCount: 147,
-    reviewCount: 38,
-  },
-  {
-    id: "c2",
-    name: "Completed Job Follow-Up",
-    triggerType: "after_deal_won",
-    delayHours: 48,
-    channel: "email",
-    isActive: true,
-    sentCount: 89,
-    reviewCount: 15,
-  },
-];
+const MOCK_CAMPAIGNS: ReviewCampaign[] = [];
 
 // ── Helper Components ──
 
@@ -647,8 +464,12 @@ export default function ReviewsPage() {
           ))}
 
           {filteredReviews.length === 0 && (
-            <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-              No reviews match the current filter.
+            <div className="px-5 py-12 text-center">
+              <Star className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+              <p className="text-sm font-medium text-foreground mb-1">No reviews yet</p>
+              <p className="text-sm text-muted-foreground">
+                Connect Google Business to start collecting reviews.
+              </p>
             </div>
           )}
         </div>

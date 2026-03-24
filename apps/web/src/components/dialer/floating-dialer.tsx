@@ -16,6 +16,8 @@ import {
   Wifi,
   WifiOff,
   Settings,
+  ShieldAlert,
+  Link as LinkIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -71,7 +73,7 @@ const KEYPAD_KEYS = [
 ];
 
 /* -------------------------------------------------------------------------- */
-/*  Hook: useCallerNumbers — real Twilio numbers from the API                  */
+/*  Hook: useCallerNumbers                                                     */
 /* -------------------------------------------------------------------------- */
 
 interface CallerNumber {
@@ -118,7 +120,7 @@ function useCallerNumbers() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Hook: useTwilioDevice — subscribe to the Twilio Device singleton           */
+/*  Hook: useTwilioDevice                                                      */
 /* -------------------------------------------------------------------------- */
 
 function useTwilioDevice() {
@@ -140,7 +142,60 @@ function useTwilioDevice() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Device Status Indicator                                                    */
+/*  Hook: useMicrophonePermission                                              */
+/* -------------------------------------------------------------------------- */
+
+type MicPermission = "unknown" | "granted" | "denied" | "prompt" | "checking";
+
+function useMicrophonePermission() {
+  const [permission, setPermission] = useState<MicPermission>("unknown");
+
+  useEffect(() => {
+    // Check permission state via the Permissions API if available
+    async function checkPermission() {
+      try {
+        if (navigator.permissions) {
+          const result = await navigator.permissions.query({
+            name: "microphone" as PermissionName,
+          });
+          setPermission(result.state as MicPermission);
+
+          result.addEventListener("change", () => {
+            setPermission(result.state as MicPermission);
+          });
+        }
+      } catch {
+        // Permissions API not supported for microphone in some browsers
+        setPermission("unknown");
+      }
+    }
+
+    checkPermission();
+  }, []);
+
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    setPermission("checking");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop all tracks immediately — we just needed the permission
+      stream.getTracks().forEach((track) => track.stop());
+      setPermission("granted");
+      return true;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "NotAllowedError") {
+        setPermission("denied");
+      } else {
+        setPermission("denied");
+      }
+      return false;
+    }
+  }, []);
+
+  return { permission, requestPermission };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Device Status Badge                                                        */
 /* -------------------------------------------------------------------------- */
 
 function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
@@ -172,6 +227,30 @@ function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Mic Permission Badge                                                       */
+/* -------------------------------------------------------------------------- */
+
+function MicPermissionBadge({ permission }: { permission: MicPermission }) {
+  if (permission === "granted") {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+        <Mic className="h-2.5 w-2.5" />
+        Mic allowed
+      </span>
+    );
+  }
+  if (permission === "denied") {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-red-500">
+        <MicOff className="h-2.5 w-2.5" />
+        Mic blocked
+      </span>
+    );
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Floating Dialer                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -180,6 +259,7 @@ export function FloatingDialer() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [rawDigits, setRawDigits] = useState("");
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   // Caller-from state
   const { numbers: callerNumbers, loading: numbersLoading } = useCallerNumbers();
@@ -196,6 +276,10 @@ export function FloatingDialer() {
     needsSetup,
     remoteNumber,
   } = twilioState;
+
+  // Microphone permission
+  const { permission: micPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
 
   // Call timer
   const [callTimer, setCallTimer] = useState(0);
@@ -257,6 +341,7 @@ export function FloatingDialer() {
   const handleKeyPress = useCallback(
     (digit: string) => {
       clearError();
+      setSetupError(null);
       // Send DTMF if in a call
       if (isCallActive) {
         sendDigits(digit);
@@ -273,6 +358,7 @@ export function FloatingDialer() {
 
   const handleBackspace = useCallback(() => {
     clearError();
+    setSetupError(null);
     setRawDigits((prev) => {
       if (prev.length === 0) return "";
       return prev.slice(0, -1);
@@ -281,6 +367,7 @@ export function FloatingDialer() {
 
   const handleInputChange = useCallback((value: string) => {
     clearError();
+    setSetupError(null);
     const digits = stripToDigits(value);
     const max = maxDigitsForCountry(digits);
     setRawDigits(digits.slice(0, max));
@@ -289,10 +376,20 @@ export function FloatingDialer() {
   const startCall = useCallback(async () => {
     if (!numberValid) return;
     clearError();
+    setSetupError(null);
+
+    // Check microphone permission first
+    if (micPermission !== "granted") {
+      const granted = await requestMicPermission();
+      if (!granted) {
+        // Permission denied — don't proceed
+        return;
+      }
+    }
 
     const toNumber = toE164(rawDigits);
     await makeCall(toNumber);
-  }, [numberValid, rawDigits]);
+  }, [numberValid, rawDigits, micPermission, requestMicPermission]);
 
   const endCall = useCallback(() => {
     hangUp();
@@ -306,14 +403,30 @@ export function FloatingDialer() {
 
   const handleSetup = useCallback(async () => {
     setIsSettingUp(true);
+    setSetupError(null);
+
+    // Check if Twilio numbers are available first
+    if (!numbersLoading && callerNumbers.length === 0) {
+      setSetupError("Connect your phone number first. Go to Phone Settings to add a Twilio number.");
+      setIsSettingUp(false);
+      return;
+    }
+
     const result = await runVoiceSetup();
     setIsSettingUp(false);
 
     if (result.success) {
       // Re-initialize the device now that setup is complete
       await initDevice();
+    } else {
+      // Show the actual error message
+      const errorMsg =
+        typeof result === "object" && "error" in result && typeof result.error === "string"
+          ? result.error
+          : "Setup failed. Check your Twilio configuration and try again.";
+      setSetupError(errorMsg);
     }
-  }, []);
+  }, [numbersLoading, callerNumbers.length]);
 
   const toggleOpen = () => {
     setIsOpen(!isOpen);
@@ -340,8 +453,8 @@ export function FloatingDialer() {
       {/* Expanded dialer popup */}
       {isOpen && !isMinimized && (
         <div
-          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[300px]"
-          style={{ maxWidth: "300px", height: isCallActive ? "340px" : "500px" }}
+          className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.2s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[320px]"
+          style={{ maxWidth: "320px", height: isCallActive ? "360px" : "540px" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/30 shrink-0">
@@ -379,22 +492,43 @@ export function FloatingDialer() {
               <p className="text-sm font-medium text-foreground mb-1">
                 Browser Calling Setup
               </p>
-              <p className="text-xs text-muted-foreground mb-4">
-                One-time setup to enable calling through your browser. This creates the necessary Twilio resources.
+              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                {callerNumbers.length === 0 && !numbersLoading
+                  ? "You need a phone number to make calls."
+                  : "One-time setup to enable calling through your browser."}
               </p>
-              <button
-                onClick={handleSetup}
-                disabled={isSettingUp}
-                className={cn(
-                  "flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all",
-                  isSettingUp
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]",
-                )}
-              >
-                {isSettingUp && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {isSettingUp ? "Setting up..." : "Enable Browser Calling"}
-              </button>
+
+              {callerNumbers.length === 0 && !numbersLoading ? (
+                <a
+                  href="/dashboard/settings/phone"
+                  className="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  Connect Phone Number
+                </a>
+              ) : (
+                <button
+                  onClick={handleSetup}
+                  disabled={isSettingUp}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                    isSettingUp
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]",
+                  )}
+                >
+                  {isSettingUp && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isSettingUp ? "Setting up..." : "Enable Browser Calling"}
+                </button>
+              )}
+
+              {/* Setup error message */}
+              {setupError && (
+                <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-[11px] text-red-600 text-left w-full">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{setupError}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -434,7 +568,7 @@ export function FloatingDialer() {
                 <button
                   onClick={handleToggleMute}
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-full transition-all",
+                    "flex h-12 w-12 items-center justify-center rounded-full transition-all",
                     isMuted
                       ? "bg-red-500/10 text-red-600"
                       : "bg-muted text-muted-foreground hover:bg-accent",
@@ -442,18 +576,18 @@ export function FloatingDialer() {
                   title={isMuted ? "Unmute" : "Mute"}
                 >
                   {isMuted ? (
-                    <MicOff className="h-4 w-4" />
+                    <MicOff className="h-5 w-5" />
                   ) : (
-                    <Mic className="h-4 w-4" />
+                    <Mic className="h-5 w-5" />
                   )}
                 </button>
 
                 <button
                   onClick={endCall}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition-all active:scale-95 shadow-lg shadow-red-600/20"
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition-all active:scale-95 shadow-lg shadow-red-600/20"
                   title="End call"
                 >
-                  <PhoneOff className="h-4 w-4" />
+                  <PhoneOff className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -461,128 +595,48 @@ export function FloatingDialer() {
 
           {/* ── Dialer view ───────────────────────────────────────────── */}
           {!isCallActive && !needsSetup && (
-            <div className="flex flex-col flex-1 px-4 py-3 overflow-hidden">
-              {/* Phone input with country flag */}
-              <div className="relative mb-2">
-                <div className="flex items-center">
-                  {rawDigits.length > 0 && (
-                    <span
-                      className="text-lg mr-1 shrink-0"
-                      title={detectedCountry.name}
-                    >
-                      {detectedCountry.flag}
-                    </span>
-                  )}
-                  <input
-                    value={displayFormatted}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder="Enter number..."
-                    className="w-full text-center text-lg font-light tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-1"
-                  />
-                  {rawDigits.length > 0 && (
-                    <button
-                      onClick={handleBackspace}
-                      className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                    >
-                      <Delete className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="h-px bg-border mb-3" />
-
-              {/* Compact keypad */}
-              <div className="grid grid-cols-3 gap-1.5 flex-1">
-                {KEYPAD_KEYS.map(({ digit, letters }) => (
-                  <button
-                    key={digit}
-                    onClick={() => handleKeyPress(digit)}
-                    className="group flex flex-col items-center justify-center rounded-full border border-border bg-card transition-all hover:bg-accent hover:border-primary/30 active:scale-95 active:bg-primary/10 h-10 w-10 mx-auto"
-                  >
-                    <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-none">
-                      {digit}
-                    </span>
-                    {letters && (
-                      <span className="text-[7px] tracking-widest text-muted-foreground mt-[-1px] leading-none">
-                        {letters}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Call button */}
-              <button
-                onClick={startCall}
-                disabled={
-                  !numberValid ||
-                  deviceStatus !== "registered" ||
-                  (callerNumbers.length === 0 && !numbersLoading)
-                }
-                className={cn(
-                  "flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold mt-3 transition-all",
-                  numberValid && deviceStatus === "registered" && callerNumbers.length > 0
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-lg shadow-emerald-600/20"
-                    : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
-                )}
-              >
-                <Phone className="h-3.5 w-3.5" />
-                Call
-              </button>
-
-              {/* Error message */}
-              {deviceError && (
-                <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-2.5 py-2 text-[10px] text-red-600">
-                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
-                  <span>{deviceError}</span>
-                </div>
-              )}
-
-              {/* Calling from — dynamic */}
-              <div className="mt-2 text-center">
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {/* Calling from — prominent */}
+              <div className="px-4 py-2 border-b border-border bg-muted/20 shrink-0">
                 {numbersLoading ? (
-                  <p className="text-[10px] text-muted-foreground">
-                    Loading numbers...
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">Loading numbers...</p>
                 ) : callerNumbers.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                  <p className="text-[11px] text-amber-600 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     <span>
-                      No number configured{" "}
+                      No number{" "}
                       <a
                         href="/dashboard/settings/phone"
-                        className="text-primary hover:underline"
+                        className="text-primary hover:underline font-medium"
                       >
                         Set up
                       </a>
                     </span>
                   </p>
                 ) : callerNumbers.length === 1 ? (
-                  <p className="text-[10px] text-muted-foreground">
-                    From:{" "}
-                    <span className="font-medium text-foreground">
-                      {formatE164ForDisplay(
-                        selectedFrom?.phoneNumber ?? "",
-                      )}
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground">From</span>
+                    <span className="text-[11px] font-semibold text-foreground">
+                      {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
                     </span>
-                  </p>
+                    <MicPermissionBadge permission={micPermission} />
+                  </div>
                 ) : (
-                  /* Multiple numbers — dropdown */
                   <div className="relative inline-block">
                     <button
                       onClick={() => setShowFromDropdown(!showFromDropdown)}
-                      className="text-[10px] text-muted-foreground flex items-center gap-0.5 hover:text-foreground transition-colors"
+                      className="text-[11px] text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      From:{" "}
-                      <span className="font-medium text-foreground">
-                        {formatE164ForDisplay(
-                          selectedFrom?.phoneNumber ?? "",
-                        )}
+                      <Phone className="h-3 w-3" />
+                      From{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
                       </span>
                       <ChevronDown className="h-2.5 w-2.5" />
                     </button>
                     {showFromDropdown && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[180px] z-10">
+                      <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[180px] z-10">
                         {callerNumbers.map((num) => (
                           <button
                             key={num.sid}
@@ -610,6 +664,89 @@ export function FloatingDialer() {
                   </div>
                 )}
               </div>
+
+              {/* Number display bar */}
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="flex items-center justify-center min-h-[44px] rounded-lg bg-muted/50 border border-border px-3">
+                  {rawDigits.length > 0 && (
+                    <span className="text-lg mr-1 shrink-0" title={detectedCountry.name}>
+                      {detectedCountry.flag}
+                    </span>
+                  )}
+                  <input
+                    value={displayFormatted}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder="Enter number..."
+                    className="flex-1 text-center text-xl font-mono font-medium tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-1.5 min-w-0"
+                  />
+                  {rawDigits.length > 0 && (
+                    <button
+                      onClick={handleBackspace}
+                      className="p-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted"
+                    >
+                      <Delete className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Compact keypad */}
+              <div className="grid grid-cols-3 gap-1.5 px-4 py-2 flex-1 content-center">
+                {KEYPAD_KEYS.map(({ digit, letters }) => (
+                  <button
+                    key={digit}
+                    onClick={() => handleKeyPress(digit)}
+                    className="group flex flex-col items-center justify-center rounded-full border border-border bg-card transition-all hover:bg-accent hover:border-primary/30 active:scale-95 active:bg-primary/10 h-12 w-12 mx-auto"
+                  >
+                    <span className="text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-none">
+                      {digit}
+                    </span>
+                    {letters && (
+                      <span className="text-[7px] tracking-widest text-muted-foreground mt-[-1px] leading-none">
+                        {letters}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mic blocked warning */}
+              {micPermission === "denied" && (
+                <div className="mx-4 mb-1 flex items-start gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-2 text-[10px] text-amber-700">
+                  <ShieldAlert className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>
+                    Microphone blocked. Go to your browser settings to allow microphone access for this site.
+                  </span>
+                </div>
+              )}
+
+              {/* Call button — big green circle */}
+              <div className="pb-2 pt-1 flex justify-center shrink-0">
+                <button
+                  onClick={startCall}
+                  disabled={
+                    !numberValid ||
+                    deviceStatus !== "registered" ||
+                    (callerNumbers.length === 0 && !numbersLoading)
+                  }
+                  className={cn(
+                    "flex h-14 w-14 items-center justify-center rounded-full transition-all shadow-lg",
+                    numberValid && deviceStatus === "registered" && callerNumbers.length > 0
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-emerald-600/30"
+                      : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
+                  )}
+                >
+                  <Phone className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Error message */}
+              {deviceError && (
+                <div className="mx-4 mb-2 flex items-start gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-2.5 py-2 text-[10px] text-red-600">
+                  <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>{deviceError}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -36,7 +36,7 @@ interface LoginResponse {
   };
 }
 
-const DEMO_EMAIL = "mayan@northernremovals.com.au";
+const DEMO_EMAIL = "demo@mybizos.com";
 const DEMO_PASSWORD = "demo1234";
 
 export default function LoginPage() {
@@ -297,7 +297,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Demo Login (Northern Removals)
+                Demo Login
               </>
             )}
           </button>

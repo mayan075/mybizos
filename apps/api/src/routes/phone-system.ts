@@ -829,4 +829,26 @@ phoneSystem.get('/mybizos/numbers', async (c) => {
   });
 });
 
+// ── Cache accessors for voice-setup and voice-token routes ────────────────
+// These allow other route files to access the in-memory phone settings cache
+// without duplicating the cache or the DB read logic.
+
+/**
+ * Read phone settings directly from the in-memory cache.
+ * Used by voice-setup.ts and voice-token.ts as a fallback when the DB query
+ * fails (e.g., because the orgId is a mock ID that doesn't exist in the DB).
+ */
+export function getPhoneSettingsFromCache(orgId: string): PhoneSettings | null {
+  return credentialCache.get(orgId) ?? null;
+}
+
+/**
+ * Update the in-memory phone settings cache.
+ * Called by voice-setup.ts after successfully creating TwiML App + API Key
+ * so that voice-token.ts can immediately find the voice config.
+ */
+export function updatePhoneSettingsCache(orgId: string, phone: PhoneSettings): void {
+  credentialCache.set(orgId, phone);
+}
+
 export { phoneSystem as phoneSystemRoutes };

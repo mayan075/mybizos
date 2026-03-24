@@ -17,7 +17,7 @@ function useAppointments(weekStart?: string, weekEnd?: string) {
 
   return useApiQuery<MockAppointment[]>(
     "/orgs/:orgId/appointments",
-    mockAppointments,
+    [],
     Object.keys(params).length > 0 ? params : undefined,
   );
 }

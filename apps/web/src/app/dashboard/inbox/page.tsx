@@ -35,9 +35,9 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
 
-  // Local state mirrors for optimistic UI
-  const [localConversations, setLocalConversations] = useState<MockConversation[]>(mockConversations);
-  const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>(mockMessages);
+  // Local state — empty by default; real data comes from the API
+  const [localConversations, setLocalConversations] = useState<MockConversation[]>([]);
+  const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>({});
 
   // Hooks (try API, fall back to mock data)
   const { data: apiConversations, isLive: conversationsLive, isLoading } = useConversations({ filter, search: searchQuery });

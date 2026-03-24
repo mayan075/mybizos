@@ -10,8 +10,6 @@ import {
   PhoneOutgoing,
   PhoneMissed,
   Bot,
-  ArrowDown,
-  ArrowUp,
   Mic,
   MicOff,
   Pause,
@@ -23,15 +21,14 @@ import {
   X,
   User,
   Clock,
-  FileText,
   CalendarPlus,
   UserPlus,
   PhoneCall,
   Delete,
-  Star,
   Settings2,
   ChevronDown,
   AlertCircle,
+  PhoneOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -65,7 +62,7 @@ interface CallRecord {
   contactName: string | null;
   phoneNumber: string;
   direction: CallDirection;
-  duration: number; // seconds
+  duration: number;
   timestamp: Date;
   outcome: CallOutcome;
   aiHandled: boolean;
@@ -79,13 +76,6 @@ interface TranscriptLine {
   speaker: "caller" | "agent" | "ai";
   text: string;
   time: string;
-}
-
-interface QuickDialContact {
-  name: string;
-  initials: string;
-  phone: string;
-  color: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -125,7 +115,7 @@ function useCallerNumbers() {
           );
         }
       } catch {
-        // API not available — no numbers to show
+        // API not available
       }
 
       setLoading(false);
@@ -136,299 +126,6 @@ function useCallerNumbers() {
 
   return { numbers, loading };
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Mock Data                                                                  */
-/* -------------------------------------------------------------------------- */
-
-const QUICK_DIAL_CONTACTS: QuickDialContact[] = [
-  { name: "Sarah J.", initials: "SJ", phone: "+17045551234", color: "bg-rose-500" },
-  { name: "Mike R.", initials: "MR", phone: "+17045555678", color: "bg-blue-500" },
-  { name: "Lisa T.", initials: "LT", phone: "+17045559012", color: "bg-emerald-500" },
-  { name: "James W.", initials: "JW", phone: "+17045553456", color: "bg-amber-500" },
-];
-
-function createMockCalls(): CallRecord[] {
-  const now = new Date();
-  const minutesAgo = (m: number) => new Date(now.getTime() - m * 60000);
-
-  return [
-    {
-      id: "call-1",
-      contactName: "Sarah Johnson",
-      phoneNumber: "+17045551234",
-      direction: "inbound",
-      duration: 247,
-      timestamp: minutesAgo(12),
-      outcome: "booked",
-      aiHandled: true,
-      summary: "Customer Sarah Johnson called about a garage cleanout she needs done. She's available Tuesday or Wednesday afternoon. Quoted $200-350 for pickup. Booked for Tuesday 2:00 PM.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?", time: "0:00" },
-        { speaker: "caller", text: "Hi, I have a bunch of old furniture and junk I need removed from my garage.", time: "0:05" },
-        { speaker: "ai", text: "I'm sorry to hear about the leak. I can help get that scheduled for you. A kitchen faucet repair typically starts around $150-250 depending on the issue. When would be a good time?", time: "0:12" },
-        { speaker: "caller", text: "Tuesday or Wednesday afternoon would work best for me.", time: "0:22" },
-        { speaker: "ai", text: "I have an opening on Tuesday at 2:00 PM. Would that work for you?", time: "0:28" },
-        { speaker: "caller", text: "That's perfect. Let's do Tuesday at 2.", time: "0:33" },
-        { speaker: "ai", text: "Great! I've booked you for Tuesday at 2:00 PM. You'll receive a confirmation text shortly. Is there anything else I can help with?", time: "0:38" },
-        { speaker: "caller", text: "No, that's all. Thank you!", time: "0:44" },
-      ],
-      actionsTaken: ["Contact updated", "Appointment booked: Tue 2:00 PM", "Deal created: Kitchen Faucet Repair"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-2",
-      contactName: "Mike Rodriguez",
-      phoneNumber: "+17045555678",
-      direction: "outbound",
-      duration: 183,
-      timestamp: minutesAgo(45),
-      outcome: "qualified",
-      aiHandled: false,
-      summary: "Follow-up call with Mike about his regular pickup plan. He's interested in the annual plan at $299/year for monthly pickups. Will call back by Friday to confirm.",
-      transcript: [
-        { speaker: "agent", text: "Hi Mike, this is John from Northern Removals. I'm following up on the maintenance plan we discussed.", time: "0:00" },
-        { speaker: "caller", text: "Hey John, yeah I've been thinking about it. The annual plan sounded good.", time: "0:06" },
-        { speaker: "agent", text: "Great! The annual plan is $299 per year and includes monthly pickups, priority scheduling, and 15% off all services.", time: "0:12" },
-        { speaker: "caller", text: "That sounds reasonable. Let me talk it over with my wife and I'll get back to you by Friday.", time: "0:20" },
-      ],
-      actionsTaken: ["Follow-up scheduled: Friday", "Deal stage updated: Proposal"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-3",
-      contactName: null,
-      phoneNumber: "+17045554321",
-      direction: "inbound",
-      duration: 0,
-      timestamp: minutesAgo(68),
-      outcome: "missed",
-      aiHandled: false,
-      summary: "Missed call from unknown number. No voicemail left.",
-      transcript: [],
-      actionsTaken: [],
-      recordingAvailable: false,
-    },
-    {
-      id: "call-4",
-      contactName: "Lisa Thompson",
-      phoneNumber: "+17045559012",
-      direction: "inbound",
-      duration: 156,
-      timestamp: minutesAgo(120),
-      outcome: "booked",
-      aiHandled: true,
-      summary: "Lisa called to schedule her annual property cleanout. Booked for next Wednesday at 10 AM. Existing customer since 2024.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
-        { speaker: "caller", text: "Hi, I need to schedule my annual property cleanout.", time: "0:04" },
-        { speaker: "ai", text: "Of course! I see you're an existing customer. The cleanout typically runs $200-400. When works best for you?", time: "0:10" },
-        { speaker: "caller", text: "Next Wednesday morning if possible.", time: "0:17" },
-        { speaker: "ai", text: "I have 10 AM available next Wednesday. Shall I book that?", time: "0:21" },
-        { speaker: "caller", text: "Yes please!", time: "0:25" },
-      ],
-      actionsTaken: ["Appointment booked: Wed 10:00 AM", "Recurring service noted"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-5",
-      contactName: "James Wilson",
-      phoneNumber: "+17045553456",
-      direction: "outbound",
-      duration: 42,
-      timestamp: minutesAgo(180),
-      outcome: "voicemail",
-      aiHandled: false,
-      summary: "Called James to confirm tomorrow's appointment. Left voicemail requesting callback.",
-      transcript: [
-        { speaker: "agent", text: "Hi James, this is John from Northern Removals calling to confirm your appointment tomorrow at 9 AM. Please give us a call back to confirm. Thanks!", time: "0:00" },
-      ],
-      actionsTaken: ["Voicemail left", "Follow-up reminder set"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-6",
-      contactName: "Patricia Garcia",
-      phoneNumber: "+17045557890",
-      direction: "inbound",
-      duration: 312,
-      timestamp: minutesAgo(240),
-      outcome: "escalated",
-      aiHandled: true,
-      summary: "Patricia called about a urgent rubbish removal after a flood. AI escalated immediately due to emergency keyword detection. Owner notified.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
-        { speaker: "caller", text: "I think I had flooding and there's rubbish everywhere I need removed urgently.", time: "0:05" },
-        { speaker: "ai", text: "I understand your concern. For your safety, I'm connecting you to our owner immediately. Please leave the area if the smell is strong.", time: "0:10" },
-        { speaker: "agent", text: "Hi Patricia, this is John. I heard you might have a gas leak. First, are you and your family safe?", time: "0:18" },
-        { speaker: "caller", text: "Yes, we're okay, it's a lot of damaged items that need clearing out.", time: "0:24" },
-      ],
-      actionsTaken: ["Emergency escalation triggered", "Owner notified immediately", "Emergency appointment created"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-7",
-      contactName: "David Chen",
-      phoneNumber: "+17045552345",
-      direction: "inbound",
-      duration: 198,
-      timestamp: minutesAgo(300),
-      outcome: "qualified",
-      aiHandled: true,
-      summary: "David inquired about a full estate clearance for a 4-bedroom house. Qualified as hot lead. Requested an in-home estimate.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
-        { speaker: "caller", text: "I'm looking to get a full house cleared out before selling.", time: "0:05" },
-        { speaker: "ai", text: "I'd be happy to help with that. Could you tell me the approximate square footage of your home?", time: "0:10" },
-        { speaker: "caller", text: "About 2,500 square feet.", time: "0:15" },
-        { speaker: "ai", text: "For a home that size, a full estate clearance typically starts around $800-2,000 depending on the system. We offer free in-home estimates. Would you like to schedule one?", time: "0:20" },
-      ],
-      actionsTaken: ["Contact created", "Deal created: Estate Clearance", "Estimate visit requested"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-8",
-      contactName: "Amanda Foster",
-      phoneNumber: "+17045558901",
-      direction: "outbound",
-      duration: 95,
-      timestamp: minutesAgo(380),
-      outcome: "booked",
-      aiHandled: false,
-      summary: "Called Amanda to reschedule her water heater inspection. Moved from Thursday to Friday at 1 PM.",
-      transcript: [
-        { speaker: "agent", text: "Hi Amanda, this is John from Northern Removals. I need to reschedule your Thursday appointment. Would Friday at 1 PM work instead?", time: "0:00" },
-        { speaker: "caller", text: "Friday at 1 works fine for me.", time: "0:08" },
-        { speaker: "agent", text: "Perfect, I've updated the schedule. See you Friday!", time: "0:12" },
-      ],
-      actionsTaken: ["Appointment rescheduled: Fri 1:00 PM"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-9",
-      contactName: null,
-      phoneNumber: "+17045556789",
-      direction: "inbound",
-      duration: 0,
-      timestamp: minutesAgo(420),
-      outcome: "missed",
-      aiHandled: false,
-      summary: "Missed call from unknown number. No voicemail left.",
-      transcript: [],
-      actionsTaken: [],
-      recordingAvailable: false,
-    },
-    {
-      id: "call-10",
-      contactName: "Robert Kim",
-      phoneNumber: "+17045551122",
-      direction: "inbound",
-      duration: 267,
-      timestamp: minutesAgo(500),
-      outcome: "booked",
-      aiHandled: true,
-      summary: "Robert called about slow drains in both bathrooms. AI diagnosed likely main line issue. Booked inspection for tomorrow morning.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
-        { speaker: "caller", text: "Both my bathrooms have really slow drains. It started a couple days ago.", time: "0:06" },
-        { speaker: "ai", text: "When multiple drains are slow at the same time, it could indicate a main line issue. A drain inspection typically starts around $150-200. Would you like to schedule one?", time: "0:14" },
-        { speaker: "caller", text: "Yes, as soon as possible please.", time: "0:22" },
-        { speaker: "ai", text: "I have tomorrow morning at 9 AM available. Would that work?", time: "0:26" },
-        { speaker: "caller", text: "That would be great.", time: "0:30" },
-      ],
-      actionsTaken: ["Appointment booked: Tomorrow 9:00 AM", "Priority flag set", "Deal created: Drain Inspection"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-11",
-      contactName: "Jennifer Park",
-      phoneNumber: "+17045553344",
-      direction: "outbound",
-      duration: 128,
-      timestamp: minutesAgo(600),
-      outcome: "qualified",
-      aiHandled: false,
-      summary: "Called Jennifer about her furnace replacement quote. She's comparing with two other companies. Following up next week.",
-      transcript: [
-        { speaker: "agent", text: "Hi Jennifer, just checking in on the furnace replacement quote we sent over.", time: "0:00" },
-        { speaker: "caller", text: "I got it, thanks. I'm comparing with a couple other companies right now.", time: "0:07" },
-        { speaker: "agent", text: "Completely understand. Just a reminder our quote includes a 10-year warranty and free first-year maintenance.", time: "0:14" },
-      ],
-      actionsTaken: ["Deal stage updated: Comparison"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-12",
-      contactName: "Tom Bradley",
-      phoneNumber: "+17045555566",
-      direction: "inbound",
-      duration: 89,
-      timestamp: minutesAgo(720),
-      outcome: "voicemail",
-      aiHandled: true,
-      summary: "Tom called after hours. AI took a message about needing a thermostat replacement. Will call back during business hours.",
-      transcript: [
-        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. We're currently closed but I can take a message. How can I help?", time: "0:00" },
-        { speaker: "caller", text: "My thermostat stopped working and I need it replaced. Can someone call me back?", time: "0:06" },
-        { speaker: "ai", text: "Absolutely. I'll have someone call you back first thing tomorrow morning. A thermostat replacement typically runs $150-400. Is there anything else?", time: "0:13" },
-      ],
-      actionsTaken: ["Callback scheduled: Tomorrow AM", "Contact created"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-13",
-      contactName: "Maria Santos",
-      phoneNumber: "+17045557788",
-      direction: "inbound",
-      duration: 345,
-      timestamp: minutesAgo(840),
-      outcome: "booked",
-      aiHandled: false,
-      summary: "Maria called about installing a tankless water heater. Extensive consultation. Booked estimate visit for Thursday.",
-      transcript: [
-        { speaker: "agent", text: "Northern Removals, this is John speaking. How can I help you?", time: "0:00" },
-        { speaker: "caller", text: "I'm interested in switching to a tankless water heater. Can you tell me about it?", time: "0:05" },
-        { speaker: "agent", text: "Absolutely! Tankless water heaters are great for energy savings. They typically run $2,000-4,500 installed.", time: "0:12" },
-      ],
-      actionsTaken: ["Estimate visit booked: Thursday", "Deal created: Tankless WH Installation"],
-      recordingAvailable: true,
-    },
-    {
-      id: "call-14",
-      contactName: null,
-      phoneNumber: "+17045559900",
-      direction: "inbound",
-      duration: 0,
-      timestamp: minutesAgo(960),
-      outcome: "missed",
-      aiHandled: false,
-      summary: "Missed call. Likely spam - number flagged by carrier.",
-      transcript: [],
-      actionsTaken: [],
-      recordingAvailable: false,
-    },
-    {
-      id: "call-15",
-      contactName: "Kevin Wright",
-      phoneNumber: "+17045552233",
-      direction: "outbound",
-      duration: 210,
-      timestamp: minutesAgo(1080),
-      outcome: "booked",
-      aiHandled: false,
-      summary: "Called Kevin to schedule seasonal HVAC maintenance. Booked both AC and furnace tune-ups. Applied loyalty discount.",
-      transcript: [
-        { speaker: "agent", text: "Hi Kevin, it's John from Northern Removals. I'm calling about your seasonal maintenance.", time: "0:00" },
-        { speaker: "caller", text: "Oh right, it's that time of year already. Let's get both done.", time: "0:06" },
-        { speaker: "agent", text: "Perfect! Since you're a loyal customer, I can offer you 20% off both tune-ups.", time: "0:12" },
-      ],
-      actionsTaken: ["Appointment booked: AC tune-up", "Appointment booked: Furnace tune-up", "Loyalty discount applied"],
-      recordingAvailable: true,
-    },
-  ];
-}
-
-const MOCK_CALLS = createMockCalls();
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -572,7 +269,7 @@ function DialerKeypad({
   compact?: boolean;
 }) {
   return (
-    <div className={cn("grid grid-cols-3", compact ? "gap-2" : "gap-3")}>
+    <div className={cn("grid grid-cols-3", compact ? "gap-2" : "gap-2.5")}>
       {KEYPAD_KEYS.map(({ digit, letters }) => (
         <button
           key={digit}
@@ -580,17 +277,17 @@ function DialerKeypad({
           className={cn(
             "group flex flex-col items-center justify-center rounded-full border border-border bg-card transition-all",
             "hover:bg-accent hover:border-primary/30 active:scale-95 active:bg-primary/10",
-            compact ? "h-12 w-12 mx-auto" : "h-14 w-14 mx-auto",
+            compact ? "h-12 w-12 mx-auto" : "h-[56px] w-[56px] mx-auto",
           )}
         >
           <span className={cn(
-            "font-semibold text-foreground group-hover:text-primary transition-colors",
+            "font-semibold text-foreground group-hover:text-primary transition-colors leading-none",
             compact ? "text-lg" : "text-xl",
           )}>
             {digit}
           </span>
           {letters && (
-            <span className="text-[9px] tracking-widest text-muted-foreground mt-[-2px]">
+            <span className="text-[8px] tracking-widest text-muted-foreground mt-[-1px]">
               {letters}
             </span>
           )}
@@ -798,7 +495,7 @@ function ActiveCallView({
           onClick={onEnd}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-all hover:bg-red-700 active:scale-[0.98] shadow-lg shadow-red-600/20"
         >
-          <Phone className="h-4 w-4 rotate-[135deg]" />
+          <PhoneOff className="h-4 w-4" />
           End Call
         </button>
       </div>
@@ -959,10 +656,10 @@ export default function CallsPage() {
   usePageTitle("Calls");
   const router = useRouter();
 
-  // Fetch call history via API, fall back to mock data on network error
+  // Fetch call history via API — no mock fallback
   const { data: callRecords, isLoading: callsLoading } = useApiQuery<CallRecord[]>(
     "/orgs/:orgId/calls",
-    MOCK_CALLS,
+    [],
   );
 
   // Call history state
@@ -970,7 +667,7 @@ export default function CallsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  // Dialer state — raw digits (no formatting in state)
+  // Dialer state
   const [rawDigits, setRawDigits] = useState("");
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [callTimer, setCallTimer] = useState(0);
@@ -1007,19 +704,17 @@ export default function CallsPage() {
   const detectedCountry = detectCountry(rawDigits);
   const numberValid = isValidNumber(rawDigits);
 
-  // The actual list to filter from (API data or mock fallback)
+  // The actual list (API data, no mock fallback)
   const activeCalls = callsLoading ? [] : callRecords;
 
   // Filter calls
   const filteredCalls = useMemo(() => {
     return activeCalls.filter((call) => {
-      // Tab filter
       if (activeTab === "inbound" && call.direction !== "inbound") return false;
       if (activeTab === "outbound" && call.direction !== "outbound") return false;
       if (activeTab === "ai" && !call.aiHandled) return false;
       if (activeTab === "missed" && call.outcome !== "missed") return false;
 
-      // Search filter
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = call.contactName?.toLowerCase().includes(q);
@@ -1073,7 +768,6 @@ export default function CallsPage() {
           } else if (status === "no-answer") {
             setCallError("No answer. Try again later.");
           }
-          // For completed calls, show summary
           if (status === "completed" && callTimer > 0) {
             setCallStatus("ended");
           } else {
@@ -1120,7 +814,6 @@ export default function CallsPage() {
         return;
       }
 
-      // Call initiated — start polling for real status
       if (data.callSid) {
         setActiveCallSid(data.callSid);
         startStatusPolling(data.callSid);
@@ -1235,7 +928,7 @@ export default function CallsPage() {
     { key: "missed", label: "Missed", count: missedCount },
   ];
 
-  // Loading state — show skeleton while initial fetch is in progress
+  // Loading state
   if (callsLoading) {
     return <CallsSkeleton />;
   }
@@ -1262,9 +955,9 @@ export default function CallsPage() {
 
       <div className="flex h-[calc(100vh-13rem)] rounded-xl border border-border bg-card overflow-hidden">
         {/* ---------------------------------------------------------------- */}
-        {/*  Left Panel: Call History                                         */}
+        {/*  Left Panel: Call History (60%)                                   */}
         {/* ---------------------------------------------------------------- */}
-        <div className="flex w-[420px] shrink-0 flex-col border-r border-border">
+        <div className="flex w-[60%] min-w-0 flex-col border-r border-border">
           {/* Search + tabs */}
           <div className="border-b border-border p-3 space-y-2">
             <div className="relative">
@@ -1319,16 +1012,16 @@ export default function CallsPage() {
               </div>
             ))}
             {filteredCalls.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/5 border border-primary/10 mb-4">
-                  <PhoneCall className="h-7 w-7 text-primary/40" />
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/5 border border-primary/10 mb-5">
+                  <PhoneCall className="h-8 w-8 text-primary/40" />
                 </div>
-                <p className="text-sm font-medium text-foreground mb-1">
+                <p className="text-sm font-medium text-foreground mb-1.5">
                   {activeCalls.length === 0 ? "No call history yet" : "No calls found"}
                 </p>
-                <p className="text-xs text-muted-foreground max-w-[240px]">
+                <p className="text-sm text-muted-foreground max-w-[300px]">
                   {activeCalls.length === 0
-                    ? "Connect your phone number to start receiving and making calls. Your AI agent will answer automatically."
+                    ? "No call history yet. Use the dialer to make your first call."
                     : "Try a different search or filter."}
                 </p>
               </div>
@@ -1337,9 +1030,9 @@ export default function CallsPage() {
         </div>
 
         {/* ---------------------------------------------------------------- */}
-        {/*  Right Panel: Dialer / Active Call / Summary                      */}
+        {/*  Right Panel: Dialer / Active Call / Summary (40%)               */}
         {/* ---------------------------------------------------------------- */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex w-[40%] min-w-0 flex-col bg-card">
           {/* Active call view */}
           {(callStatus === "ringing" || callStatus === "connected" || callStatus === "on-hold") && (
             <ActiveCallView
@@ -1378,154 +1071,125 @@ export default function CallsPage() {
 
           {/* Dialer view (when idle) */}
           {callStatus === "idle" && !showCallSummary && (
-            <div className="flex flex-col h-full items-center justify-center">
-              <div className="w-full max-w-xs space-y-6">
-                {/* Phone input with country flag */}
-                <div className="text-center">
-                  <div className="relative flex items-center">
-                    {rawDigits.length > 0 && (
-                      <span className="text-2xl mr-1.5 shrink-0" title={detectedCountry.name}>
-                        {detectedCountry.flag}
+            <div className="flex flex-col h-full">
+              {/* Calling from — prominent at top */}
+              <div className="border-b border-border px-5 py-3">
+                {numbersLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading numbers...</p>
+                ) : callerNumbers.length === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-amber-600">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>
+                      No phone number configured{" "}
+                      <Link href="/dashboard/settings/phone" className="text-primary hover:underline font-semibold">
+                        Set up now
+                      </Link>
+                    </span>
+                  </div>
+                ) : callerNumbers.length === 1 ? (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Calling from</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowFromDropdown(!showFromDropdown)}
+                      className="flex items-center gap-2 text-sm hover:bg-muted rounded-md px-2 py-1 -mx-2 -my-1 transition-colors"
+                    >
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Calling from</span>
+                      <span className="font-semibold text-foreground">
+                        {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
                       </span>
-                    )}
-                    <input
-                      value={displayFormatted}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      placeholder="Enter number..."
-                      className="w-full text-center text-2xl font-light tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-2"
-                    />
-                    {rawDigits.length > 0 && (
-                      <button
-                        onClick={handleBackspace}
-                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      >
-                        <Delete className="h-5 w-5" />
-                      </button>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    {showFromDropdown && (
+                      <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[220px] z-10">
+                        {callerNumbers.map((num) => (
+                          <button
+                            key={num.sid}
+                            onClick={() => {
+                              setSelectedFromSid(num.sid);
+                              setShowFromDropdown(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors",
+                              num.sid === selectedFromSid && "bg-muted font-medium",
+                            )}
+                          >
+                            <span className="text-foreground">
+                              {formatE164ForDisplay(num.phoneNumber)}
+                            </span>
+                            {num.friendlyName && (
+                              <span className="text-muted-foreground ml-2 text-xs">
+                                {num.friendlyName}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <div className="h-px bg-border mt-1" />
+                )}
+              </div>
+
+              {/* Number display bar */}
+              <div className="px-5 pt-6 pb-2">
+                <div className="flex items-center justify-center min-h-[56px] rounded-xl bg-muted/50 border border-border px-4">
+                  {rawDigits.length > 0 && (
+                    <span className="text-2xl mr-2 shrink-0" title={detectedCountry.name}>
+                      {detectedCountry.flag}
+                    </span>
+                  )}
+                  <input
+                    value={displayFormatted}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    placeholder="Enter number..."
+                    className="flex-1 text-center text-2xl font-mono font-medium tracking-wider bg-transparent border-none text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-2 min-w-0"
+                  />
+                  {rawDigits.length > 0 && (
+                    <button
+                      onClick={handleBackspace}
+                      className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted"
+                    >
+                      <Delete className="h-5 w-5" />
+                    </button>
+                  )}
                 </div>
+              </div>
 
-                {/* Keypad */}
+              {/* Keypad */}
+              <div className="flex-1 flex items-center justify-center px-5">
                 <DialerKeypad onKeyPress={handleKeyPress} />
+              </div>
 
-                {/* Call button */}
+              {/* Call button */}
+              <div className="px-5 pb-3">
                 <button
                   onClick={handleCallButton}
                   disabled={!numberValid || (callerNumbers.length === 0 && !numbersLoading)}
                   className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold transition-all shadow-lg",
+                    "flex h-14 w-14 mx-auto items-center justify-center rounded-full text-white transition-all shadow-lg",
                     numberValid && callerNumbers.length > 0
-                      ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/20"
+                      ? "bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-emerald-600/30"
                       : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                   )}
                 >
-                  <Phone className="h-4 w-4" />
-                  Call
+                  <Phone className="h-5 w-5" />
                 </button>
-
-                {/* Inline error message */}
-                {callError && (
-                  <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-600">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    <span>{callError}</span>
-                  </div>
-                )}
-
-                {/* Calling from — dynamic */}
-                <div className="text-center">
-                  {numbersLoading ? (
-                    <p className="text-xs text-muted-foreground">Loading numbers...</p>
-                  ) : callerNumbers.length === 0 ? (
-                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                      <AlertCircle className="h-3.5 w-3.5" />
-                      <span>
-                        No number configured &mdash;{" "}
-                        <Link href="/dashboard/settings/phone" className="text-primary hover:underline font-medium">
-                          Set up in Phone Settings
-                        </Link>
-                      </span>
-                    </p>
-                  ) : callerNumbers.length === 1 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Calling from:{" "}
-                      <span className="font-medium text-foreground">
-                        {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
-                      </span>
-                    </p>
-                  ) : (
-                    /* Multiple numbers — dropdown */
-                    <div className="relative inline-block">
-                      <button
-                        onClick={() => setShowFromDropdown(!showFromDropdown)}
-                        className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors mx-auto"
-                      >
-                        Calling from:{" "}
-                        <span className="font-medium text-foreground">
-                          {formatE164ForDisplay(selectedFrom?.phoneNumber ?? "")}
-                        </span>
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                      {showFromDropdown && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-[220px] z-10">
-                          {callerNumbers.map((num) => (
-                            <button
-                              key={num.sid}
-                              onClick={() => {
-                                setSelectedFromSid(num.sid);
-                                setShowFromDropdown(false);
-                              }}
-                              className={cn(
-                                "w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors",
-                                num.sid === selectedFromSid && "bg-muted font-medium",
-                              )}
-                            >
-                              <span className="text-foreground">
-                                {formatE164ForDisplay(num.phoneNumber)}
-                              </span>
-                              {num.friendlyName && (
-                                <span className="text-muted-foreground ml-2 text-xs">
-                                  {num.friendlyName}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick dial */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-3 text-center">
-                    Quick Dial
-                  </p>
-                  <div className="flex justify-center gap-4">
-                    {QUICK_DIAL_CONTACTS.map((contact) => (
-                      <button
-                        key={contact.phone}
-                        onClick={() => {
-                          const digits = stripToDigits(contact.phone);
-                          setRawDigits(digits);
-                          setActiveCallContact(contact.name);
-                        }}
-                        className="flex flex-col items-center gap-1.5 group"
-                      >
-                        <div className={cn(
-                          "flex h-11 w-11 items-center justify-center rounded-full text-white text-xs font-bold transition-transform group-hover:scale-110",
-                          contact.color,
-                        )}>
-                          {contact.initials}
-                        </div>
-                        <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">
-                          {contact.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
+
+              {/* Inline error message */}
+              {callError && (
+                <div className="mx-5 mb-3 flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-600">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{callError}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

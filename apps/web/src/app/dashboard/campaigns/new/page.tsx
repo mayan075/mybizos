@@ -66,7 +66,8 @@ const AVAILABLE_SOURCES = [
   "yelp",
 ];
 
-const MOCK_CONTACT_COUNT = 842;
+// Real contact count will come from the API
+const MOCK_CONTACT_COUNT = 0;
 
 // ── Step Components ──
 

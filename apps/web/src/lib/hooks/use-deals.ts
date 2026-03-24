@@ -29,7 +29,7 @@ function useDeals(pipelineId?: string) {
 
   return useApiQuery<Record<string, MockDeal[]>>(
     "/orgs/:orgId/deals",
-    mockDeals,
+    {},
     Object.keys(params).length > 0 ? params : undefined,
   );
 }

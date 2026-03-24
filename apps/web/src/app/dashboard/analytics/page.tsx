@@ -29,13 +29,14 @@ const dateRangeLabels: Record<DateRange, string> = {
   custom: "Custom",
 };
 
-// --- Mock Data ---
+// --- Analytics Data (zeros until real data flows in) ---
+// Analytics will populate as you use the platform.
 
 const kpiCards = [
   {
     label: "Total Revenue",
-    value: "$47,850",
-    change: "+12%",
+    value: "$0",
+    change: "--",
     changeDirection: "up" as const,
     subtitle: "vs last month",
     icon: DollarSign,
@@ -45,8 +46,8 @@ const kpiCards = [
   },
   {
     label: "New Leads",
-    value: "127",
-    change: "+23%",
+    value: "0",
+    change: "--",
     changeDirection: "up" as const,
     subtitle: "vs last month",
     icon: Users,
@@ -56,8 +57,8 @@ const kpiCards = [
   },
   {
     label: "Conversion Rate",
-    value: "34%",
-    change: "+5%",
+    value: "0%",
+    change: "--",
     changeDirection: "up" as const,
     subtitle: "vs last month",
     icon: TrendingUp,
@@ -67,8 +68,8 @@ const kpiCards = [
   },
   {
     label: "Avg Response Time",
-    value: "8s",
-    change: "47 min industry avg",
+    value: "--",
+    change: "Analytics will populate as you use the platform",
     changeDirection: "up" as const,
     subtitle: "AI-powered",
     icon: Zap,
@@ -79,73 +80,57 @@ const kpiCards = [
 ];
 
 const aiStats = [
-  { label: "Calls Answered", value: "342", icon: Phone },
-  { label: "Appointments Booked by AI", value: "47", icon: CalendarCheck },
-  { label: "Revenue from AI-Booked Jobs", value: "$12,400", icon: DollarSign },
-  { label: "Leads Qualified", value: "89", icon: UserCheck },
-  { label: "Reviews Collected", value: "23", icon: Star },
-  { label: "Hours Saved", value: "86 hrs", icon: Clock },
+  { label: "Calls Answered", value: "0", icon: Phone },
+  { label: "Appointments Booked by AI", value: "0", icon: CalendarCheck },
+  { label: "Revenue from AI-Booked Jobs", value: "$0", icon: DollarSign },
+  { label: "Leads Qualified", value: "0", icon: UserCheck },
+  { label: "Reviews Collected", value: "0", icon: Star },
+  { label: "Hours Saved", value: "0 hrs", icon: Clock },
 ];
 
 const aiVsHuman = [
-  { label: "Calls Handled", ai: 85, human: 15 },
-  { label: "Response Time", ai: 95, human: 12 },
-  { label: "Booking Rate", ai: 72, human: 45 },
+  { label: "Calls Handled", ai: 0, human: 0 },
+  { label: "Response Time", ai: 0, human: 0 },
+  { label: "Booking Rate", ai: 0, human: 0 },
 ];
 
 const revenueMonths = [
-  { month: "Jan", value: 32000, display: "$32K" },
-  { month: "Feb", value: 28000, display: "$28K" },
-  { month: "Mar", value: 41000, display: "$41K" },
-  { month: "Apr", value: 38000, display: "$38K" },
-  { month: "May", value: 45000, display: "$45K" },
-  { month: "Jun", value: 48000, display: "$48K" },
+  { month: "Jan", value: 0, display: "$0" },
+  { month: "Feb", value: 0, display: "$0" },
+  { month: "Mar", value: 0, display: "$0" },
+  { month: "Apr", value: 0, display: "$0" },
+  { month: "May", value: 0, display: "$0" },
+  { month: "Jun", value: 0, display: "$0" },
 ];
 
 const revenueSources = [
-  { source: "Google Ads", pct: 35, color: "bg-blue-500" },
-  { source: "Referrals", pct: 28, color: "bg-emerald-500" },
-  { source: "Website", pct: 20, color: "bg-purple-500" },
-  { source: "Phone", pct: 12, color: "bg-orange-500" },
-  { source: "Yelp", pct: 5, color: "bg-rose-500" },
+  { source: "Google Ads", pct: 0, color: "bg-blue-500" },
+  { source: "Referrals", pct: 0, color: "bg-emerald-500" },
+  { source: "Website", pct: 0, color: "bg-purple-500" },
+  { source: "Phone", pct: 0, color: "bg-orange-500" },
+  { source: "Yelp", pct: 0, color: "bg-rose-500" },
 ];
 
 const funnelStages = [
-  { stage: "New Lead", count: 127, color: "bg-blue-500", width: "100%" },
-  { stage: "Contacted", count: 98, color: "bg-cyan-500", width: "77%" },
-  { stage: "Quoted", count: 67, color: "bg-purple-500", width: "53%" },
-  { stage: "Scheduled", count: 45, color: "bg-orange-500", width: "35%" },
-  { stage: "Won", count: 43, color: "bg-emerald-500", width: "34%" },
+  { stage: "New Lead", count: 0, color: "bg-blue-500", width: "0%" },
+  { stage: "Contacted", count: 0, color: "bg-cyan-500", width: "0%" },
+  { stage: "Quoted", count: 0, color: "bg-purple-500", width: "0%" },
+  { stage: "Scheduled", count: 0, color: "bg-orange-500", width: "0%" },
+  { stage: "Won", count: 0, color: "bg-emerald-500", width: "0%" },
 ];
 
-const campaigns = [
-  { name: "Spring Cleanout Special", sent: 2450, opened: 1102, clicked: 340, converted: 47, revenue: "$9,400" },
-  { name: "Same-Day Pickup Promo", sent: 1800, opened: 936, clicked: 280, converted: 32, revenue: "$6,720" },
-  { name: "New Customer Welcome", sent: 320, opened: 256, clicked: 128, converted: 18, revenue: "$3,240" },
-  { name: "Referral Program", sent: 890, opened: 534, clicked: 178, converted: 12, revenue: "$2,880" },
-];
+const campaigns: { name: string; sent: number; opened: number; clicked: number; converted: number; revenue: string }[] = [];
 
 const channelCPL = [
-  { channel: "Google Ads", cpl: "$42", color: "bg-blue-500", width: "100%" },
-  { channel: "Facebook", cpl: "$38", color: "bg-indigo-500", width: "90%" },
+  { channel: "Google Ads", cpl: "$0", color: "bg-blue-500", width: "0%" },
+  { channel: "Facebook", cpl: "$0", color: "bg-indigo-500", width: "0%" },
   { channel: "Direct", cpl: "$0", color: "bg-emerald-500", width: "0%" },
   { channel: "Referral", cpl: "$0", color: "bg-teal-500", width: "0%" },
 ];
 
-const topCustomers = [
-  { name: "Mike Reynolds", spent: "$4,200", visits: 12, lastVisit: "2 days ago" },
-  { name: "Sarah Chen", spent: "$3,850", visits: 8, lastVisit: "1 week ago" },
-  { name: "Dave & Lisa Martinez", spent: "$3,400", visits: 15, lastVisit: "3 days ago" },
-  { name: "Apex Property Mgmt", spent: "$2,900", visits: 6, lastVisit: "5 days ago" },
-  { name: "Tom Nguyen", spent: "$2,650", visits: 9, lastVisit: "2 weeks ago" },
-];
+const topCustomers: { name: string; spent: string; visits: number; lastVisit: string }[] = [];
 
-const teamLeaderboard = [
-  { name: "Marcus J.", deals: 18, revenue: "$14,200", responseTime: "12 min" },
-  { name: "Sarah K.", deals: 15, revenue: "$12,800", responseTime: "8 min" },
-  { name: "AI Agent", deals: 47, revenue: "$12,400", responseTime: "8 sec" },
-  { name: "Derek L.", deals: 11, revenue: "$9,600", responseTime: "22 min" },
-];
+const teamLeaderboard: { name: string; deals: number; revenue: string; responseTime: string }[] = [];
 
 // --- Component ---
 

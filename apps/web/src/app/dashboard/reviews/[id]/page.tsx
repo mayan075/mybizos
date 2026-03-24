@@ -33,71 +33,8 @@ interface Review {
   createdAt: Date;
 }
 
-// ── Mock Data (matching IDs from the reviews list page) ──
-
-const MOCK_REVIEWS: Review[] = [
-  {
-    id: "r1",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Absolutely outstanding service! Dave came out within 2 hours of my call for a burst pipe emergency. He was professional, explained everything clearly, and had it fixed in under an hour. Will definitely use Smith Plumbing again.",
-    reviewerName: "Sarah Johnson",
-    reviewerEmail: "sarah.j@email.com",
-    reviewerPhone: "(555) 234-5678",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/abc123",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-21T14:30:00"),
-  },
-  {
-    id: "r2",
-    platform: "google",
-    rating: 5,
-    reviewText:
-      "Best plumber in town! They installed our new tankless water heater and the whole process was seamless. Fair pricing, showed up on time, cleaned up after themselves. 10/10.",
-    reviewerName: "Mike Chen",
-    reviewerEmail: "mike.chen@email.com",
-    reviewerPhone: null,
-    aiResponse:
-      "Thank you so much for the wonderful 5-star review, Mike! We're thrilled to hear the tankless water heater installation went smoothly. Your kind words mean the world to our team. We look forward to serving you again!",
-    responsePosted: true,
-    reviewUrl: "https://g.co/review/def456",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-19T10:00:00"),
-  },
-  {
-    id: "r3",
-    platform: "google",
-    rating: 4,
-    reviewText:
-      "Good work on fixing our kitchen faucet. The tech was knowledgeable and friendly. Only reason for 4 stars is the scheduling — had to wait 3 days for the appointment. Otherwise great service.",
-    reviewerName: "Lisa Wang",
-    reviewerEmail: null,
-    reviewerPhone: "(555) 345-6789",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://g.co/review/ghi789",
-    sentiment: "positive",
-    createdAt: new Date("2026-03-18T16:45:00"),
-  },
-  {
-    id: "r9",
-    platform: "yelp",
-    rating: 2,
-    reviewText:
-      "Had a leak fixed but it started dripping again two weeks later. Had to call them back out. They fixed it at no charge which was good, but shouldn't have happened in the first place.",
-    reviewerName: "Tom Bradley",
-    reviewerEmail: "tom.b@email.com",
-    reviewerPhone: "(555) 456-7890",
-    aiResponse: null,
-    responsePosted: false,
-    reviewUrl: "https://yelp.com/biz/review/stu901",
-    sentiment: "negative",
-    createdAt: new Date("2026-03-12T08:30:00"),
-  },
-];
+// Real reviews will come from the API; start with empty array
+const MOCK_REVIEWS: Review[] = [];
 
 // ── Helper Components ──
 

@@ -4,7 +4,6 @@ import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
-import { db, organizations } from '@mybizos/db';
 
 const voiceSetup = new Hono();
 
@@ -45,26 +44,94 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
+// ── Helper: Load phone settings with DB + cache fallback ────────────────────
+
+async function loadPhoneSettings(orgId: string): Promise<{ phone: PhoneSettings | null; orgFound: boolean }> {
+  try {
+    const { db, organizations } = await import('@mybizos/db');
+
+    const [org] = await db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, orgId));
+
+    if (!org) {
+      logger.warn('Org not found in DB for voice-setup, trying phone-system cache', { orgId });
+      // Fall back to phone-system's in-memory cache
+      const { getPhoneSettingsFromCache } = await import('./phone-system.js');
+      const cached = getPhoneSettingsFromCache(orgId);
+      if (cached) {
+        return { phone: cached, orgFound: true };
+      }
+      return { phone: null, orgFound: false };
+    }
+
+    const settings = org.settings as OrgSettings | null;
+    return { phone: settings?.phone ?? null, orgFound: true };
+  } catch (err) {
+    logger.warn('DB query failed for voice-setup, trying phone-system cache', {
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // DB unavailable — fall back to phone-system's in-memory cache
+    try {
+      const { getPhoneSettingsFromCache } = await import('./phone-system.js');
+      const cached = getPhoneSettingsFromCache(orgId);
+      if (cached) {
+        return { phone: cached, orgFound: true };
+      }
+    } catch {
+      // phone-system module not available
+    }
+    return { phone: null, orgFound: false };
+  }
+}
+
+// ── Helper: Save voice config to DB + cache ─────────────────────────────────
+
+async function saveVoiceConfig(orgId: string, updatedPhone: PhoneSettings): Promise<void> {
+  // Always update the phone-system cache so voice-token can find it
+  try {
+    const { updatePhoneSettingsCache } = await import('./phone-system.js');
+    updatePhoneSettingsCache(orgId, updatedPhone);
+  } catch {
+    // phone-system module not available — continue
+  }
+
+  try {
+    const { db, organizations } = await import('@mybizos/db');
+
+    await db
+      .update(organizations)
+      .set({
+        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{phone}', ${JSON.stringify(updatedPhone)}::jsonb)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, orgId));
+  } catch (err) {
+    logger.warn('DB write failed for voice config, data saved to cache only', {
+      orgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 // ── POST /setup — Create TwiML App + API Key for browser calling ───────────
 
 voiceSetup.post('/setup', async (c) => {
   const orgId = c.get('orgId');
 
-  // Load org's Twilio credentials
-  const [org] = await db
-    .select({ settings: organizations.settings })
-    .from(organizations)
-    .where(eq(organizations.id, orgId));
+  logger.info('Voice setup requested', { orgId });
 
-  if (!org) {
+  // Load org's Twilio credentials (DB with cache fallback)
+  const { phone, orgFound } = await loadPhoneSettings(orgId);
+
+  if (!orgFound && !phone) {
     return c.json(
-      { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
+      { error: `Organization '${orgId}' not found. Make sure you are logged in correctly.`, code: 'NOT_FOUND', status: 404 },
       404,
     );
   }
-
-  const settings = org.settings as OrgSettings | null;
-  const phone = settings?.phone;
 
   if (!phone?.accountSid || !phone?.authToken) {
     return c.json(
@@ -126,13 +193,7 @@ voiceSetup.post('/setup', async (c) => {
       voice: voiceConfig,
     };
 
-    await db
-      .update(organizations)
-      .set({
-        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{phone}', ${JSON.stringify(updatedPhone)}::jsonb)`,
-        updatedAt: new Date(),
-      })
-      .where(eq(organizations.id, orgId));
+    await saveVoiceConfig(orgId, updatedPhone);
 
     logger.info('Voice setup complete', {
       orgId,
@@ -151,7 +212,7 @@ voiceSetup.post('/setup', async (c) => {
 
     return c.json(
       {
-        error: 'Failed to set up browser calling. Check your Twilio account permissions.',
+        error: `Failed to set up browser calling: ${message}`,
         code: 'SETUP_ERROR',
         status: 500,
       },
@@ -165,17 +226,7 @@ voiceSetup.post('/setup', async (c) => {
 voiceSetup.get('/status', async (c) => {
   const orgId = c.get('orgId');
 
-  const [org] = await db
-    .select({ settings: organizations.settings })
-    .from(organizations)
-    .where(eq(organizations.id, orgId));
-
-  if (!org) {
-    return c.json({ setup: false, phoneConnected: false });
-  }
-
-  const settings = org.settings as OrgSettings | null;
-  const phone = settings?.phone;
+  const { phone } = await loadPhoneSettings(orgId);
 
   if (!phone?.accountSid) {
     return c.json({ setup: false, phoneConnected: false });

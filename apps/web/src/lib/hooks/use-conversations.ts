@@ -25,7 +25,7 @@ function useConversations(options: UseConversationsOptions = {}) {
 
   const result = useApiQuery<MockConversation[]>(
     "/orgs/:orgId/conversations",
-    mockConversations,
+    [],
     Object.keys(params).length > 0 ? params : undefined,
   );
 
@@ -58,7 +58,7 @@ function useConversations(options: UseConversationsOptions = {}) {
 // --------------------------------------------------------
 
 function useMessages(conversationId: string) {
-  const fallback = mockMessages[conversationId] ?? [];
+  const fallback: MockChatMessage[] = [];
 
   return useApiQuery<MockChatMessage[]>(
     `/orgs/:orgId/conversations/${conversationId}/messages`,

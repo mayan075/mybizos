@@ -68,8 +68,8 @@ interface DashboardStats {
 
 function useDashboardStats() {
   const fallback: DashboardStats = {
-    stats: mockStats,
-    upcomingAppointments: mockUpcomingAppointments,
+    stats: emptyStats,
+    upcomingAppointments: [],
   };
 
   return useApiQuery<DashboardStats>(
@@ -85,7 +85,7 @@ function useDashboardStats() {
 function useRecentActivity() {
   return useApiQuery<MockActivityItem[]>(
     "/orgs/:orgId/dashboard/activity",
-    mockActivity,
+    [],
   );
 }
 

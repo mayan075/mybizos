@@ -46,47 +46,9 @@ interface PerformanceStat {
   aiLabel?: string;
 }
 
+// Real team members will come from the API.
+// Only show AI agents as system-level entries; human members will be loaded from the org.
 const teamMembers: TeamMember[] = [
-  {
-    id: "tm-1",
-    name: "Mayan Kotwal",
-    email: "jim@northernremovals.com.au",
-    role: "Owner",
-    status: "active",
-    lastLogin: "Today",
-    avatar: "JH",
-    isAI: false,
-  },
-  {
-    id: "tm-2",
-    name: "Maria Garcia",
-    email: "maria@northernremovals.com.au",
-    role: "Manager",
-    status: "active",
-    lastLogin: "Yesterday",
-    avatar: "MG",
-    isAI: false,
-  },
-  {
-    id: "tm-3",
-    name: "Dave Johnson",
-    email: "dave@northernremovals.com.au",
-    role: "Technician",
-    status: "active",
-    lastLogin: "2 days ago",
-    avatar: "DJ",
-    isAI: false,
-  },
-  {
-    id: "tm-4",
-    name: "Tyler Smith",
-    email: "tyler@northernremovals.com.au",
-    role: "Technician",
-    status: "active",
-    lastLogin: "Today",
-    avatar: "TS",
-    isAI: false,
-  },
   {
     id: "ai-phone",
     name: "AI Phone Agent",
@@ -96,7 +58,7 @@ const teamMembers: TeamMember[] = [
     lastLogin: "Always active",
     avatar: "AI",
     isAI: true,
-    aiInteractions: 342,
+    aiInteractions: 0,
   },
   {
     id: "ai-sms",
@@ -107,45 +69,12 @@ const teamMembers: TeamMember[] = [
     lastLogin: "Always active",
     avatar: "AI",
     isAI: true,
-    aiInteractions: 890,
+    aiInteractions: 0,
   },
 ];
 
-const performanceStats: PerformanceStat[] = [
-  {
-    name: "Maria Garcia",
-    role: "Manager",
-    dealsClosed: 15,
-    revenue: 23100,
-    avgResponseTime: "2.1 min",
-    isAI: false,
-  },
-  {
-    name: "Tyler Smith",
-    role: "Technician",
-    dealsClosed: 12,
-    revenue: 18400,
-    avgResponseTime: "3.2 min",
-    isAI: false,
-  },
-  {
-    name: "Dave Johnson",
-    role: "Technician",
-    dealsClosed: 9,
-    revenue: 14200,
-    avgResponseTime: "4.8 min",
-    isAI: false,
-  },
-  {
-    name: "AI Agents",
-    role: "AI",
-    dealsClosed: 47,
-    revenue: 12400,
-    avgResponseTime: "8 sec",
-    isAI: true,
-    aiLabel: "47 appointments booked",
-  },
-];
+// Real performance stats will come from the API; start empty
+const performanceStats: PerformanceStat[] = [];
 
 const allPermissions = [
   { key: "view_contacts", label: "View contacts" },

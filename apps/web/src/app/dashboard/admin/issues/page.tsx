@@ -38,53 +38,8 @@ const STORAGE_KEY = "mybizos_issues";
 /*  Mock issues for demo purposes                                             */
 /* -------------------------------------------------------------------------- */
 
-const MOCK_ISSUES: LoggedIssue[] = [
-  {
-    id: "mock-1",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    page: "/dashboard/pipeline",
-    description:
-      "When I drag a deal card to the 'Won' stage, it snaps back to its original position. Tried refreshing and it still happens.",
-    status: "open",
-    userAgent: "Mozilla/5.0 Chrome/120",
-  },
-  {
-    id: "mock-2",
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    page: "/dashboard/inbox",
-    description:
-      "SMS messages are showing as 'sent' but the customer says they never received them. Happened with 3 different contacts.",
-    status: "open",
-    userAgent: "Mozilla/5.0 Chrome/120",
-  },
-  {
-    id: "mock-3",
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    page: "/dashboard/settings/phone",
-    description:
-      "Twilio connection keeps disconnecting after about 10 minutes. Error message says 'Token expired' but I just connected it.",
-    status: "open",
-    userAgent: "Mozilla/5.0 Safari/17",
-  },
-  {
-    id: "mock-4",
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    page: "/dashboard/analytics",
-    description:
-      "The revenue chart is showing $0 for March even though I have 5 paid invoices this month.",
-    status: "resolved",
-    userAgent: "Mozilla/5.0 Chrome/120",
-  },
-  {
-    id: "mock-5",
-    timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-    page: "/dashboard/campaigns",
-    description:
-      "Email campaign editor freezes when I try to add more than 3 content blocks. Browser tab becomes unresponsive.",
-    status: "resolved",
-    userAgent: "Mozilla/5.0 Firefox/121",
-  },
-];
+// Real issues come from localStorage; no mock data
+const MOCK_ISSUES: LoggedIssue[] = [];
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */

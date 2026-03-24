@@ -37,120 +37,8 @@ interface MockCampaign {
   createdAt: string;
 }
 
-const mockCampaigns: MockCampaign[] = [
-  {
-    id: "camp-1",
-    name: "Spring Cleanout Special",
-    type: "email",
-    status: "sent",
-    subject: "Get 20% off your spring cleanout!",
-    sentCount: 842,
-    openRate: 34.2,
-    clickRate: 8.7,
-    bounceRate: 1.2,
-    scheduledAt: null,
-    sentAt: "2026-03-15T10:00:00Z",
-    createdAt: "2026-03-14T08:30:00Z",
-  },
-  {
-    id: "camp-2",
-    name: "Same-Day Pickup Reminder",
-    type: "sms",
-    status: "sent",
-    subject: null,
-    sentCount: 1205,
-    openRate: 0,
-    clickRate: 4.1,
-    bounceRate: 0.5,
-    scheduledAt: null,
-    sentAt: "2026-03-10T14:00:00Z",
-    createdAt: "2026-03-09T11:00:00Z",
-  },
-  {
-    id: "camp-3",
-    name: "New Customer Welcome Series",
-    type: "email",
-    status: "scheduled",
-    subject: "Welcome to Northern Removals — Here's what to expect",
-    sentCount: 0,
-    openRate: 0,
-    clickRate: 0,
-    bounceRate: 0,
-    scheduledAt: "2026-03-25T09:00:00Z",
-    sentAt: null,
-    createdAt: "2026-03-18T15:30:00Z",
-  },
-  {
-    id: "camp-4",
-    name: "Summer AC Check Promo",
-    type: "email",
-    status: "draft",
-    subject: "Beat the heat — book your AC check today",
-    sentCount: 0,
-    openRate: 0,
-    clickRate: 0,
-    bounceRate: 0,
-    scheduledAt: null,
-    sentAt: null,
-    createdAt: "2026-03-20T09:15:00Z",
-  },
-  {
-    id: "camp-5",
-    name: "Appointment Reminder",
-    type: "sms",
-    status: "sent",
-    subject: null,
-    sentCount: 328,
-    openRate: 0,
-    clickRate: 12.5,
-    bounceRate: 0.3,
-    scheduledAt: null,
-    sentAt: "2026-03-12T08:00:00Z",
-    createdAt: "2026-03-11T16:00:00Z",
-  },
-  {
-    id: "camp-6",
-    name: "Monthly Newsletter — March",
-    type: "email",
-    status: "sent",
-    subject: "Your March home maintenance tips",
-    sentCount: 1547,
-    openRate: 28.6,
-    clickRate: 5.3,
-    bounceRate: 2.1,
-    scheduledAt: null,
-    sentAt: "2026-03-01T10:00:00Z",
-    createdAt: "2026-02-28T14:00:00Z",
-  },
-  {
-    id: "camp-7",
-    name: "Referral Program Launch",
-    type: "email",
-    status: "draft",
-    subject: "Refer a friend, get $50 off!",
-    sentCount: 0,
-    openRate: 0,
-    clickRate: 0,
-    bounceRate: 0,
-    scheduledAt: null,
-    sentAt: null,
-    createdAt: "2026-03-21T10:00:00Z",
-  },
-  {
-    id: "camp-8",
-    name: "Holiday Hours Notice",
-    type: "sms",
-    status: "cancelled",
-    subject: null,
-    sentCount: 0,
-    openRate: 0,
-    clickRate: 0,
-    bounceRate: 0,
-    scheduledAt: null,
-    sentAt: null,
-    createdAt: "2026-03-05T09:00:00Z",
-  },
-];
+// Real campaigns will come from the API; start with empty array
+const mockCampaigns: MockCampaign[] = [];
 
 // ── Helpers ──
 
@@ -437,12 +325,12 @@ export default function CampaignsPage() {
               <div className="absolute -left-2 bottom-0 h-2 w-2 rounded-full bg-primary/10" />
             </div>
             <p className="text-lg font-semibold text-foreground mb-2">
-              {search ? "No campaigns found" : "Send your first campaign"}
+              {search ? "No campaigns found" : "No campaigns yet"}
             </p>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
               {search
                 ? `No results matching "${search}". Try a different search term.`
-                : "Reach your customers with SMS or email campaigns. Send promotions, reminders, and updates to grow your business."}
+                : "Create your first campaign to reach your customers."}
             </p>
             <Link
               href="/dashboard/campaigns/new"

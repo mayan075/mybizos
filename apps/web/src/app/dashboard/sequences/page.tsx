@@ -45,72 +45,8 @@ interface MockSequence {
   active: boolean;
 }
 
-// ── Mock Data ──
-
-const mockSequences: MockSequence[] = [
-  {
-    id: "seq-1",
-    name: "New Lead Follow-Up",
-    description: "Automatically nurture new leads with a 7-touch sequence over 14 days. Includes emails, SMS, and AI-driven branching.",
-    trigger: "contact_created",
-    triggerDetail: null,
-    steps: [
-      { id: "s1-1", type: "send_email", label: "Welcome Email", config: "Subject: Welcome to {{business_name}}!" },
-      { id: "s1-2", type: "wait", label: "Wait 1 day", config: "Delay: 1 day" },
-      { id: "s1-3", type: "send_sms", label: "Quick Intro SMS", config: "Hi {{first_name}}, thanks for reaching out..." },
-      { id: "s1-4", type: "wait", label: "Wait 2 days", config: "Delay: 2 days" },
-      { id: "s1-5", type: "ai_decision", label: "Check Engagement", config: "If opened email \u2192 Path A, else \u2192 Path B" },
-      { id: "s1-6", type: "send_email", label: "Value Offer Email", config: "Subject: Here\u2019s 10% off your first service" },
-      { id: "s1-7", type: "add_tag", label: "Tag as Nurtured", config: "Tag: lead-nurtured" },
-    ],
-    enrolledCount: 142,
-    active: true,
-  },
-  {
-    id: "seq-2",
-    name: "Quote Follow-Up",
-    description: "Follow up on sent quotes with 5 touches over 10 days to close the deal. Escalates to a phone call if no response.",
-    trigger: "deal_stage_changed",
-    triggerDetail: "Quoted",
-    steps: [
-      { id: "s2-1", type: "wait", label: "Wait 1 day", config: "Delay: 1 day" },
-      { id: "s2-2", type: "send_email", label: "Quote Recap Email", config: "Subject: Your quote from {{business_name}}" },
-      { id: "s2-3", type: "wait", label: "Wait 3 days", config: "Delay: 3 days" },
-      { id: "s2-4", type: "send_sms", label: "Gentle Nudge SMS", config: "Hi {{first_name}}, just checking in on your quote..." },
-      { id: "s2-5", type: "ai_decision", label: "Check Response", config: "If replied \u2192 Stop, else \u2192 Continue" },
-    ],
-    enrolledCount: 38,
-    active: true,
-  },
-  {
-    id: "seq-3",
-    name: "Post-Service Review Request",
-    description: "Ask for a review after service completion. 3 touches over 7 days with a direct link to your Google profile.",
-    trigger: "appointment_completed",
-    triggerDetail: null,
-    steps: [
-      { id: "s3-1", type: "wait", label: "Wait 2 hours", config: "Delay: 2 hours" },
-      { id: "s3-2", type: "send_sms", label: "Review Request SMS", config: "Thanks for choosing us! Leave a review: {{review_link}}" },
-      { id: "s3-3", type: "wait", label: "Wait 3 days", config: "Delay: 3 days" },
-    ],
-    enrolledCount: 267,
-    active: true,
-  },
-  {
-    id: "seq-4",
-    name: "Re-engagement",
-    description: "Win back inactive customers with a 3-touch campaign over 30 days. Manually enroll contacts who haven\u2019t booked in 90+ days.",
-    trigger: "manual",
-    triggerDetail: null,
-    steps: [
-      { id: "s4-1", type: "send_email", label: "We Miss You Email", config: "Subject: It\u2019s been a while, {{first_name}}!" },
-      { id: "s4-2", type: "wait", label: "Wait 14 days", config: "Delay: 14 days" },
-      { id: "s4-3", type: "send_sms", label: "Special Offer SMS", config: "We\u2019d love to have you back! Here\u2019s 15% off..." },
-    ],
-    enrolledCount: 54,
-    active: false,
-  },
-];
+// Real sequences will come from the API; start with empty array
+const mockSequences: MockSequence[] = [];
 
 // ── Helpers ──
 
@@ -351,7 +287,7 @@ export default function SequencesPage() {
               No sequences yet
             </p>
             <p className="text-xs text-muted-foreground mb-4">
-              Create your first automated follow-up sequence
+              No sequences yet. Set up automated follow-ups for your leads.
             </p>
             <Link
               href="/dashboard/sequences/new"

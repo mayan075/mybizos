@@ -38,138 +38,8 @@ interface MockInvoice {
   overdueDays: number | null;
 }
 
-// ── Mock Data ──
-
-const mockInvoices: MockInvoice[] = [
-  {
-    id: "inv-001",
-    number: "INV-001",
-    customerName: "Sarah Johnson",
-    customerEmail: "sarah.johnson@email.com",
-    service: "Drain Cleaning",
-    amount: 250,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "paid",
-    issueDate: "2026-03-05",
-    dueDate: "2026-03-20",
-    paidDate: "2026-03-12",
-    sentDaysAgo: null,
-    overdueDays: null,
-  },
-  {
-    id: "inv-002",
-    number: "INV-002",
-    customerName: "Mike Thompson",
-    customerEmail: "mike.thompson@email.com",
-    service: "Water Heater Install",
-    amount: 3200,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "sent",
-    issueDate: "2026-03-17",
-    dueDate: "2026-04-01",
-    paidDate: null,
-    sentDaysAgo: 5,
-    overdueDays: null,
-  },
-  {
-    id: "inv-003",
-    number: "INV-003",
-    customerName: "David Wilson",
-    customerEmail: "david.wilson@email.com",
-    service: "AC Tune-Up",
-    amount: 149,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "overdue",
-    issueDate: "2026-02-28",
-    dueDate: "2026-03-10",
-    paidDate: null,
-    sentDaysAgo: null,
-    overdueDays: 12,
-  },
-  {
-    id: "inv-004",
-    number: "INV-004",
-    customerName: "Jennifer Brown",
-    customerEmail: "jennifer.brown@email.com",
-    service: "Bathroom Remodel",
-    amount: 8500,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "draft",
-    issueDate: "2026-03-22",
-    dueDate: "2026-04-06",
-    paidDate: null,
-    sentDaysAgo: null,
-    overdueDays: null,
-  },
-  {
-    id: "inv-005",
-    number: "INV-005",
-    customerName: "Robert Lee",
-    customerEmail: "robert.lee@email.com",
-    service: "Emergency Plumbing",
-    amount: 375,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "paid",
-    issueDate: "2026-03-08",
-    dueDate: "2026-03-22",
-    paidDate: "2026-03-10",
-    sentDaysAgo: null,
-    overdueDays: null,
-  },
-  {
-    id: "inv-006",
-    number: "INV-006",
-    customerName: "Lisa Martinez",
-    customerEmail: "lisa.martinez@email.com",
-    service: "Furnace Repair",
-    amount: 890,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "sent",
-    issueDate: "2026-03-20",
-    dueDate: "2026-04-04",
-    paidDate: null,
-    sentDaysAgo: 2,
-    overdueDays: null,
-  },
-  {
-    id: "inv-007",
-    number: "INV-007",
-    customerName: "Tom Anderson",
-    customerEmail: "tom.anderson@email.com",
-    service: "Kitchen Sink Install",
-    amount: 450,
-    isRecurring: false,
-    recurringInterval: null,
-    status: "paid",
-    issueDate: "2026-03-01",
-    dueDate: "2026-03-15",
-    paidDate: "2026-03-14",
-    sentDaysAgo: null,
-    overdueDays: null,
-  },
-  {
-    id: "inv-008",
-    number: "INV-008",
-    customerName: "Amy Chen",
-    customerEmail: "amy.chen@email.com",
-    service: "HVAC Maintenance Plan",
-    amount: 39,
-    isRecurring: true,
-    recurringInterval: "monthly",
-    status: "paid",
-    issueDate: "2026-03-01",
-    dueDate: "2026-03-15",
-    paidDate: "2026-03-02",
-    sentDaysAgo: null,
-    overdueDays: null,
-  },
-];
+// Real invoices will come from the API; start with empty array
+const mockInvoices: MockInvoice[] = [];
 
 // ── Helpers ──
 
@@ -513,7 +383,7 @@ export default function InvoicesPage() {
                     <p className="text-xs text-muted-foreground mb-4">
                       {search
                         ? `No results matching "${search}"`
-                        : "Create your first invoice to start getting paid"}
+                        : "No invoices yet. Create your first invoice to get paid."}
                     </p>
                     <Link
                       href="/dashboard/invoices/new"

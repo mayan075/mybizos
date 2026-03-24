@@ -28,7 +28,7 @@ function useContacts(options: UseContactsOptions = {}) {
 
   const result = useApiQuery<MockContact[]>(
     "/orgs/:orgId/contacts",
-    mockContacts,
+    [],
     Object.keys(params).length > 0 ? params : undefined,
   );
 
@@ -63,8 +63,8 @@ interface ContactWithTimeline {
 
 function useContact(id: string) {
   const fallback: ContactWithTimeline = {
-    contact: mockContactDetails[id] ?? { ...mockDefaultContact, id },
-    timeline: mockTimeline,
+    contact: { ...mockDefaultContact, id, name: "Loading...", email: "", phone: "", source: "", score: 0, tags: [], status: "lead" as const, createdAt: new Date().toISOString() },
+    timeline: [],
   };
 
   return useApiQuery<ContactWithTimeline>(

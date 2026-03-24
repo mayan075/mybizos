@@ -121,10 +121,11 @@ const PLATFORM_TO_PROVIDER: Record<Platform, string | null> = {
 
 // ── Mock Data (fallback when API is unavailable) ──
 
+// All accounts start as disconnected; real status comes from the API
 const FALLBACK_ACCOUNTS: ConnectedAccount[] = [
-  { platform: "facebook", name: "Northern Removals", connected: true, avatarInitials: "NR" },
+  { platform: "facebook", name: "", connected: false, avatarInitials: "" },
   { platform: "instagram", name: "", connected: false, avatarInitials: "" },
-  { platform: "google_business", name: "Northern Removals — Melbourne", connected: true, avatarInitials: "NR" },
+  { platform: "google_business", name: "", connected: false, avatarInitials: "" },
   { platform: "linkedin", name: "", connected: false, avatarInitials: "" },
   { platform: "nextdoor", name: "", connected: false, avatarInitials: "" },
 ];
@@ -142,138 +143,10 @@ function getWeekStart(date: Date): Date {
 
 const weekStart = getWeekStart(today);
 
-const SCHEDULED_POSTS: ScheduledPost[] = [
-  {
-    id: "sp1",
-    platforms: ["facebook", "google_business"],
-    text: "Spring is here! Time for a big cleanout. Book your rubbish removal today and save 15%.",
-    scheduledAt: new Date(weekStart.getTime() + 0 * 86400000 + 9 * 3600000), // Monday 9am
-    status: "published",
-    imageUrl: null,
-  },
-  {
-    id: "sp2",
-    platforms: ["facebook"],
-    text: "Did you know? The average household has 300kg of junk they no longer need. Clear the clutter and feel the difference!",
-    scheduledAt: new Date(weekStart.getTime() + 1 * 86400000 + 12 * 3600000), // Tuesday noon
-    status: "published",
-    imageUrl: null,
-  },
-  {
-    id: "sp3",
-    platforms: ["facebook", "google_business"],
-    text: "Another 5-star review! Thanks to the Martinez family for trusting us with their estate clearance.",
-    scheduledAt: new Date(weekStart.getTime() + 2 * 86400000 + 14 * 3600000), // Wednesday 2pm
-    status: "scheduled",
-    imageUrl: null,
-  },
-  {
-    id: "sp4",
-    platforms: ["google_business"],
-    text: "Weekend emergency? We're available for same-day pickups. Call us anytime!",
-    scheduledAt: new Date(weekStart.getTime() + 4 * 86400000 + 10 * 3600000), // Friday 10am
-    status: "scheduled",
-    imageUrl: null,
-  },
-  {
-    id: "sp5",
-    platforms: ["facebook", "google_business"],
-    text: "Happy Saturday! Here's a quick tip: Schedule regular pickups to keep your property clutter-free and looking its best.",
-    scheduledAt: new Date(weekStart.getTime() + 5 * 86400000 + 8 * 3600000), // Saturday 8am
-    status: "scheduled",
-    imageUrl: null,
-  },
-];
-
-const RECENT_POSTS: RecentPost[] = [
-  {
-    id: "rp1",
-    platforms: ["facebook", "google_business"],
-    text: "Spring is here! Time for a big cleanout. Book your rubbish removal today and save 15%.",
-    postedAt: new Date("2026-03-22T09:00:00"),
-    status: "published",
-    likes: 24,
-    comments: 5,
-    shares: 8,
-    reach: 1247,
-  },
-  {
-    id: "rp2",
-    platforms: ["facebook"],
-    text: "Did you know? The average household has 300kg of junk they no longer need. Clear the clutter and feel the difference!",
-    postedAt: new Date("2026-03-21T12:00:00"),
-    status: "published",
-    likes: 31,
-    comments: 7,
-    shares: 12,
-    reach: 1893,
-  },
-  {
-    id: "rp3",
-    platforms: ["facebook", "google_business"],
-    text: "We're hiring! Looking for experienced removalists to join our growing team. Great pay, benefits, and company truck.",
-    postedAt: new Date("2026-03-20T10:00:00"),
-    status: "published",
-    likes: 45,
-    comments: 12,
-    shares: 23,
-    reach: 3421,
-  },
-  {
-    id: "rp4",
-    platforms: ["google_business"],
-    text: "Thanks to the Williams family for the 5-star review! We love serving our Austin community.",
-    postedAt: new Date("2026-03-19T14:00:00"),
-    status: "published",
-    likes: 18,
-    comments: 3,
-    shares: 2,
-    reach: 876,
-  },
-  {
-    id: "rp5",
-    platforms: ["facebook"],
-    text: "Moving tip: Label your boxes by room and pack heavier items at the bottom. Need help? Call us!",
-    postedAt: new Date("2026-03-18T11:00:00"),
-    status: "published",
-    likes: 52,
-    comments: 8,
-    shares: 31,
-    reach: 4102,
-  },
-  {
-    id: "rp6",
-    platforms: ["facebook", "google_business"],
-    text: "New blog post: 7 Signs It's Time for a Big Cleanout. Link in comments!",
-    postedAt: new Date("2026-03-17T09:00:00"),
-    status: "failed",
-    likes: 0,
-    comments: 0,
-    shares: 0,
-    reach: 0,
-  },
-];
-
-const AI_SUGGESTIONS: AiSuggestion[] = [
-  {
-    id: "ai1",
-    title: "5 Signs It's Time for a Big Cleanout",
-    text: "Is clutter taking over your home? Here are 5 signs it's time to call in the professionals:\n\n1. You can't park in your own garage\n2. There are rooms you avoid because of junk\n3. You're tripping over things regularly\n4. You've been saying 'I'll deal with it later' for months\n5. You're moving and need a fresh start\n\nDon't wait -- call us for a free quote today! #DeclutterYourLife #RubbishRemoval #CleanSpace",
-    category: "educational",
-  },
-  {
-    id: "ai2",
-    title: "Customer Spotlight: The Johnson Family's Estate Clearance",
-    text: "We're so proud of the estate clearance we completed for the Johnson family! Three truckloads of furniture, appliances, and general rubbish -- all gone in a single day.\n\nMrs. Johnson said: \"The team was incredibly professional and finished ahead of schedule. The house looks brand new!\"\n\nThank you for trusting Northern Removals! #CustomerSpotlight #EstateClearance #CleanStart",
-    category: "social_proof",
-  },
-  {
-    id: "ai3",
-    title: "Spring Cleanout Special -- Save 20% until April 15",
-    text: "Spring is here and it's the perfect time for a big cleanout!\n\nFor a limited time, save 20% on all removal services.\n\nWe handle:\n- Furniture and appliance removal\n- Garden and green waste\n- Hard rubbish and e-waste\n- Full house cleanouts\n- Commercial waste\n\nOffer valid through April 15. Call or book online today! #SpringCleanout #RubbishRemoval #SaveMoney",
-    category: "promotional",
-  },
-];
+// Real posts will come from the API; start empty
+const SCHEDULED_POSTS: ScheduledPost[] = [];
+const RECENT_POSTS: RecentPost[] = [];
+const AI_SUGGESTIONS: AiSuggestion[] = [];
 
 // ── Helpers ──
 

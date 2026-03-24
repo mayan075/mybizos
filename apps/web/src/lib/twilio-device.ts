@@ -106,8 +106,12 @@ async function fetchToken(): Promise<string | null> {
     const data = await res.json();
 
     if (!res.ok) {
+      const errorMsg = data.error ?? `Token request failed (HTTP ${res.status})`;
+      console.error('[TwilioDevice] fetchToken failed:', errorMsg, data);
       if (data.needsSetup) {
         setState({ needsSetup: true, error: null });
+      } else {
+        setState({ error: errorMsg });
       }
       return null;
     }
@@ -116,6 +120,9 @@ async function fetchToken(): Promise<string | null> {
     setState({ needsSetup: false });
     return data.token as string;
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Network error reaching API';
+    console.error('[TwilioDevice] fetchToken network error:', message);
+    setState({ error: `Cannot reach API: ${message}` });
     return null;
   }
 }
@@ -155,6 +162,7 @@ export async function runVoiceSetup(): Promise<{ success: boolean; error?: strin
   }
 
   try {
+    console.info('[TwilioDevice] Running voice setup for org:', orgId);
     const res = await fetch(`${API_BASE}/orgs/${orgId}/voice/setup`, {
       method: 'POST',
       headers,
@@ -162,13 +170,21 @@ export async function runVoiceSetup(): Promise<{ success: boolean; error?: strin
     const data = await res.json();
 
     if (!res.ok) {
-      return { success: false, error: data.error ?? 'Setup failed' };
+      const errorMsg = data.error ?? `Setup failed (HTTP ${res.status})`;
+      console.error('[TwilioDevice] runVoiceSetup failed:', errorMsg, data);
+      setState({ error: errorMsg });
+      return { success: false, error: errorMsg };
     }
 
-    setState({ needsSetup: false });
+    console.info('[TwilioDevice] Voice setup succeeded:', data);
+    setState({ needsSetup: false, error: null });
     return { success: true };
   } catch (err) {
-    return { success: false, error: 'Network error. Make sure the API is running.' };
+    const message = err instanceof Error ? err.message : 'Network error';
+    const errorMsg = `Network error reaching API (${message}). Make sure the API is running.`;
+    console.error('[TwilioDevice] runVoiceSetup network error:', errorMsg);
+    setState({ error: errorMsg });
+    return { success: false, error: errorMsg };
   }
 }
 
@@ -180,14 +196,19 @@ export async function initDevice(): Promise<void> {
 
   setState({ deviceStatus: 'initializing', error: null });
 
+  console.info('[TwilioDevice] Initializing device...');
   const token = await fetchToken();
   if (!token) {
-    setState({
-      deviceStatus: 'error',
-      error: currentState.needsSetup
-        ? null  // Don't show error if setup is needed — the UI will show the setup button
-        : 'Could not get voice token. Check your phone system configuration.',
-    });
+    console.warn('[TwilioDevice] No token received. needsSetup:', currentState.needsSetup);
+    if (currentState.needsSetup) {
+      // Don't overwrite the error — the UI will show the setup button
+      setState({ deviceStatus: 'error' });
+    } else {
+      setState({
+        deviceStatus: 'error',
+        error: currentState.error ?? 'Could not get voice token. Check your phone system configuration.',
+      });
+    }
     return;
   }
 
