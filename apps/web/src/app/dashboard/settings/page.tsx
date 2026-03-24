@@ -24,6 +24,7 @@ import {
   EyeOff,
   AlertCircle,
   Lock,
+  Loader2,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -31,6 +32,7 @@ import { getUser } from "@/lib/auth";
 import { getOnboardingData } from "@/lib/onboarding";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { getOrgId } from "@/lib/hooks/use-api";
+import { useToast } from "@/components/ui/toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -451,6 +453,7 @@ function SettingsContent() {
   usePageTitle("Settings");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
 
   // --- Tab from URL ---
   const tabParam = searchParams.get("tab") ?? "profile";
@@ -463,11 +466,8 @@ function SettingsContent() {
   // --- State ---
   const [settings, setSettings] = useState<AllSettings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [savingSection, setSavingSection] = useState<string | null>(null);
 
   // Password fields (not persisted)
   const [currentPassword, setCurrentPassword] = useState("");
@@ -539,10 +539,13 @@ function SettingsContent() {
     []
   );
 
-  // --- Toast ---
+  // --- Toast helper (delegates to shared toast system) ---
   function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === "error") {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
   }
 
   // --- Validation ---
@@ -586,14 +589,21 @@ function SettingsContent() {
     return Object.keys(errs).length === 0;
   }
 
-  // --- Save Handlers ---
+  // --- Save Handlers (with loading state) ---
   async function handleSaveGeneral() {
     if (!validateGeneral()) {
       showToast("Please fix the errors below", "error");
       return;
     }
-    const saved = await saveSettingsToApi(settings);
-    showToast(saved ? "Settings saved!" : "Saved locally (API unavailable)");
+    setSavingSection("general");
+    try {
+      const saved = await saveSettingsToApi(settings);
+      showToast(saved ? "Settings saved!" : "Saved locally (API unavailable)");
+    } catch {
+      showToast("Failed to save settings", "error");
+    } finally {
+      setSavingSection(null);
+    }
   }
 
   async function handleSaveProfile() {
@@ -601,29 +611,56 @@ function SettingsContent() {
       showToast("Please fix the errors below", "error");
       return;
     }
-    const saved = await saveSettingsToApi(settings);
-    if (currentPassword && newPassword) {
-      // In a real app this would call an API
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+    setSavingSection("profile");
+    try {
+      const saved = await saveSettingsToApi(settings);
+      if (currentPassword && newPassword) {
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+      showToast(saved ? "Profile saved!" : "Saved locally (API unavailable)");
+    } catch {
+      showToast("Failed to save profile", "error");
+    } finally {
+      setSavingSection(null);
     }
-    showToast(saved ? "Profile saved!" : "Saved locally (API unavailable)");
   }
 
   async function handleSaveAiAgent() {
-    const saved = await saveSettingsToApi(settings);
-    showToast(saved ? "AI agent configuration saved!" : "Saved locally (API unavailable)");
+    setSavingSection("ai-agent");
+    try {
+      const saved = await saveSettingsToApi(settings);
+      showToast(saved ? "AI agent configuration saved!" : "Saved locally (API unavailable)");
+    } catch {
+      showToast("Failed to save AI configuration", "error");
+    } finally {
+      setSavingSection(null);
+    }
   }
 
   async function handleSaveEmail() {
-    const saved = await saveSettingsToApi(settings);
-    showToast(saved ? "Email settings saved!" : "Saved locally (API unavailable)");
+    setSavingSection("email");
+    try {
+      const saved = await saveSettingsToApi(settings);
+      showToast(saved ? "Email settings saved!" : "Saved locally (API unavailable)");
+    } catch {
+      showToast("Failed to save email settings", "error");
+    } finally {
+      setSavingSection(null);
+    }
   }
 
   async function handleSaveIntegrations() {
-    const saved = await saveSettingsToApi(settings);
-    showToast(saved ? "Integration settings saved!" : "Saved locally (API unavailable)");
+    setSavingSection("integrations");
+    try {
+      const saved = await saveSettingsToApi(settings);
+      showToast(saved ? "Integration settings saved!" : "Saved locally (API unavailable)");
+    } catch {
+      showToast("Failed to save integration settings", "error");
+    } finally {
+      setSavingSection(null);
+    }
   }
 
   // Don't render form until hydrated (avoids hydration mismatch)
@@ -646,23 +683,6 @@ function SettingsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={cn(
-            "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2",
-            toast.type === "success" ? "bg-emerald-600" : "bg-destructive"
-          )}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          {toast.message}
-        </div>
-      )}
-
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -890,14 +910,20 @@ function SettingsContent() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSaveProfile}
+                  disabled={savingSection === "profile"}
                   className={cn(
                     "flex h-9 items-center gap-2 rounded-lg px-4",
                     "bg-primary text-primary-foreground text-sm font-medium",
-                    "hover:bg-primary/90 transition-colors"
+                    "hover:bg-primary/90 transition-colors",
+                    savingSection === "profile" && "opacity-70 cursor-not-allowed"
                   )}
                 >
-                  <Save className="h-4 w-4" />
-                  Save Profile
+                  {savingSection === "profile" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {savingSection === "profile" ? "Saving..." : "Save Profile"}
                 </button>
               </div>
             </div>
@@ -1075,14 +1101,20 @@ function SettingsContent() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSaveGeneral}
+                  disabled={savingSection === "general"}
                   className={cn(
                     "flex h-9 items-center gap-2 rounded-lg px-4",
                     "bg-primary text-primary-foreground text-sm font-medium",
-                    "hover:bg-primary/90 transition-colors"
+                    "hover:bg-primary/90 transition-colors",
+                    savingSection === "general" && "opacity-70 cursor-not-allowed"
                   )}
                 >
-                  <Save className="h-4 w-4" />
-                  Save Changes
+                  {savingSection === "general" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {savingSection === "general" ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -1349,14 +1381,20 @@ function SettingsContent() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSaveAiAgent}
+                  disabled={savingSection === "ai-agent"}
                   className={cn(
                     "flex h-9 items-center gap-2 rounded-lg px-4",
                     "bg-primary text-primary-foreground text-sm font-medium",
-                    "hover:bg-primary/90 transition-colors"
+                    "hover:bg-primary/90 transition-colors",
+                    savingSection === "ai-agent" && "opacity-70 cursor-not-allowed"
                   )}
                 >
-                  <Save className="h-4 w-4" />
-                  Save AI Configuration
+                  {savingSection === "ai-agent" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {savingSection === "ai-agent" ? "Saving..." : "Save AI Configuration"}
                 </button>
               </div>
             </div>
@@ -1499,14 +1537,20 @@ function SettingsContent() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSaveEmail}
+                  disabled={savingSection === "email"}
                   className={cn(
                     "flex h-9 items-center gap-2 rounded-lg px-4",
                     "bg-primary text-primary-foreground text-sm font-medium",
-                    "hover:bg-primary/90 transition-colors"
+                    "hover:bg-primary/90 transition-colors",
+                    savingSection === "email" && "opacity-70 cursor-not-allowed"
                   )}
                 >
-                  <Save className="h-4 w-4" />
-                  Save Email Settings
+                  {savingSection === "email" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {savingSection === "email" ? "Saving..." : "Save Email Settings"}
                 </button>
               </div>
             </div>
@@ -1603,7 +1647,7 @@ function SettingsContent() {
                                 [integration.key]: !connected,
                               },
                             };
-                            saveSettings(next);
+                            saveSettingsToApi(next);
                             showToast(
                               `${integration.name} ${!connected ? "connected" : "disconnected"}`
                             );

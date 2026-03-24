@@ -17,6 +17,11 @@ import {
   AlertTriangle,
   ChevronRight,
   Menu,
+  Plus,
+  Users,
+  Kanban,
+  CalendarDays,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUser, removeToken } from "@/lib/auth";
@@ -115,13 +120,22 @@ function getInitials(name: string): string {
   return (parts[0]?.substring(0, 2) ?? "DU").toUpperCase();
 }
 
+const quickActions = [
+  { id: "qa-contact", label: "New Contact", icon: Users, href: "/dashboard/contacts?action=new" },
+  { id: "qa-deal", label: "New Deal", icon: Kanban, href: "/dashboard/pipeline?action=new" },
+  { id: "qa-appointment", label: "New Appointment", icon: CalendarDays, href: "/dashboard/scheduling?action=new" },
+  { id: "qa-invoice", label: "New Invoice", icon: Receipt, href: "/dashboard/invoices/new" },
+];
+
 export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderProps) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set(["n6", "n7"]));
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
 
   const user = useMemo(() => getUser(), []);
   const onboarding = useMemo(() => getOnboardingData(), []);
@@ -142,6 +156,9 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
       if (userRef.current && !userRef.current.contains(e.target as Node)) {
         setShowUserMenu(false);
       }
+      if (quickActionsRef.current && !quickActionsRef.current.contains(e.target as Node)) {
+        setShowQuickActions(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -153,6 +170,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
       if (e.key === "Escape") {
         setShowNotifications(false);
         setShowUserMenu(false);
+        setShowQuickActions(false);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -212,8 +230,50 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
         </kbd>
       </button>
 
-      {/* Right: Notifications + user menu */}
+      {/* Right: Quick actions + Notifications + user menu */}
       <div className="flex items-center gap-1.5">
+        {/* Quick Actions (+) button */}
+        <div className="relative" ref={quickActionsRef}>
+          <button
+            onClick={() => { setShowQuickActions(!showQuickActions); setShowNotifications(false); setShowUserMenu(false); }}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl",
+              "text-muted-foreground hover:text-foreground",
+              "hover:bg-muted/60",
+              "transition-colors",
+              showQuickActions && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+            )}
+            aria-label="Quick actions"
+            title="Create new..."
+          >
+            <Plus className={cn("h-[18px] w-[18px] transition-transform duration-200", showQuickActions && "rotate-45")} />
+          </button>
+
+          {showQuickActions && (
+            <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-popover border border-border/60 shadow-lg z-[60]">
+              <div className="px-4 py-2.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Create New</p>
+              </div>
+              <div className="h-px bg-border/50 mx-3" />
+              <div className="p-1.5">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      setShowQuickActions(false);
+                      router.push(action.href);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <action.icon className="h-4 w-4 text-muted-foreground" />
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Notification bell */}
         <div className="relative" ref={notifRef}>
           <button

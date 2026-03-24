@@ -29,6 +29,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useContact } from "@/lib/hooks/use-contacts";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { trackPageVisit } from "@/lib/recently-viewed";
 import type { LucideIcon } from "lucide-react";
 import type { MockTimelineEntry, MockChatMessage } from "@/lib/mock-data";
 
@@ -269,6 +271,17 @@ export default function ContactDetailPage({
     .map((n) => n[0])
     .join("");
 
+  // Track this page visit for recently viewed
+  useEffect(() => {
+    if (contact.name) {
+      trackPageVisit({
+        path: `/dashboard/contacts/${id}`,
+        label: contact.name,
+        type: "Contact",
+      });
+    }
+  }, [id, contact.name]);
+
   // Tab state from URL
   const tabParam = searchParams.get("tab") as TabKey | null;
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam ?? "timeline");
@@ -445,14 +458,8 @@ export default function ContactDetailPage({
         </div>
       )}
 
-      {/* Back link */}
-      <Link
-        href="/dashboard/contacts"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Contacts
-      </Link>
+      {/* Breadcrumbs */}
+      <Breadcrumbs currentLabel={contact.name} />
 
       {/* Contact header */}
       <div className="flex items-start justify-between">

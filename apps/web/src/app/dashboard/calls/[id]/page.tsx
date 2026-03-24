@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 /* -------------------------------------------------------------------------- */
 /*  Types (mirrored from parent)                                               */
@@ -372,18 +373,13 @@ export default function CallDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back button + header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/dashboard/calls")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Call Details</h1>
-          <p className="text-sm text-muted-foreground">{formatFullTimestamp(call.timestamp)}</p>
-        </div>
+      {/* Breadcrumbs */}
+      <Breadcrumbs currentLabel={displayName} />
+
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Call Details</h1>
+        <p className="text-sm text-muted-foreground">{formatFullTimestamp(call.timestamp)}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

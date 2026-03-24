@@ -27,8 +27,11 @@ import {
   MessageSquare,
   Send,
   ArrowRight,
+  Clock,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getRecentlyViewed, type RecentlyViewedItem } from "@/lib/recently-viewed";
 
 // ---------------------------------------------------------------------------
 // Command definitions
@@ -40,11 +43,13 @@ interface Command {
   icon: React.ElementType;
   section: string;
   shortcut?: string;
-  action: "navigate" | "create" | "search" | "action";
+  action: "navigate" | "create" | "search" | "action" | "recent";
   href?: string;
+  /** For dynamic commands: a description shown below the label */
+  description?: string;
 }
 
-const commands: Command[] = [
+const staticCommands: Command[] = [
   // Navigation — Core
   { id: "nav-dashboard", label: "Go to Dashboard", icon: LayoutDashboard, section: "Navigation", action: "navigate", href: "/dashboard" },
   { id: "nav-contacts", label: "Go to Contacts", icon: Users, section: "Navigation", action: "navigate", href: "/dashboard/contacts" },
@@ -73,17 +78,14 @@ const commands: Command[] = [
   { id: "nav-notifications", label: "Go to Notifications", icon: Activity, section: "Navigation", action: "navigate", href: "/dashboard/notifications" },
 
   // Create actions
-  { id: "create-contact", label: "New Contact", icon: Plus, section: "Create", shortcut: "Ctrl+N", action: "create", href: "/dashboard/contacts" },
-  { id: "create-deal", label: "New Deal", icon: Plus, section: "Create", shortcut: "Ctrl+Shift+N", action: "create", href: "/dashboard/pipeline" },
-  { id: "create-appointment", label: "New Appointment", icon: Plus, section: "Create", action: "create", href: "/dashboard/scheduling" },
-
-  // Search
-  { id: "search-contacts", label: "Search Contacts", icon: Search, section: "Search", action: "search", href: "/dashboard/contacts" },
-  { id: "search-deals", label: "Search Deals", icon: Search, section: "Search", action: "search", href: "/dashboard/pipeline" },
+  { id: "create-contact", label: "New Contact", icon: Plus, section: "Create", shortcut: "Ctrl+N", action: "create", href: "/dashboard/contacts?action=new" },
+  { id: "create-deal", label: "New Deal", icon: Plus, section: "Create", shortcut: "Ctrl+Shift+N", action: "create", href: "/dashboard/pipeline?action=new" },
+  { id: "create-appointment", label: "New Appointment", icon: Plus, section: "Create", action: "create", href: "/dashboard/scheduling?action=new" },
+  { id: "create-invoice", label: "New Invoice", icon: Plus, section: "Create", action: "create", href: "/dashboard/invoices/new" },
 
   // Actions
-  { id: "action-sms", label: "Send SMS", icon: MessageSquare, section: "Actions", action: "action", href: "/dashboard/inbox" },
-  { id: "action-call", label: "Make a Call", icon: Phone, section: "Actions", action: "action", href: "/dashboard/calls" },
+  { id: "action-sms", label: "Send SMS", icon: MessageSquare, section: "Actions", description: "Open inbox to send a text message", action: "action", href: "/dashboard/inbox" },
+  { id: "action-call", label: "Make a Call", icon: Phone, section: "Actions", description: "Open the dialer to place a call", action: "action", href: "/dashboard/calls" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -102,20 +104,51 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Load recently viewed items when palette opens
+  const [recentItems, setRecentItems] = useState<RecentlyViewedItem[]>([]);
+  useEffect(() => {
+    if (open) {
+      setRecentItems(getRecentlyViewed());
+    }
+  }, [open]);
+
+  // Build recent commands from recently viewed
+  const recentCommands: Command[] = useMemo(() => {
+    return recentItems.slice(0, 5).map((item, idx) => ({
+      id: `recent-${idx}`,
+      label: item.label,
+      icon: item.type === "Contact" ? User :
+            item.type === "Deal" ? Kanban :
+            item.type === "Invoice" ? Receipt :
+            item.type === "Appointment" ? CalendarDays :
+            Clock,
+      section: "Recent",
+      action: "recent" as const,
+      href: item.path,
+      description: item.type,
+    }));
+  }, [recentItems]);
+
+  // Merge all commands
+  const allCommands = useMemo(() => {
+    return [...recentCommands, ...staticCommands];
+  }, [recentCommands]);
+
   const filtered = useMemo(() => {
-    if (!query) return commands;
+    if (!query) return allCommands;
     const q = query.toLowerCase();
-    return commands.filter(
+    return allCommands.filter(
       (cmd) =>
         cmd.label.toLowerCase().includes(q) ||
-        cmd.section.toLowerCase().includes(q),
+        cmd.section.toLowerCase().includes(q) ||
+        (cmd.description && cmd.description.toLowerCase().includes(q)),
     );
-  }, [query]);
+  }, [query, allCommands]);
 
   // Group filtered commands by section
   const grouped = useMemo(() => {
     const sections: { title: string; items: Command[] }[] = [];
-    const sectionOrder = ["Create", "Actions", "Search", "Navigation"];
+    const sectionOrder = ["Recent", "Create", "Actions", "Search", "Navigation"];
 
     for (const section of sectionOrder) {
       const items = filtered.filter((c) => c.section === section);
@@ -212,7 +245,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search..."
+            placeholder="Search contacts, deals, pages, or type a command..."
             className="h-12 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           <button
@@ -253,7 +286,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     )}
                   >
                     <cmd.icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1">{cmd.label}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="block truncate">{cmd.label}</span>
+                      {cmd.description && (
+                        <span className="block text-[11px] text-muted-foreground truncate">{cmd.description}</span>
+                      )}
+                    </div>
                     {cmd.shortcut && (
                       <kbd className="inline-flex h-5 items-center rounded border border-border bg-muted px-1.5 text-[10px] text-muted-foreground shrink-0">
                         {cmd.shortcut}

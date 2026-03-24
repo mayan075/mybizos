@@ -1,14 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban } from "lucide-react";
+import { Plus, MoreHorizontal, DollarSign, User, Clock, X, Kanban, AlertCircle, Loader2 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useDeals, usePipelines, useCreateDeal, useMoveDeal } from "@/lib/hooks/use-deals";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PipelineSkeleton } from "@/components/skeletons/pipeline-skeleton";
+import { useToast } from "@/components/ui/toast";
 import type { MockDeal } from "@/lib/mock-data";
+
+/* -------------------------------------------------------------------------- */
+/*  Validation                                                                 */
+/* -------------------------------------------------------------------------- */
+
+interface DealFormErrors {
+  title?: string;
+  contact?: string;
+  value?: string;
+}
+
+function validateDealForm(title: string, contact: string, value: string): DealFormErrors {
+  const errors: DealFormErrors = {};
+  if (!title.trim()) {
+    errors.title = "Deal title is required";
+  }
+  if (!contact.trim()) {
+    errors.contact = "Contact name is required";
+  }
+  if (value) {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 0) {
+      errors.value = "Value must be a positive number";
+    }
+  }
+  return errors;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Sub-components                                                             */
+/* -------------------------------------------------------------------------- */
 
 const stageTooltips: Record<string, string> = {
   "New Lead": "Fresh leads that just came in. Review and follow up to move them forward.",
@@ -35,10 +67,15 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export default function PipelinePage() {
   usePageTitle("Pipeline");
+  const toast = useToast();
   const { data: columnDefs, isLoading: columnsLoading } = usePipelines();
-  const { data: apiDeals, isLoading: dealsLoading } = useDeals();
+  const { data: apiDeals, isLoading: dealsLoading, refetch } = useDeals();
   const { mutate: createDealApi } = useCreateDeal();
   const { mutate: moveDealApi } = useMoveDeal();
 
@@ -47,21 +84,24 @@ export default function PipelinePage() {
   const [draggedDeal, setDraggedDeal] = useState<{ deal: MockDeal; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   // Add deal form
   const [newTitle, setNewTitle] = useState("");
   const [newContact, setNewContact] = useState("");
   const [newValue, setNewValue] = useState("");
+  const [formErrors, setFormErrors] = useState<DealFormErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const isLoading = columnsLoading || dealsLoading;
 
   // Use local state if available (after first mutation), otherwise API/mock data
   const currentDeals = deals ?? apiDeals;
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+  function resetForm() {
+    setNewTitle("");
+    setNewContact("");
+    setNewValue("");
+    setFormErrors({});
   }
 
   function handleDragStart(deal: MockDeal, fromCol: string) {
@@ -101,12 +141,20 @@ export default function PipelinePage() {
     moveDealApi({ id: draggedDeal.deal.id, stageId: toCol });
 
     const colName = columnDefs.find((c) => c.id === toCol)?.title ?? toCol;
-    showToast(`"${draggedDeal.deal.title}" moved to ${colName}`);
+    toast.success(`"${draggedDeal.deal.title}" moved to ${colName}`);
     setDraggedDeal(null);
   }
 
   async function handleAddDeal(colId: string) {
-    if (!newTitle.trim() || !newContact.trim()) return;
+    // Validate
+    const errors = validateDealForm(newTitle, newContact, newValue);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setIsSaving(true);
+
     const deal: MockDeal = {
       id: `d-${Date.now()}`,
       title: newTitle.trim(),
@@ -123,19 +171,34 @@ export default function PipelinePage() {
       [colId]: [...prev[colId], deal],
     });
 
-    // Try to persist via API
-    await createDealApi({
-      title: deal.title,
-      contact: deal.contact,
-      value: deal.value,
-      stageId: colId,
-    });
+    try {
+      // Persist via API
+      const result = await createDealApi({
+        title: deal.title,
+        contact: deal.contact,
+        value: deal.value,
+        stageId: colId,
+      });
 
-    setShowAddModal(null);
-    setNewTitle("");
-    setNewContact("");
-    setNewValue("");
-    showToast(`Deal "${deal.title}" added`);
+      setShowAddModal(null);
+      resetForm();
+
+      if (result) {
+        toast.success(`Deal "${deal.title}" added`);
+        refetch();
+      } else {
+        toast.info(`Deal "${deal.title}" saved locally (API unavailable)`);
+      }
+    } catch {
+      // Remove optimistic deal on hard failure
+      setDeals({
+        ...prev,
+        [colId]: prev[colId],
+      });
+      toast.error("Failed to save deal. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   // Loading state — show skeleton while initial fetch is in progress
@@ -148,23 +211,16 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
       {/* Add Deal Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAddModal(null)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowAddModal(null); resetForm(); }} />
           <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-foreground">
                 Add Deal to {columnDefs.find((c) => c.id === showAddModal)?.title}
               </h2>
-              <button onClick={() => setShowAddModal(null)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors">
+              <button onClick={() => { setShowAddModal(null); resetForm(); }} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -173,46 +229,92 @@ export default function PipelinePage() {
                 <label className="text-sm font-medium text-foreground">Deal Title *</label>
                 <input
                   value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                  onChange={(e) => {
+                    setNewTitle(e.target.value);
+                    if (formErrors.title) setFormErrors((prev) => ({ ...prev, title: undefined }));
+                  }}
                   placeholder="Full Load Pickup"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.title
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.title && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.title}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Contact Name *</label>
                 <input
                   value={newContact}
-                  onChange={(e) => setNewContact(e.target.value)}
+                  onChange={(e) => {
+                    setNewContact(e.target.value);
+                    if (formErrors.contact) setFormErrors((prev) => ({ ...prev, contact: undefined }));
+                  }}
                   placeholder="Sarah Johnson"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.contact
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.contact && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.contact}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Value ($)</label>
                 <input
                   value={newValue}
-                  onChange={(e) => setNewValue(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => {
+                    setNewValue(e.target.value.replace(/\D/g, ""));
+                    if (formErrors.value) setFormErrors((prev) => ({ ...prev, value: undefined }));
+                  }}
                   placeholder="4500"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.value
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.value && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.value}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowAddModal(null)} className="flex h-9 items-center rounded-lg border border-input px-4 text-sm text-muted-foreground hover:bg-muted transition-colors">
+              <button onClick={() => { setShowAddModal(null); resetForm(); }} className="flex h-9 items-center rounded-lg border border-input px-4 text-sm text-muted-foreground hover:bg-muted transition-colors">
                 Cancel
               </button>
               <button
                 onClick={() => handleAddDeal(showAddModal)}
-                disabled={!newTitle.trim() || !newContact.trim()}
+                disabled={isSaving}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-                  newTitle.trim() && newContact.trim()
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground cursor-not-allowed",
+                  isSaving
+                    ? "bg-primary/70 text-primary-foreground cursor-not-allowed"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90",
                 )}
               >
-                <Plus className="h-4 w-4" />
-                Add Deal
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {isSaving ? "Saving..." : "Add Deal"}
               </button>
             </div>
           </div>

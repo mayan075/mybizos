@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import {
   ChevronLeft,
@@ -669,8 +669,40 @@ function ProgressBar({ current }: { current: number }) {
 export default function BookingPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "your-business";
-  const businessName = slugToBusinessName(slug);
+  const fallbackName = slugToBusinessName(slug);
   const services = useMemo(() => getServicesForSlug(slug), [slug]);
+
+  // Fetch real org info from API (business name + phone)
+  const [orgInfo, setOrgInfo] = useState<{ name: string; phone: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchOrgInfo() {
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+        const res = await fetch(`${API_BASE}/public/org/${slug}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const json = await res.json() as { data?: { name?: string; phone?: string } };
+          const data = json.data ?? json;
+          if (!cancelled && data && typeof data === "object") {
+            setOrgInfo({
+              name: (data as Record<string, string>).name || fallbackName,
+              phone: (data as Record<string, string>).phone || "",
+            });
+          }
+        }
+      } catch {
+        // API unavailable — use slug-derived name
+      }
+    }
+    fetchOrgInfo();
+    return () => { cancelled = true; };
+  }, [slug, fallbackName]);
+
+  const businessName = orgInfo?.name || fallbackName;
+  const businessPhone = orgInfo?.phone || "";
 
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -765,14 +797,16 @@ export default function BookingPage() {
               Serving your area
             </p>
           </div>
-          <a
-            href={`tel:+15551234567`}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">(555) 123-4567</span>
-            <span className="sm:hidden">Call</span>
-          </a>
+          {businessPhone && (
+            <a
+              href={`tel:${businessPhone}`}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{businessPhone}</span>
+              <span className="sm:hidden">Call</span>
+            </a>
+          )}
         </div>
       </header>
 

@@ -22,6 +22,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { trackPageVisit } from "@/lib/recently-viewed";
+import { useEffect } from "react";
 
 // ── Types ──
 
@@ -295,6 +298,17 @@ export default function InvoiceDetailPage() {
 
   const invoiceData = mockInvoiceDetails[invoiceId];
 
+  // Track page visit for recently viewed
+  useEffect(() => {
+    if (invoiceData) {
+      trackPageVisit({
+        path: `/dashboard/invoices/${invoiceId}`,
+        label: invoiceData.number,
+        type: "Invoice",
+      });
+    }
+  }, [invoiceId, invoiceData]);
+
   if (!invoiceData) {
     return (
       <div className="space-y-6">
@@ -333,21 +347,27 @@ export default function InvoiceDetailPage() {
 
   if (invoiceData.status === "draft") {
     return (
-      <DraftInvoiceView
-        invoice={invoiceData}
-        toast={toast}
-        showToast={showToast}
-        router={router}
-      />
+      <div className="space-y-4">
+        <Breadcrumbs currentLabel={invoiceData.number} />
+        <DraftInvoiceView
+          invoice={invoiceData}
+          toast={toast}
+          showToast={showToast}
+          router={router}
+        />
+      </div>
     );
   }
 
   return (
-    <InvoiceView
-      invoice={invoiceData}
-      toast={toast}
-      showToast={showToast}
-    />
+    <div className="space-y-4">
+      <Breadcrumbs currentLabel={invoiceData.number} />
+      <InvoiceView
+        invoice={invoiceData}
+        toast={toast}
+        showToast={showToast}
+      />
+    </div>
   );
 }
 

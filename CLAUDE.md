@@ -94,7 +94,34 @@ packages/ai   → @mybizos/shared, @mybizos/db
 packages/email → @mybizos/shared
 ```
 
-## Current Phase: Phase 1 — Wedge MVP
-Focus: Contacts, Pipeline, Unified Inbox, AI Phone Agent, AI SMS Agent, Scheduling, Dashboard.
-Do NOT build features from Phase 2+ (campaigns, workflows, forms, invoicing, etc.).
-If you think a feature is needed that's not in Phase 1, add it to FEATURE_JAIL.md instead.
+## Self-Debugging & Deployment Mindset (MUST Follow)
+
+When code is edited or deployed, PROACTIVELY check for issues:
+
+1. **After every code change:** Run build check (`next build` or `tsc --noEmit`) to catch errors before pushing
+2. **After every push:** Check Vercel deployment status (`vercel ls`) and fix any build errors from the logs (`vercel logs <deployment-url>`)
+3. **After every Railway push:** Check Railway deployment status and fix build errors
+4. **Pull deployment logs yourself** — don't wait for the user to report errors. Run `vercel ls`, `vercel logs`, and `curl` the Railway health endpoint proactively
+5. **Fix → Push → Verify loop:** Every fix must be verified by checking the deployment succeeded
+6. **Never assume a deploy worked** — always check the status after pushing
+7. **If stuck on a deployment issue:** Note it in docs/needs-mayan.md and move to other improvements
+
+### Deployment Commands
+```bash
+# Check Vercel status
+vercel ls | head -5
+
+# Get Vercel build logs
+vercel logs <deployment-url> | tail -30
+
+# Check Railway API
+curl -s --max-time 10 https://mybizos-production.up.railway.app/health
+
+# Force Vercel redeploy
+vercel --prod --yes
+```
+
+## Current Phase: All Phases Active
+The product has features across all 5 phases. Priority is making existing features WORK properly (not building new ones).
+Focus: Fix bugs, connect to real APIs, remove mock data, production readiness.
+If something is broken, FIX IT before building anything new.

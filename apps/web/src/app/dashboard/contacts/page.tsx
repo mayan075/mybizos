@@ -15,6 +15,8 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
@@ -22,7 +24,47 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ListSkeleton } from "@/components/skeletons/list-skeleton";
+import { useToast } from "@/components/ui/toast";
 import type { MockContact } from "@/lib/mock-data";
+
+/* -------------------------------------------------------------------------- */
+/*  Validation helpers                                                         */
+/* -------------------------------------------------------------------------- */
+
+interface ContactFormErrors {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+function validateEmail(email: string): boolean {
+  if (!email) return true; // email is optional
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validatePhone(phone: string): boolean {
+  if (!phone) return true; // phone is optional
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function validateContactForm(name: string, email: string, phone: string): ContactFormErrors {
+  const errors: ContactFormErrors = {};
+  if (!name.trim()) {
+    errors.name = "Name is required";
+  }
+  if (email && !validateEmail(email)) {
+    errors.email = "Please enter a valid email address";
+  }
+  if (phone && !validatePhone(phone)) {
+    errors.phone = "Please enter a valid phone number (at least 7 digits)";
+  }
+  return errors;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Sub-components                                                             */
+/* -------------------------------------------------------------------------- */
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -70,14 +112,18 @@ function TagBadge({ tag }: { tag: string }) {
 type SortKey = "name" | "score";
 type SortDir = "asc" | "desc";
 
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export default function ContactsPage() {
   usePageTitle("Contacts");
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   // Local additions (optimistic UI for when API is offline)
   const [localContacts, setLocalContacts] = useState<MockContact[]>([]);
@@ -87,9 +133,11 @@ export default function ContactsPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newSource, setNewSource] = useState("Phone");
+  const [formErrors, setFormErrors] = useState<ContactFormErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Hook: fetches from API, falls back to mock data
-  const { data: apiContacts, isLoading } = useContacts({ search });
+  const { data: apiContacts, isLoading, refetch } = useContacts({ search });
   const { mutate: createContact } = useCreateContact();
 
   // Merge API/mock contacts with locally added ones
@@ -148,19 +196,30 @@ export default function ContactsPage() {
     });
   }
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+  function resetForm() {
+    setNewName("");
+    setNewPhone("");
+    setNewEmail("");
+    setNewSource("Phone");
+    setFormErrors({});
   }
 
   async function handleAddContact() {
-    if (!newName.trim()) return;
+    // Validate
+    const errors = validateContactForm(newName, newEmail, newPhone);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    setIsSaving(true);
+
     const id = `c${Date.now()}`;
     const newContact: MockContact = {
       id,
       name: newName.trim(),
-      phone: newPhone.trim() || "(555) 000-0000",
-      email: newEmail.trim() || `${newName.trim().toLowerCase().replace(/\s/g, ".")}@email.com`,
+      phone: newPhone.trim() || "",
+      email: newEmail.trim() || "",
       score: Math.floor(Math.random() * 40) + 30,
       lastActivity: "Just now",
       tags: [],
@@ -170,20 +229,32 @@ export default function ContactsPage() {
     // Optimistically add to local state
     setLocalContacts((prev) => [newContact, ...prev]);
 
-    // Try to persist via API
-    await createContact({
-      name: newContact.name,
-      phone: newContact.phone,
-      email: newContact.email,
-      source: newContact.source,
-    });
+    try {
+      // Persist via API
+      const result = await createContact({
+        name: newContact.name,
+        phone: newContact.phone,
+        email: newContact.email,
+        source: newContact.source,
+      });
 
-    setShowModal(false);
-    setNewName("");
-    setNewPhone("");
-    setNewEmail("");
-    setNewSource("Phone");
-    showToast(`Contact "${newContact.name}" added successfully`);
+      setShowModal(false);
+      resetForm();
+
+      if (result) {
+        toast.success(`Contact "${newContact.name}" added successfully`);
+        // Refetch to get the server-assigned ID
+        refetch();
+      } else {
+        toast.info(`Contact "${newContact.name}" saved locally (API unavailable)`);
+      }
+    } catch {
+      // Remove the optimistic addition on hard failure
+      setLocalContacts((prev) => prev.filter((c) => c.id !== id));
+      toast.error("Failed to save contact. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -198,22 +269,15 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
       {/* Add Contact Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowModal(false); resetForm(); }} />
           <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-foreground">Add Contact</h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); resetForm(); }}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -224,28 +288,70 @@ export default function ContactsPage() {
                 <label className="text-sm font-medium text-foreground">Full Name *</label>
                 <input
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
                   placeholder="John Smith"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.name
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.name && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.name}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Phone</label>
                 <input
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
+                  onChange={(e) => {
+                    setNewPhone(e.target.value);
+                    if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: undefined }));
+                  }}
                   placeholder="(555) 000-0000"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.phone
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.phone && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.phone}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Email</label>
                 <input
                   value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
+                  onChange={(e) => {
+                    setNewEmail(e.target.value);
+                    if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
                   placeholder="john@example.com"
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.email
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.email && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.email}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Source</label>
@@ -266,23 +372,27 @@ export default function ContactsPage() {
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); resetForm(); }}
                 className="flex h-9 items-center rounded-lg border border-input px-4 text-sm text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddContact}
-                disabled={!newName.trim()}
+                disabled={isSaving}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-                  newName.trim()
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground cursor-not-allowed",
+                  isSaving
+                    ? "bg-primary/70 text-primary-foreground cursor-not-allowed"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90",
                 )}
               >
-                <Plus className="h-4 w-4" />
-                Add Contact
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {isSaving ? "Saving..." : "Add Contact"}
               </button>
             </div>
           </div>
@@ -323,7 +433,7 @@ export default function ContactsPage() {
           />
         </div>
         <button
-          onClick={() => showToast("Filters coming soon")}
+          onClick={() => toast.info("Filters coming soon")}
           className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
         >
           <Filter className="h-4 w-4" />
@@ -332,7 +442,7 @@ export default function ContactsPage() {
         <button
           onClick={() => {
             if (contacts.length === 0) {
-              showToast("No contacts to export");
+              toast.info("No contacts to export");
               return;
             }
             // Build CSV content
@@ -363,7 +473,7 @@ export default function ContactsPage() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            showToast(`Exported ${contacts.length} contacts to CSV`);
+            toast.success(`Exported ${contacts.length} contacts to CSV`);
           }}
           className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
         >
@@ -505,7 +615,7 @@ export default function ContactsPage() {
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button
-                      onClick={() => showToast(`Actions for ${contact.name}`)}
+                      onClick={() => toast.info(`Actions for ${contact.name}`)}
                       className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ml-auto"
                     >
                       <MoreHorizontal className="h-4 w-4" />
