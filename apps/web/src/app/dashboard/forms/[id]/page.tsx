@@ -199,7 +199,7 @@ const initialSettings: FormSettings = {
   autoCreateContact: true,
   autoAddTag: "quote-request",
   autoAddToPipeline: "new-leads",
-  notificationEmail: "john@acmehvac.com",
+  notificationEmail: "mayan@northernremovals.com.au",
 };
 
 // ── Helpers ──

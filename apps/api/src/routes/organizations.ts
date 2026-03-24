@@ -179,4 +179,80 @@ organizations.post('/:orgId/invite', requireRole('owner', 'admin'), async (c) =>
   return c.json({ data: member }, 201);
 });
 
+// ── In-memory settings store (per-org) ──
+// In production this would be the organization's `settings` JSONB column.
+
+const orgSettings: Record<string, Record<string, unknown>> = {};
+
+const settingsSchema = z.record(z.string(), z.unknown());
+
+/**
+ * GET /orgs/:orgId/settings — get all organization settings
+ */
+organizations.get('/:orgId/settings', async (c) => {
+  const orgId = c.get('orgId');
+  const settings = orgSettings[orgId] ?? {};
+  logger.info('Settings retrieved', { orgId });
+  return c.json({ data: settings });
+});
+
+/**
+ * POST /orgs/:orgId/settings — save/replace organization settings
+ */
+organizations.post('/:orgId/settings', async (c) => {
+  const orgId = c.get('orgId');
+  const body = await c.req.json();
+  const parsed = settingsSchema.parse(body);
+
+  orgSettings[orgId] = { ...orgSettings[orgId], ...parsed };
+  logger.info('Settings saved', { orgId, keys: Object.keys(parsed) });
+  return c.json({ data: orgSettings[orgId] });
+});
+
+/**
+ * POST /orgs/:orgId/onboarding — persist onboarding data to org settings
+ */
+organizations.post('/:orgId/onboarding', async (c) => {
+  const orgId = c.get('orgId');
+  const body = await c.req.json();
+
+  // Store onboarding data under the 'onboarding' key in org settings
+  if (!orgSettings[orgId]) {
+    orgSettings[orgId] = {};
+  }
+  orgSettings[orgId]['onboarding'] = body;
+
+  // Also update the org name from onboarding if provided
+  if (body.businessName) {
+    const orgIdx = mockOrgs.findIndex((o) => o.id === orgId);
+    if (orgIdx !== -1) {
+      const existing = mockOrgs[orgIdx] as Org;
+      mockOrgs[orgIdx] = {
+        ...existing,
+        name: body.businessName,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  logger.info('Onboarding data saved', { orgId, businessName: body.businessName });
+  return c.json({ data: orgSettings[orgId] });
+});
+
+/**
+ * GET /orgs/:orgId/conversations/unread-count — get count of unread conversations
+ */
+organizations.get('/:orgId/conversations/unread-count', async (c) => {
+  const orgId = c.get('orgId');
+  try {
+    const { conversationService } = await import('../services/conversation-service.js');
+    const conversations = await conversationService.list(orgId, { status: 'open' });
+    const unreadCount = conversations.filter((conv: Record<string, unknown>) => conv.status === 'open').length;
+    return c.json({ data: { count: unreadCount } });
+  } catch {
+    // If DB unavailable, return 0 (not a fake number)
+    return c.json({ data: { count: 0 } });
+  }
+});
+
 export { organizations as orgRoutes };

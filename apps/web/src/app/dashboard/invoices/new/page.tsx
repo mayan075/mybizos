@@ -13,7 +13,7 @@ import {
   Receipt,
   ChevronDown,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 // ── Types ──
 
@@ -51,15 +51,6 @@ const mockContacts = [
 ];
 
 // ── Helpers ──
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
 
 function generateId(): string {
   return `li-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -513,7 +504,7 @@ function InvoicePreview({
           </div>
           <p className="text-xs text-gray-500">123 Main Street, Denver, CO 80201</p>
           <p className="text-xs text-gray-500">(555) 123-4567</p>
-          <p className="text-xs text-gray-500">jim@jimsplumbing.com</p>
+          <p className="text-xs text-gray-500">mayan@northernremovals.com.au</p>
         </div>
         <div className="text-right">
           <h2 className="text-2xl font-bold text-gray-900">INVOICE</h2>
@@ -557,10 +548,10 @@ function InvoicePreview({
                 <td className="py-2 text-gray-900">{item.description || "---"}</td>
                 <td className="py-2 text-center text-gray-600">{item.quantity}</td>
                 <td className="py-2 text-right text-gray-600">
-                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.rate)}
+                  {formatCurrency(item.rate)}
                 </td>
                 <td className="py-2 text-right font-medium text-gray-900">
-                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.quantity * item.rate)}
+                  {formatCurrency(item.quantity * item.rate)}
                 </td>
               </tr>
             ))}
@@ -579,21 +570,21 @@ function InvoicePreview({
         <div className="flex justify-between">
           <span className="text-gray-500">Subtotal</span>
           <span className="text-gray-900">
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(subtotal)}
+            {formatCurrency(subtotal)}
           </span>
         </div>
         {taxAmount > 0 && (
           <div className="flex justify-between">
             <span className="text-gray-500">Tax ({draft.taxRate}%)</span>
             <span className="text-gray-900">
-              {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(taxAmount)}
+              {formatCurrency(taxAmount)}
             </span>
           </div>
         )}
         <div className="flex justify-between border-t border-gray-200 pt-2">
           <span className="text-base font-bold text-gray-900">Total</span>
           <span className="text-base font-bold text-gray-900">
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(total)}
+            {formatCurrency(total)}
           </span>
         </div>
       </div>

@@ -25,9 +25,12 @@ import {
   AlertCircle,
   Lock,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { getInitials } from "@/lib/utils";
+import { getUser } from "@/lib/auth";
+import { getOnboardingData } from "@/lib/onboarding";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -122,13 +125,26 @@ const DAYS: { key: DayOfWeek; label: string }[] = [
 ];
 
 const TIMEZONES = [
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Australia/Brisbane",
+  "Australia/Perth",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
   "America/Los_Angeles",
   "America/Phoenix",
   "America/Anchorage",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Dublin",
+  "Pacific/Auckland",
   "Pacific/Honolulu",
+  "Africa/Johannesburg",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Asia/Dubai",
 ];
 
 const VOICES = [
@@ -167,87 +183,171 @@ const defaultBusinessHours: BusinessHours = {
   sunday: { open: false, start: "09:00", end: "13:00" },
 };
 
-const defaultSettings: AllSettings = {
-  profile: {
-    fullName: "Jim Henderson",
-    email: "jim@acmehvac.com",
-    role: "Owner",
-  },
-  general: {
-    businessName: "Northern Removals",
-    phone: "(555) 123-4567",
-    email: "info@acmehvac.com",
-    address: "100 Main Street, Springfield, IL 62701",
-    serviceArea: "Springfield, IL and surrounding 30 miles",
-    timezone: "America/Chicago",
-    businessHours: defaultBusinessHours,
-  },
-  aiAgent: {
-    agentName: "Northern Removals Assistant",
-    voice: "Professional (Clear, Neutral)",
-    greeting:
-      "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?",
-    answerCalls: true,
-    autoRespondSms: true,
-    leadScoring: true,
-    autoBook: true,
-    emergencyEscalation: true,
-    priceQuoting: true,
-    transferEmergency: true,
-    transferHuman: true,
-    transferHighValue: false,
-    personalPhone: "",
-    personalityNotes: "",
-  },
-  email: {
-    businessEmail: "info@acmehvac.com",
-    emailSignature: "Best regards,\nNorthern Removals\n(555) 123-4567",
-    sendConfirmations: true,
-    sendReminders: true,
-    sendReviewRequests: false,
-  },
-  integrations: {
-    twilio: false,
-    vapi: false,
-    stripe: false,
-    googleCalendar: false,
-    resend: false,
-    quickbooks: false,
-  },
+/**
+ * Build default settings from onboarding data and authenticated user profile.
+ * No more hardcoded business names or personal details (Fix #2 + #8).
+ */
+function buildDefaultSettings(): AllSettings {
+  const user = typeof window !== "undefined" ? getUser() : null;
+  const onboarding = typeof window !== "undefined" ? getOnboardingData() : null;
+
+  const businessName = onboarding?.businessName ?? user?.orgName ?? "";
+  const userEmail = user?.email ?? "";
+  const userName = user?.name ?? "";
+  const userRole = user?.role ?? "owner";
+  const timezone = onboarding?.timezone ?? (typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "America/New_York");
+  const serviceArea = onboarding?.serviceArea ?? "";
+  const city = onboarding?.city ?? "";
+  const personalPhone = onboarding?.aiReceptionist?.personalPhone ?? "";
+  const aiGreeting = onboarding?.aiReceptionist?.greeting ?? (
+    businessName
+      ? `Hi, this is ${businessName}'s AI assistant. This call may be recorded. How can I help you today?`
+      : ""
+  );
+  const transferEmergency = onboarding?.aiReceptionist?.transferWhen?.emergency ?? true;
+  const transferHuman = onboarding?.aiReceptionist?.transferWhen?.customerRequestsHuman ?? true;
+  const transferHighValue = onboarding?.aiReceptionist?.transferWhen?.highValueQuote ?? false;
+
+  // Map onboarding hours to settings hours format if available
+  const businessHours: BusinessHours = onboarding?.businessHours
+    ? (Object.fromEntries(
+        Object.entries(onboarding.businessHours).map(([day, h]) => [
+          day,
+          { open: (h as { open: boolean; start: string; end: string }).open, start: (h as { open: boolean; start: string; end: string }).start, end: (h as { open: boolean; start: string; end: string }).end },
+        ]),
+      ) as BusinessHours)
+    : defaultBusinessHours;
+
+  return {
+    profile: {
+      fullName: userName,
+      email: userEmail,
+      role: userRole.charAt(0).toUpperCase() + userRole.slice(1),
+    },
+    general: {
+      businessName,
+      phone: "",
+      email: userEmail,
+      address: city,
+      serviceArea,
+      timezone,
+      businessHours,
+    },
+    aiAgent: {
+      agentName: businessName ? `${businessName} Assistant` : "",
+      voice: "Professional (Clear, Neutral)",
+      greeting: aiGreeting,
+      answerCalls: true,
+      autoRespondSms: true,
+      leadScoring: true,
+      autoBook: true,
+      emergencyEscalation: true,
+      priceQuoting: true,
+      transferEmergency,
+      transferHuman,
+      transferHighValue,
+      personalPhone,
+      personalityNotes: "",
+    },
+    email: {
+      businessEmail: userEmail,
+      emailSignature: businessName ? `Best regards,\n${businessName}` : "",
+      sendConfirmations: true,
+      sendReminders: true,
+      sendReviewRequests: false,
+    },
+    integrations: {
+      twilio: false,
+      vapi: false,
+      stripe: false,
+      googleCalendar: false,
+      resend: false,
+      quickbooks: false,
+    },
+  };
+}
+
+// Computed at module-load only on client; SSR uses empty defaults
+const defaultSettings: AllSettings = typeof window !== "undefined" ? buildDefaultSettings() : {
+  profile: { fullName: "", email: "", role: "Owner" },
+  general: { businessName: "", phone: "", email: "", address: "", serviceArea: "", timezone: "America/New_York", businessHours: defaultBusinessHours },
+  aiAgent: { agentName: "", voice: "Professional (Clear, Neutral)", greeting: "", answerCalls: true, autoRespondSms: true, leadScoring: true, autoBook: true, emergencyEscalation: true, priceQuoting: true, transferEmergency: true, transferHuman: true, transferHighValue: false, personalPhone: "", personalityNotes: "" },
+  email: { businessEmail: "", emailSignature: "", sendConfirmations: true, sendReminders: true, sendReviewRequests: false },
+  integrations: { twilio: false, vapi: false, stripe: false, googleCalendar: false, resend: false, quickbooks: false },
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function loadSettings(): AllSettings {
-  if (typeof window === "undefined") return defaultSettings;
+function mergeSettings(defaults: AllSettings, partial: Partial<AllSettings>): AllSettings {
+  return {
+    profile: { ...defaults.profile, ...partial.profile },
+    general: {
+      ...defaults.general,
+      ...partial.general,
+      businessHours: {
+        ...defaults.general.businessHours,
+        ...partial.general?.businessHours,
+      },
+    },
+    aiAgent: { ...defaults.aiAgent, ...partial.aiAgent },
+    email: { ...defaults.email, ...partial.email },
+    integrations: { ...defaults.integrations, ...partial.integrations },
+  };
+}
+
+function loadSettingsFromLocalStorage(): AllSettings {
+  if (typeof window === "undefined") return buildDefaultSettings();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultSettings;
+    if (!raw) return buildDefaultSettings();
     const parsed = JSON.parse(raw) as Partial<AllSettings>;
-    // Merge with defaults to ensure all keys exist
-    return {
-      profile: { ...defaultSettings.profile, ...parsed.profile },
-      general: {
-        ...defaultSettings.general,
-        ...parsed.general,
-        businessHours: {
-          ...defaultSettings.general.businessHours,
-          ...parsed.general?.businessHours,
-        },
-      },
-      aiAgent: { ...defaultSettings.aiAgent, ...parsed.aiAgent },
-      email: { ...defaultSettings.email, ...parsed.email },
-      integrations: { ...defaultSettings.integrations, ...parsed.integrations },
-    };
+    return mergeSettings(buildDefaultSettings(), parsed);
   } catch {
-    return defaultSettings;
+    return buildDefaultSettings();
   }
 }
 
-function saveSettings(settings: AllSettings): void {
+/**
+ * Load settings from API first, fall back to localStorage, then defaults.
+ */
+async function loadSettingsFromApi(): Promise<AllSettings> {
+  const defaults = buildDefaultSettings();
+  try {
+    const orgId = getOrgId();
+    const result = await tryFetch(() =>
+      apiClient.get<{ data: Record<string, unknown> }>(`/orgs/${orgId}/settings`),
+    );
+    if (result && typeof result === "object" && "data" in result) {
+      const apiSettings = (result as { data: Record<string, unknown> }).data as Partial<AllSettings>;
+      if (apiSettings && Object.keys(apiSettings).length > 0) {
+        // Also update localStorage for offline access
+        const merged = mergeSettings(defaults, apiSettings);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      }
+    }
+  } catch {
+    // API unavailable, fall through to localStorage
+  }
+  return loadSettingsFromLocalStorage();
+}
+
+/**
+ * Save settings to both localStorage and the API.
+ */
+async function saveSettingsToApi(settings: AllSettings): Promise<boolean> {
+  // Always save to localStorage for immediate access
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  try {
+    const orgId = getOrgId();
+    await apiClient.post(`/orgs/${orgId}/settings`, settings);
+    return true;
+  } catch {
+    // API save failed, but localStorage is updated
+    return false;
+  }
 }
 
 function validateEmail(email: string): boolean {

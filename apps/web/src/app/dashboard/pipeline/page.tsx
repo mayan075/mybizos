@@ -17,12 +17,10 @@ const stageTooltips: Record<string, string> = {
   "Won": "Deal is closed and the job is complete. Revenue is counted here.",
 };
 
+import { formatCurrency } from "@/lib/utils";
+
 function formatValue(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(value);
+  return formatCurrency(value);
 }
 
 function ScoreBadge({ score }: { score: number }) {

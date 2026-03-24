@@ -52,7 +52,7 @@ const STEPS: OnboardingStep[] = [
     id: "phone",
     label: "Set up your phone number",
     description: "Connect a phone number so customers can reach you.",
-    href: "/dashboard/settings",
+    href: "/dashboard/settings/phone",
     icon: Phone,
     checkKey: "phone",
   },

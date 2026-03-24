@@ -49,8 +49,8 @@ interface PerformanceStat {
 const teamMembers: TeamMember[] = [
   {
     id: "tm-1",
-    name: "Jim Henderson",
-    email: "jim@jimsplumbing.com",
+    name: "Mayan Kotwal",
+    email: "jim@northernremovals.com.au",
     role: "Owner",
     status: "active",
     lastLogin: "Today",
@@ -60,7 +60,7 @@ const teamMembers: TeamMember[] = [
   {
     id: "tm-2",
     name: "Maria Garcia",
-    email: "maria@jimsplumbing.com",
+    email: "maria@northernremovals.com.au",
     role: "Manager",
     status: "active",
     lastLogin: "Yesterday",
@@ -70,7 +70,7 @@ const teamMembers: TeamMember[] = [
   {
     id: "tm-3",
     name: "Dave Johnson",
-    email: "dave@jimsplumbing.com",
+    email: "dave@northernremovals.com.au",
     role: "Technician",
     status: "active",
     lastLogin: "2 days ago",
@@ -80,7 +80,7 @@ const teamMembers: TeamMember[] = [
   {
     id: "tm-4",
     name: "Tyler Smith",
-    email: "tyler@jimsplumbing.com",
+    email: "tyler@northernremovals.com.au",
     role: "Technician",
     status: "active",
     lastLogin: "Today",

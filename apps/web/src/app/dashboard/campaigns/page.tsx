@@ -40,10 +40,10 @@ interface MockCampaign {
 const mockCampaigns: MockCampaign[] = [
   {
     id: "camp-1",
-    name: "Spring HVAC Tune-Up Special",
+    name: "Spring Cleanout Special",
     type: "email",
     status: "sent",
-    subject: "Get 20% off your spring HVAC tune-up!",
+    subject: "Get 20% off your spring cleanout!",
     sentCount: 842,
     openRate: 34.2,
     clickRate: 8.7,
@@ -54,7 +54,7 @@ const mockCampaigns: MockCampaign[] = [
   },
   {
     id: "camp-2",
-    name: "Emergency Plumbing Reminder",
+    name: "Same-Day Pickup Reminder",
     type: "sms",
     status: "sent",
     subject: null,

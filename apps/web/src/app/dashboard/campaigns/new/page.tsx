@@ -46,9 +46,9 @@ interface CampaignDraft {
 
 const AVAILABLE_TAGS = [
   "Hot Lead",
-  "HVAC",
-  "Plumbing",
-  "Furnace",
+  "Removals",
+  "Rubbish",
+  "Full Load",
   "Emergency",
   "Maintenance",
   "Commercial",
@@ -331,10 +331,10 @@ function StepContent({
     setTimeout(() => {
       if (draft.type === "email") {
         onChange({
-          subject: "Spring HVAC Tune-Up Special — Save 20% This Month!",
-          bodyHtml: `<h2>Spring is Here — Time for Your HVAC Tune-Up!</h2>
+          subject: "Spring Cleanout Special — Save 20% This Month!",
+          bodyHtml: `<h2>Spring is Here — Time for Your Cleanout Special!</h2>
 <p>Hi there,</p>
-<p>As temperatures start to rise, now is the perfect time to make sure your HVAC system is running at peak efficiency. Our certified technicians will inspect, clean, and optimize your system to keep you comfortable all summer long.</p>
+<p>As temperatures start to rise, now is the perfect time to make sure your service area is running at peak efficiency. Our experienced team will inspect, clean, and optimize your space in no time.</p>
 <h3>What's Included:</h3>
 <ul>
 <li>Full system inspection and diagnostics</li>
@@ -350,7 +350,7 @@ function StepContent({
       } else {
         onChange({
           bodyText:
-            "Spring HVAC tune-up special! Save 20% this month. Book now at acmehvac.com/book or call (555) 123-4567. Use code SPRING20. Reply STOP to opt out.",
+            "Spring cleanout special! Save 20% this month. Book now at northernremovals.com.au/book or call (555) 123-4567. Use code SPRING20. Reply STOP to opt out.",
         });
       }
       setAiLoading(false);
@@ -393,7 +393,7 @@ function StepContent({
         <input
           value={draft.name}
           onChange={(e) => onChange({ name: e.target.value })}
-          placeholder="e.g., Spring HVAC Tune-Up Special"
+          placeholder="e.g., Spring Cleanout Special"
           className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         />
       </div>

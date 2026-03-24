@@ -59,11 +59,11 @@ interface MockRecipient {
 const mockCampaigns: Record<string, MockCampaignDetail> = {
   "camp-1": {
     id: "camp-1",
-    name: "Spring HVAC Tune-Up Special",
+    name: "Spring Cleanout Special",
     type: "email",
     status: "sent",
-    subject: "Get 20% off your spring HVAC tune-up!",
-    bodyHtml: `<h2>Spring is Here!</h2><p>Get 20% off your annual HVAC tune-up. Book online or call us today.</p><p>Use code <strong>SPRING20</strong>.</p>`,
+    subject: "Get 20% off your spring cleanout!",
+    bodyHtml: `<h2>Spring is Here!</h2><p>Get 20% off your annual cleanout. Book online or call us today.</p><p>Use code <strong>SPRING20</strong>.</p>`,
     bodyText: null,
     stats: {
       sent: 842,
@@ -79,12 +79,12 @@ const mockCampaigns: Record<string, MockCampaignDetail> = {
   },
   "camp-2": {
     id: "camp-2",
-    name: "Emergency Plumbing Reminder",
+    name: "Same-Day Pickup Reminder",
     type: "sms",
     status: "sent",
     subject: null,
     bodyHtml: null,
-    bodyText: "Need a plumber? Northern Removals offers 24/7 emergency service. Call (555) 123-4567 or book at acmeplumbing.com. Reply STOP to opt out.",
+    bodyText: "Need rubbish removed? Northern Removals offers same-day pickup. Call (555) 123-4567 or book at northernremovals.com.au. Reply STOP to opt out.",
     stats: {
       sent: 1205,
       delivered: 1190,

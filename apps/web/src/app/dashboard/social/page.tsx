@@ -146,7 +146,7 @@ const SCHEDULED_POSTS: ScheduledPost[] = [
   {
     id: "sp1",
     platforms: ["facebook", "google_business"],
-    text: "Spring is here! Time to get your AC checked before the heat hits. Book your tune-up today and save 15%.",
+    text: "Spring is here! Time for a big cleanout. Book your rubbish removal today and save 15%.",
     scheduledAt: new Date(weekStart.getTime() + 0 * 86400000 + 9 * 3600000), // Monday 9am
     status: "published",
     imageUrl: null,
@@ -154,7 +154,7 @@ const SCHEDULED_POSTS: ScheduledPost[] = [
   {
     id: "sp2",
     platforms: ["facebook"],
-    text: "Did you know? A dripping faucet can waste over 3,000 gallons of water per year. Don't let money go down the drain!",
+    text: "Did you know? The average household has 300kg of junk they no longer need. Clear the clutter and feel the difference!",
     scheduledAt: new Date(weekStart.getTime() + 1 * 86400000 + 12 * 3600000), // Tuesday noon
     status: "published",
     imageUrl: null,
@@ -162,7 +162,7 @@ const SCHEDULED_POSTS: ScheduledPost[] = [
   {
     id: "sp3",
     platforms: ["facebook", "google_business"],
-    text: "Another 5-star review! Thanks to the Martinez family for trusting us with their water heater installation.",
+    text: "Another 5-star review! Thanks to the Martinez family for trusting us with their estate clearance.",
     scheduledAt: new Date(weekStart.getTime() + 2 * 86400000 + 14 * 3600000), // Wednesday 2pm
     status: "scheduled",
     imageUrl: null,
@@ -170,7 +170,7 @@ const SCHEDULED_POSTS: ScheduledPost[] = [
   {
     id: "sp4",
     platforms: ["google_business"],
-    text: "Weekend emergency? We're available 24/7 for plumbing and HVAC emergencies. Call us anytime!",
+    text: "Weekend emergency? We're available for same-day pickups. Call us anytime!",
     scheduledAt: new Date(weekStart.getTime() + 4 * 86400000 + 10 * 3600000), // Friday 10am
     status: "scheduled",
     imageUrl: null,
@@ -178,7 +178,7 @@ const SCHEDULED_POSTS: ScheduledPost[] = [
   {
     id: "sp5",
     platforms: ["facebook", "google_business"],
-    text: "Happy Saturday! Here's a quick tip: Change your HVAC filter every 30-60 days for better air quality and lower energy bills.",
+    text: "Happy Saturday! Here's a quick tip: Schedule regular pickups to keep your property clutter-free and looking its best.",
     scheduledAt: new Date(weekStart.getTime() + 5 * 86400000 + 8 * 3600000), // Saturday 8am
     status: "scheduled",
     imageUrl: null,
@@ -189,7 +189,7 @@ const RECENT_POSTS: RecentPost[] = [
   {
     id: "rp1",
     platforms: ["facebook", "google_business"],
-    text: "Spring is here! Time to get your AC checked before the heat hits. Book your tune-up today and save 15%.",
+    text: "Spring is here! Time for a big cleanout. Book your rubbish removal today and save 15%.",
     postedAt: new Date("2026-03-22T09:00:00"),
     status: "published",
     likes: 24,
@@ -200,7 +200,7 @@ const RECENT_POSTS: RecentPost[] = [
   {
     id: "rp2",
     platforms: ["facebook"],
-    text: "Did you know? A dripping faucet can waste over 3,000 gallons of water per year. Don't let money go down the drain!",
+    text: "Did you know? The average household has 300kg of junk they no longer need. Clear the clutter and feel the difference!",
     postedAt: new Date("2026-03-21T12:00:00"),
     status: "published",
     likes: 31,
@@ -211,7 +211,7 @@ const RECENT_POSTS: RecentPost[] = [
   {
     id: "rp3",
     platforms: ["facebook", "google_business"],
-    text: "We're hiring! Looking for licensed plumbers to join our growing team. Great pay, benefits, and company truck.",
+    text: "We're hiring! Looking for experienced removalists to join our growing team. Great pay, benefits, and company truck.",
     postedAt: new Date("2026-03-20T10:00:00"),
     status: "published",
     likes: 45,
@@ -233,7 +233,7 @@ const RECENT_POSTS: RecentPost[] = [
   {
     id: "rp5",
     platforms: ["facebook"],
-    text: "Emergency plumbing tip: If you have a burst pipe, turn off the main water valve immediately and call us.",
+    text: "Moving tip: Label your boxes by room and pack heavier items at the bottom. Need help? Call us!",
     postedAt: new Date("2026-03-18T11:00:00"),
     status: "published",
     likes: 52,
@@ -244,7 +244,7 @@ const RECENT_POSTS: RecentPost[] = [
   {
     id: "rp6",
     platforms: ["facebook", "google_business"],
-    text: "New blog post: 7 Signs Your Water Heater Is About to Fail. Link in comments!",
+    text: "New blog post: 7 Signs It's Time for a Big Cleanout. Link in comments!",
     postedAt: new Date("2026-03-17T09:00:00"),
     status: "failed",
     likes: 0,
@@ -257,20 +257,20 @@ const RECENT_POSTS: RecentPost[] = [
 const AI_SUGGESTIONS: AiSuggestion[] = [
   {
     id: "ai1",
-    title: "5 Signs Your Water Heater Needs Replacement",
-    text: "Is your water heater giving you trouble? Here are 5 warning signs it might be time for a replacement:\n\n1. Your water heater is over 10 years old\n2. You're seeing rusty or discolored water\n3. Strange noises coming from the tank\n4. Water pooling around the base\n5. Your energy bills keep climbing\n\nDon't wait for a complete breakdown! Call us for a free inspection. #PlumbingTips #WaterHeater #HomeMaintenace",
+    title: "5 Signs It's Time for a Big Cleanout",
+    text: "Is clutter taking over your home? Here are 5 signs it's time to call in the professionals:\n\n1. You can't park in your own garage\n2. There are rooms you avoid because of junk\n3. You're tripping over things regularly\n4. You've been saying 'I'll deal with it later' for months\n5. You're moving and need a fresh start\n\nDon't wait -- call us for a free quote today! #DeclutterYourLife #RubbishRemoval #CleanSpace",
     category: "educational",
   },
   {
     id: "ai2",
-    title: "Customer Spotlight: The Johnson Family's Kitchen Remodel",
-    text: "We're so proud of this kitchen remodel we completed for the Johnson family! New copper piping, a gorgeous farmhouse sink, an instant hot water dispenser, and a complete re-route of their drain lines.\n\nMrs. Johnson said: \"The team was incredibly professional and finished ahead of schedule. Our new kitchen is a dream!\"\n\nThank you for trusting Northern Removals! #CustomerSpotlight #KitchenRemodel #PlumbingDoneRight",
+    title: "Customer Spotlight: The Johnson Family's Estate Clearance",
+    text: "We're so proud of the estate clearance we completed for the Johnson family! Three truckloads of furniture, appliances, and general rubbish -- all gone in a single day.\n\nMrs. Johnson said: \"The team was incredibly professional and finished ahead of schedule. The house looks brand new!\"\n\nThank you for trusting Northern Removals! #CustomerSpotlight #EstateClearance #CleanStart",
     category: "social_proof",
   },
   {
     id: "ai3",
-    title: "Spring AC Tune-Up Special -- $89 until April 15",
-    text: "Spring is here and summer is right around the corner! Don't get caught in the heat with a broken AC.\n\nFor a limited time, get a complete AC tune-up for just $89 (regular price $149).\n\nOur tune-up includes:\n- Full system inspection\n- Refrigerant level check\n- Filter replacement\n- Thermostat calibration\n- Duct inspection\n\nOffer valid through April 15. Call or book online today! #ACTuneUp #SpringSpecial #HVAC",
+    title: "Spring Cleanout Special -- Save 20% until April 15",
+    text: "Spring is here and it's the perfect time for a big cleanout!\n\nFor a limited time, save 20% on all removal services.\n\nWe handle:\n- Furniture and appliance removal\n- Garden and green waste\n- Hard rubbish and e-waste\n- Full house cleanouts\n- Commercial waste\n\nOffer valid through April 15. Call or book online today! #SpringCleanout #RubbishRemoval #SaveMoney",
     category: "promotional",
   },
 ];
@@ -421,7 +421,7 @@ export default function SocialPage() {
 
   const handleAiWrite = () => {
     setPostText(
-      "Is your faucet dripping? A leaky faucet wastes about 3,000 gallons of water per year -- that's money literally going down the drain!\n\nHere's a quick fix you can try:\n1. Turn off the water supply\n2. Remove the handle and inspect the washer\n3. Replace worn washers or O-rings\n\nStill leaking? Call Northern Removals for fast, affordable repairs. We're available 24/7! #PlumbingTips #SaveWater #HomeRepair",
+      "Is your garage overflowing? The average household accumulates over 300kg of unused items. That's space you could be using!\n\nHere are 3 tips for a quick declutter:\n1. Start with one room at a time\n2. If you haven't used it in 12 months, it goes\n3. Call us for the heavy lifting\n\nNeed a hand? Call Northern Removals for fast, affordable pickups. Same-day service available! #DeclutterTips #RubbishRemoval #CleanSpace",
     );
   };
 

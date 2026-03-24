@@ -115,7 +115,7 @@ const contactConversations: Record<string, ContactConversation[]> = {
     {
       id: "cc1-email",
       channel: "email",
-      subject: "Re: AC Tune-Up Estimate",
+      subject: "Re: Pickup Quote",
       lastMessage: "Thanks for sending the estimate. The pricing looks good.",
       time: "1 day ago",
       unread: false,
@@ -148,24 +148,24 @@ const contactConversations: Record<string, ContactConversation[]> = {
 const contactConversationMessages: Record<string, ContactConversationMessage[]> = {
   "cc1-sms": [
     { id: "cc1m1", sender: "contact", text: "Hi, I need to get my drains cleaned. Do you have anyone available this week?", time: "10:15 AM", status: "read" },
-    { id: "cc1m2", sender: "ai", text: "Hi Sarah! This is Northern Removals's AI assistant. We'd be happy to help with drain cleaning! We have availability tomorrow at 10 AM, 1 PM, or Friday at 9 AM. Which works best for you?", time: "10:15 AM", status: "read" },
+    { id: "cc1m2", sender: "ai", text: "Hi Sarah! This is Northern Removals's AI assistant. We'd be happy to help with rubbish removal! We have availability tomorrow at 10 AM, 1 PM, or Friday at 9 AM. Which works best for you?", time: "10:15 AM", status: "read" },
     { id: "cc1m3", sender: "contact", text: "Tomorrow at 10 AM please!", time: "10:18 AM", status: "read" },
-    { id: "cc1m4", sender: "ai", text: "You're all set! I've booked a drain cleaning appointment for tomorrow (Wednesday) at 10:00 AM. Our technician will arrive at your address on file. The service starts at $89. You'll receive a confirmation shortly.", time: "10:18 AM", status: "read" },
+    { id: "cc1m4", sender: "ai", text: "You're all set! I've booked a rubbish removal appointment for tomorrow (Wednesday) at 10:00 AM. Our team will arrive at your address on file. The service starts at $89. You'll receive a confirmation shortly.", time: "10:18 AM", status: "read" },
     { id: "cc1m5", sender: "contact", text: "Great, I'll see your technician tomorrow at 10 AM!", time: "10:20 AM", status: "read" },
   ],
   "cc1-email": [
-    { id: "cc1e1", sender: "user", text: "Hi Sarah,\n\nThank you for choosing Northern Removals! Attached is the detailed estimate for your AC tune-up service.\n\nPackage includes:\n- Full system inspection\n- Filter replacement\n- Refrigerant check\n- Thermostat calibration\n\nTotal: $89.00\n\nPlease let me know if you have any questions.", time: "Yesterday, 2:30 PM", status: "read" },
+    { id: "cc1e1", sender: "user", text: "Hi Sarah,\n\nThank you for choosing Northern Removals! Attached is the detailed estimate for your full load pickup service.\n\nPackage includes:\n- Full system inspection\n- Filter replacement\n- Refrigerant check\n- Thermostat calibration\n\nTotal: $89.00\n\nPlease let me know if you have any questions.", time: "Yesterday, 2:30 PM", status: "read" },
     { id: "cc1e2", sender: "contact", text: "Thanks for sending the estimate. The pricing looks good. Can we schedule this for next week?", time: "Yesterday, 4:15 PM", status: "read" },
     { id: "cc1e3", sender: "user", text: "Absolutely! I have openings on Tuesday at 10 AM or Wednesday at 2 PM. Which works better for you?", time: "Today, 9:00 AM", status: "delivered" },
   ],
   "cc2-sms": [
-    { id: "cc2m1", sender: "contact", text: "Hey, I got your quote for the water heater. How much for the 50-gallon tankless?", time: "9:30 AM", status: "read" },
-    { id: "cc2m2", sender: "ai", text: "Hi Mike! The 50-gallon tankless water heater installation typically starts around $2,500-$3,200, depending on the model and any modifications needed. Would you like to schedule a site assessment for an exact quote?", time: "9:31 AM", status: "read" },
+    { id: "cc2m1", sender: "contact", text: "Hey, I got your quote for the skip bin. How much for the 50-gallon tankless?", time: "9:30 AM", status: "read" },
+    { id: "cc2m2", sender: "ai", text: "Hi Mike! The 50-gallon tankless skip bin installation typically starts around $2,500-$3,200, depending on the model and any modifications needed. Would you like to schedule a site assessment for an exact quote?", time: "9:31 AM", status: "read" },
     { id: "cc2m3", sender: "contact", text: "That price is a bit high. Can you do $2,500?", time: "9:45 AM", status: "read" },
     { id: "cc2m4", sender: "ai", text: "I understand budget is important! Let me have our service manager review your project details and get back to you with the best possible pricing. You should hear back within a few hours. Is there anything else I can help with?", time: "9:46 AM", status: "read" },
   ],
   "cc3-call": [
-    { id: "cc3c1", sender: "ai", text: "AI Call Transcript\n\nAI: Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?\n\nDavid: Hi, I'd like to schedule an AC maintenance check. My unit hasn't been serviced in about a year.\n\nAI: I'd be happy to help you schedule an AC maintenance visit. We recommend annual tune-ups to keep your system running efficiently. We have availability next Tuesday at 9 AM or Wednesday at 1 PM. Would either of those work?\n\nDavid: Tuesday at 9 works great.\n\nAI: I've booked your AC tune-up for next Tuesday at 9:00 AM. Our technician will arrive at your address on file. The service typically takes about an hour and starts around $89-$120. You'll receive a confirmation text shortly. Is there anything else I can help with?\n\nDavid: No, that's all. Thanks!\n\nAI: You're welcome! Have a great day.", time: "Yesterday, 3:15 PM", status: "read" },
+    { id: "cc3c1", sender: "ai", text: "AI Call Transcript\n\nAI: Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?\n\nDavid: Hi, I'd like to schedule an AC maintenance check. My unit hasn't been serviced in about a year.\n\nAI: I'd be happy to help you schedule an AC maintenance visit. We recommend annual tune-ups to keep your system running efficiently. We have availability next Tuesday at 9 AM or Wednesday at 1 PM. Would either of those work?\n\nDavid: Tuesday at 9 works great.\n\nAI: I've booked your full load pickup for next Tuesday at 9:00 AM. Our team will arrive at your address on file. The service typically takes about an hour and starts around $89-$120. You'll receive a confirmation text shortly. Is there anything else I can help with?\n\nDavid: No, that's all. Thanks!\n\nAI: You're welcome! Have a great day.", time: "Yesterday, 3:15 PM", status: "read" },
   ],
 };
 
@@ -185,14 +185,14 @@ interface ContactDeal {
 
 const contactDeals: Record<string, ContactDeal[]> = {
   c1: [
-    { id: "cd1", title: "AC Tune-Up Service", value: 89, stage: "Scheduled", stageColor: "bg-primary text-primary-foreground", daysInStage: 1, createdAt: "Mar 20, 2026" },
-    { id: "cd2", title: "Drain Cleaning", value: 150, stage: "New Lead", stageColor: "bg-info text-white", daysInStage: 0, createdAt: "Mar 22, 2026" },
+    { id: "cd1", title: "Full Load Pickup", value: 89, stage: "Scheduled", stageColor: "bg-primary text-primary-foreground", daysInStage: 1, createdAt: "Mar 20, 2026" },
+    { id: "cd2", title: "Single Item Removal", value: 150, stage: "New Lead", stageColor: "bg-info text-white", daysInStage: 0, createdAt: "Mar 22, 2026" },
   ],
   c2: [
-    { id: "cd3", title: "Water Heater Installation", value: 2800, stage: "Quoted", stageColor: "bg-warning text-white", daysInStage: 3, createdAt: "Mar 17, 2026" },
+    { id: "cd3", title: "Skip Bin Hire", value: 2800, stage: "Quoted", stageColor: "bg-warning text-white", daysInStage: 3, createdAt: "Mar 17, 2026" },
   ],
   c3: [
-    { id: "cd4", title: "Furnace Replacement", value: 6200, stage: "New Lead", stageColor: "bg-info text-white", daysInStage: 2, createdAt: "Mar 18, 2026" },
+    { id: "cd4", title: "Estate Clearance", value: 6200, stage: "New Lead", stageColor: "bg-info text-white", daysInStage: 2, createdAt: "Mar 18, 2026" },
     { id: "cd5", title: "AC Maintenance Plan", value: 348, stage: "Scheduled", stageColor: "bg-primary text-primary-foreground", daysInStage: 0, createdAt: "Mar 21, 2026" },
   ],
   c6: [
@@ -215,15 +215,15 @@ interface ContactAppointment {
 
 const contactAppointments: Record<string, ContactAppointment[]> = {
   c1: [
-    { id: "ca1", service: "AC Tune-Up", date: "Mar 23, 2026", time: "10:00 AM - 11:00 AM", status: "confirmed", technician: "Mike Thompson" },
-    { id: "ca2", service: "Drain Cleaning", date: "Mar 25, 2026", time: "2:00 PM - 3:00 PM", status: "scheduled", technician: "Jake Rivera" },
+    { id: "ca1", service: "Full Load Pickup", date: "Mar 23, 2026", time: "10:00 AM - 11:00 AM", status: "confirmed", technician: "Mike Thompson" },
+    { id: "ca2", service: "Single Item Removal", date: "Mar 25, 2026", time: "2:00 PM - 3:00 PM", status: "scheduled", technician: "Jake Rivera" },
   ],
   c2: [
-    { id: "ca3", service: "Water Heater Assessment", date: "Mar 19, 2026", time: "2:00 PM - 3:00 PM", status: "completed", technician: "Mike Thompson" },
+    { id: "ca3", service: "Site Assessment", date: "Mar 19, 2026", time: "2:00 PM - 3:00 PM", status: "completed", technician: "Mike Thompson" },
   ],
   c3: [
-    { id: "ca4", service: "AC Tune-Up", date: "Mar 26, 2026", time: "9:00 AM - 10:00 AM", status: "scheduled", technician: "Jake Rivera" },
-    { id: "ca5", service: "Furnace Inspection", date: "Mar 15, 2026", time: "11:00 AM - 12:30 PM", status: "completed", technician: "Mike Thompson" },
+    { id: "ca4", service: "Full Load Pickup", date: "Mar 26, 2026", time: "9:00 AM - 10:00 AM", status: "scheduled", technician: "Jake Rivera" },
+    { id: "ca5", service: "Partial Load Pickup", date: "Mar 15, 2026", time: "11:00 AM - 12:30 PM", status: "completed", technician: "Mike Thompson" },
   ],
   c6: [
     { id: "ca6", service: "Emergency Pipe Repair", date: "Mar 18, 2026", time: "4:00 PM - 5:30 PM", status: "completed", technician: "Jake Rivera" },

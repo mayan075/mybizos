@@ -15,7 +15,7 @@ import {
   ArrowRightLeft,
   XCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 // ── Types ──
@@ -136,15 +136,6 @@ function StatusBadge({ status }: { status: MockEstimate["status"] }) {
       {cfg.label}
     </span>
   );
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 function formatDate(dateStr: string): string {

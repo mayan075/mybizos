@@ -21,7 +21,7 @@ import {
   DollarSign,
   ChevronDown,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 // ── Types ──
 
@@ -81,7 +81,7 @@ const mockInvoiceDetails: Record<string, InvoiceData> = {
     issueDate: "2026-03-05",
     dueDate: "2026-03-20",
     paidDate: "2026-03-12",
-    notes: "Thank you for choosing Jim's Plumbing!",
+    notes: "Thank you for choosing Northern Removals!",
     terms: "Payment is due within 15 days of invoice date.",
     isRecurring: false,
     recurringInterval: null,
@@ -272,15 +272,6 @@ const mockInvoiceDetails: Record<string, InvoiceData> = {
 };
 
 // ── Helpers ──
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
@@ -737,7 +728,7 @@ function InvoiceView({
             </div>
             <div className="mt-2 space-y-0.5">
               <p className="text-xs text-gray-500">123 Main Street, Denver, CO 80201</p>
-              <p className="text-xs text-gray-500">(555) 123-4567 &middot; jim@jimsplumbing.com</p>
+              <p className="text-xs text-gray-500">(555) 123-4567 &middot; mayan@northernremovals.com.au</p>
             </div>
           </div>
           <div className="text-right">

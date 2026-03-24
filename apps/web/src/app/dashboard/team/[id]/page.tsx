@@ -84,8 +84,8 @@ const allPermissions = [
 const membersData: Record<string, MemberData> = {
   "tm-1": {
     id: "tm-1",
-    name: "Jim Henderson",
-    email: "jim@jimsplumbing.com",
+    name: "Mayan Kotwal",
+    email: "jim@northernremovals.com.au",
     phone: "(555) 100-0001",
     role: "Owner",
     status: "active",
@@ -109,7 +109,7 @@ const membersData: Record<string, MemberData> = {
   "tm-2": {
     id: "tm-2",
     name: "Maria Garcia",
-    email: "maria@jimsplumbing.com",
+    email: "maria@northernremovals.com.au",
     phone: "(555) 100-0002",
     role: "Manager",
     status: "active",
@@ -133,7 +133,7 @@ const membersData: Record<string, MemberData> = {
   "tm-3": {
     id: "tm-3",
     name: "Dave Johnson",
-    email: "dave@jimsplumbing.com",
+    email: "dave@northernremovals.com.au",
     phone: "(555) 100-0003",
     role: "Technician",
     status: "active",
@@ -162,7 +162,7 @@ const membersData: Record<string, MemberData> = {
   "tm-4": {
     id: "tm-4",
     name: "Tyler Smith",
-    email: "tyler@jimsplumbing.com",
+    email: "tyler@northernremovals.com.au",
     phone: "(555) 100-0004",
     role: "Technician",
     status: "active",
