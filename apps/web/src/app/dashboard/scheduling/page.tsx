@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -10,6 +10,7 @@ import {
   User,
   MapPin,
   X,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -18,7 +19,7 @@ import { type MockAppointment } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SchedulingSkeleton } from "@/components/skeletons/scheduling-skeleton";
 
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8 AM to 6 PM
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 6); // 6 AM to 6 PM — wider range for early/late jobs
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const statusColors: Record<string, string> = {
@@ -67,13 +68,39 @@ function getWeekLabel(weekOffset: number): string {
   return `${mStr} - ${sStr}`;
 }
 
+/** Get the current time as a fractional position within the HOURS grid (0-1 scale per hour row) */
+function getCurrentTimePosition(): { hourIndex: number; minuteFraction: number } | null {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+
+  // Check if current time falls within our grid
+  const firstHour = HOURS[0];
+  const lastHour = HOURS[HOURS.length - 1];
+  if (firstHour === undefined || lastHour === undefined) return null;
+  if (currentHour < firstHour || currentHour > lastHour) return null;
+
+  const hourIndex = currentHour - firstHour;
+  const minuteFraction = currentMinute / 60;
+  return { hourIndex, minuteFraction };
+}
+
 export default function SchedulingPage() {
   usePageTitle("Scheduling");
   const [weekOffset, setWeekOffset] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState<{ dayIndex: number; hour: number } | null>(null);
-  const [newTitle, setNewTitle] = useState("AC Tune-Up");
+  const [newTitle, setNewTitle] = useState("General Service");
   const [newCustomer, setNewCustomer] = useState("");
+
+  // Current time indicator — update every minute
+  const [currentTimePos, setCurrentTimePos] = useState(getCurrentTimePosition);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTimePos(getCurrentTimePosition());
+    }, 60000); // update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Hook: fetches from API, falls back to mock data
   const { data: apiAppointments, isLive, isLoading } = useAppointments();
@@ -96,6 +123,8 @@ export default function SchedulingPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
+
+  const goToToday = useCallback(() => setWeekOffset(0), []);
 
   function handleSlotClick(dayIndex: number, hour: number) {
     const existing = appointments.find(
@@ -149,7 +178,7 @@ export default function SchedulingPage() {
 
     setShowBooking(null);
     setNewCustomer("");
-    setNewTitle("AC Tune-Up");
+    setNewTitle("General Service");
     showToast(`Appointment booked: ${newApt.title} with ${newApt.customer}`);
   }
 
@@ -189,26 +218,19 @@ export default function SchedulingPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Service</label>
-                <select
+                <input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option>AC Tune-Up</option>
-                  <option>Plumbing Inspection</option>
-                  <option>Furnace Repair</option>
-                  <option>Water Heater Install</option>
-                  <option>Drain Cleaning</option>
-                  <option>AC Maintenance</option>
-                  <option>Emergency Repair</option>
-                </select>
+                  placeholder="e.g. AC Tune-Up, Plumbing Inspection..."
+                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Customer Name *</label>
                 <input
                   value={newCustomer}
                   onChange={(e) => setNewCustomer(e.target.value)}
-                  placeholder="Sarah Johnson"
+                  placeholder="Customer name"
                   className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -243,17 +265,33 @@ export default function SchedulingPage() {
             {appointments.length} appointments this week
           </p>
         </div>
-        <button
-          onClick={() => setShowBooking({ dayIndex: todayIndex >= 0 ? todayIndex : 0, hour: 10 })}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-4",
-            "bg-primary text-primary-foreground text-sm font-medium",
-            "hover:bg-primary/90 transition-colors",
-          )}
-        >
-          <Plus className="h-4 w-4" />
-          New Appointment
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Always-visible Today button */}
+          <button
+            onClick={goToToday}
+            className={cn(
+              "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
+              weekOffset === 0
+                ? "bg-muted text-muted-foreground cursor-default"
+                : "border border-input text-foreground hover:bg-muted",
+            )}
+            disabled={weekOffset === 0}
+          >
+            <CalendarCheck className="h-4 w-4" />
+            Today
+          </button>
+          <button
+            onClick={() => setShowBooking({ dayIndex: todayIndex >= 0 ? todayIndex : 0, hour: 10 })}
+            className={cn(
+              "flex h-9 items-center gap-2 rounded-lg px-4",
+              "bg-primary text-primary-foreground text-sm font-medium",
+              "hover:bg-primary/90 transition-colors",
+            )}
+          >
+            <Plus className="h-4 w-4" />
+            New Appointment
+          </button>
+        </div>
       </div>
 
       {/* Week navigation */}
@@ -268,28 +306,12 @@ export default function SchedulingPage() {
           <h2 className="text-sm font-semibold text-foreground">
             {weekLabel}
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {weekOffset === 0 ? (
-              <button
-                className="text-primary font-medium"
-                onClick={() => setWeekOffset(0)}
-              >
-                This week
-              </button>
-            ) : (
-              <>
-                {Math.abs(weekOffset)} week{Math.abs(weekOffset) > 1 ? "s" : ""}{" "}
-                {weekOffset > 0 ? "ahead" : "ago"}
-                {" \u00b7 "}
-                <button
-                  className="text-primary font-medium hover:underline"
-                  onClick={() => setWeekOffset(0)}
-                >
-                  Today
-                </button>
-              </>
-            )}
-          </p>
+          {weekOffset !== 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {Math.abs(weekOffset)} week{Math.abs(weekOffset) > 1 ? "s" : ""}{" "}
+              {weekOffset > 0 ? "ahead" : "ago"}
+            </p>
+          )}
         </div>
         <button
           onClick={() => setWeekOffset((prev) => prev + 1)}
@@ -347,11 +369,24 @@ export default function SchedulingPage() {
             </div>
 
             {/* Time slots */}
-            {HOURS.map((hour) => (
+            {HOURS.map((hour, hourIdx) => (
               <div
                 key={hour}
-                className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-b-0"
+                className="relative grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-b-0"
               >
+                {/* Current time red line */}
+                {weekOffset === 0 && currentTimePos && currentTimePos.hourIndex === hourIdx && (
+                  <div
+                    className="absolute left-0 right-0 z-20 pointer-events-none"
+                    style={{ top: `${currentTimePos.minuteFraction * 100}%` }}
+                  >
+                    <div className="flex items-center">
+                      <div className="h-2.5 w-2.5 rounded-full bg-destructive shrink-0 -ml-[5px]" />
+                      <div className="flex-1 h-[2px] bg-destructive" />
+                    </div>
+                  </div>
+                )}
+
                 <div className="px-3 py-2 text-right">
                   <span className="text-xs text-muted-foreground">
                     {hour > 12
@@ -397,22 +432,22 @@ export default function SchedulingPage() {
                               )}
                             />
                             <span className="font-semibold truncate">
-                              {apt.title}
+                              {apt.customer}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5 opacity-80">
-                            <User className="h-2.5 w-2.5" />
-                            <span className="truncate">{apt.customer}</span>
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate">{apt.title}</span>
                           </div>
                           {apt.duration >= 1.5 && (
                             <div className="flex items-center gap-1 mt-0.5 opacity-80">
-                              <Clock className="h-2.5 w-2.5" />
+                              <User className="h-2.5 w-2.5 shrink-0" />
                               <span>{apt.time}</span>
                             </div>
                           )}
                           {apt.duration >= 2 && (
                             <div className="flex items-center gap-1 mt-0.5 opacity-80">
-                              <MapPin className="h-2.5 w-2.5" />
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
                               <span className="truncate">{apt.location}</span>
                             </div>
                           )}
