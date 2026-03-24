@@ -16,7 +16,8 @@
     "db:migrate": "turbo db:migrate",
     "db:push": "turbo db:push",
     "db:studio": "pnpm --filter @mybizos/db studio",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "start": "cd apps/api && npx tsx src/index.ts"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.4.0",
