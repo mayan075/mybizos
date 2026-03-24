@@ -84,7 +84,7 @@ const mockCampaigns: Record<string, MockCampaignDetail> = {
     status: "sent",
     subject: null,
     bodyHtml: null,
-    bodyText: "Need a plumber? Acme Plumbing offers 24/7 emergency service. Call (555) 123-4567 or book at acmeplumbing.com. Reply STOP to opt out.",
+    bodyText: "Need a plumber? Northern Removals offers 24/7 emergency service. Call (555) 123-4567 or book at acmeplumbing.com. Reply STOP to opt out.",
     stats: {
       sent: 1205,
       delivered: 1190,
@@ -116,7 +116,7 @@ const mockCampaigns: Record<string, MockCampaignDetail> = {
     type: "email",
     status: "draft",
     subject: "Refer a friend, get $50 off!",
-    bodyHtml: `<h2>Spread the Word!</h2><p>Refer a friend to Acme HVAC and you both get $50 off your next service.</p>`,
+    bodyHtml: `<h2>Spread the Word!</h2><p>Refer a friend to Northern Removals and you both get $50 off your next service.</p>`,
     bodyText: null,
     stats: { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0 },
     scheduledAt: null,

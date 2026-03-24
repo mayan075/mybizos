@@ -46,9 +46,9 @@ function ScoreBadge({ score }: { score: number }) {
 function TagBadge({ tag }: { tag: string }) {
   const colors: Record<string, string> = {
     "Hot Lead": "bg-destructive/10 text-destructive",
-    HVAC: "bg-info/10 text-info",
-    Plumbing: "bg-primary/10 text-primary",
-    Furnace: "bg-warning/10 text-warning",
+    Removals: "bg-info/10 text-info",
+    Rubbish: "bg-primary/10 text-primary",
+    "Full Load": "bg-warning/10 text-warning",
     Emergency: "bg-destructive/10 text-destructive",
     Maintenance: "bg-muted text-muted-foreground",
     Commercial: "bg-primary/10 text-primary",

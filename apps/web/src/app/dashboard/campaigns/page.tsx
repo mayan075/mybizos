@@ -71,7 +71,7 @@ const mockCampaigns: MockCampaign[] = [
     name: "New Customer Welcome Series",
     type: "email",
     status: "scheduled",
-    subject: "Welcome to Acme HVAC — Here's what to expect",
+    subject: "Welcome to Northern Removals — Here's what to expect",
     sentCount: 0,
     openRate: 0,
     clickRate: 0,

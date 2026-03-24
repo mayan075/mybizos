@@ -29,7 +29,7 @@ interface Appointment {
 const appointments: Appointment[] = [
   {
     id: "apt-1",
-    service: "AC Maintenance & Tune-Up",
+    service: "Full Load Pickup",
     date: "Mar 28, 2026",
     time: "10:00 AM - 11:30 AM",
     technician: "Mike Rodriguez",
@@ -38,7 +38,7 @@ const appointments: Appointment[] = [
   },
   {
     id: "apt-2",
-    service: "Water Heater Inspection",
+    service: "Single Item Removal",
     date: "Apr 5, 2026",
     time: "2:00 PM - 3:00 PM",
     technician: "James Chen",
@@ -47,7 +47,7 @@ const appointments: Appointment[] = [
   },
   {
     id: "apt-3",
-    service: "Furnace Repair — Ignitor Replacement",
+    service: "Partial Load Pickup",
     date: "Mar 10, 2026",
     time: "9:00 AM - 11:00 AM",
     technician: "Mike Rodriguez",

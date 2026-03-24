@@ -164,7 +164,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "Customer Sarah Johnson called about a leaking faucet in her kitchen. She's available Tuesday or Wednesday afternoon. Quoted $150-250 for repair. Booked for Tuesday 2:00 PM.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you today?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?", time: "0:00" },
         { speaker: "caller", text: "Hi, I have a leaking faucet in my kitchen and need someone to come fix it.", time: "0:05" },
         { speaker: "ai", text: "I'm sorry to hear about the leak. I can help get that scheduled for you. A kitchen faucet repair typically starts around $150-250 depending on the issue. When would be a good time?", time: "0:12" },
         { speaker: "caller", text: "Tuesday or Wednesday afternoon would work best for me.", time: "0:22" },
@@ -187,7 +187,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: false,
       summary: "Follow-up call with Mike about his HVAC maintenance plan. He's interested in the annual plan at $299/year. Will call back by Friday to confirm.",
       transcript: [
-        { speaker: "agent", text: "Hi Mike, this is John from Acme HVAC. I'm following up on the maintenance plan we discussed.", time: "0:00" },
+        { speaker: "agent", text: "Hi Mike, this is John from Northern Removals. I'm following up on the maintenance plan we discussed.", time: "0:00" },
         { speaker: "caller", text: "Hey John, yeah I've been thinking about it. The annual plan sounded good.", time: "0:06" },
         { speaker: "agent", text: "Great! The annual plan is $299 per year and includes two tune-ups, priority scheduling, and 15% off all repairs.", time: "0:12" },
         { speaker: "caller", text: "That sounds reasonable. Let me talk it over with my wife and I'll get back to you by Friday.", time: "0:20" },
@@ -220,7 +220,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "Lisa called to schedule her annual AC tune-up. Booked for next Wednesday at 10 AM. Existing customer since 2024.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
         { speaker: "caller", text: "Hi, I need to schedule my annual AC tune-up.", time: "0:04" },
         { speaker: "ai", text: "Of course! I see you're an existing customer. The AC tune-up typically runs $89-149. When works best for you?", time: "0:10" },
         { speaker: "caller", text: "Next Wednesday morning if possible.", time: "0:17" },
@@ -241,7 +241,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: false,
       summary: "Called James to confirm tomorrow's appointment. Left voicemail requesting callback.",
       transcript: [
-        { speaker: "agent", text: "Hi James, this is John from Acme HVAC calling to confirm your appointment tomorrow at 9 AM. Please give us a call back to confirm. Thanks!", time: "0:00" },
+        { speaker: "agent", text: "Hi James, this is John from Northern Removals calling to confirm your appointment tomorrow at 9 AM. Please give us a call back to confirm. Thanks!", time: "0:00" },
       ],
       actionsTaken: ["Voicemail left", "Follow-up reminder set"],
       recordingAvailable: true,
@@ -257,7 +257,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "Patricia called about a gas smell near her furnace. AI escalated immediately due to emergency keyword detection. Owner notified.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
         { speaker: "caller", text: "I think I smell gas near my furnace and I'm worried.", time: "0:05" },
         { speaker: "ai", text: "I understand your concern. For your safety, I'm connecting you to our owner immediately. Please leave the area if the smell is strong.", time: "0:10" },
         { speaker: "agent", text: "Hi Patricia, this is John. I heard you might have a gas leak. First, are you and your family safe?", time: "0:18" },
@@ -277,7 +277,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "David inquired about a new AC installation for his 2,500 sq ft home. Qualified as hot lead. Requested an in-home estimate.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
         { speaker: "caller", text: "I'm looking to get a new central AC system installed.", time: "0:05" },
         { speaker: "ai", text: "I'd be happy to help with that. Could you tell me the approximate square footage of your home?", time: "0:10" },
         { speaker: "caller", text: "About 2,500 square feet.", time: "0:15" },
@@ -297,7 +297,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: false,
       summary: "Called Amanda to reschedule her water heater inspection. Moved from Thursday to Friday at 1 PM.",
       transcript: [
-        { speaker: "agent", text: "Hi Amanda, this is John from Acme HVAC. I need to reschedule your Thursday appointment. Would Friday at 1 PM work instead?", time: "0:00" },
+        { speaker: "agent", text: "Hi Amanda, this is John from Northern Removals. I need to reschedule your Thursday appointment. Would Friday at 1 PM work instead?", time: "0:00" },
         { speaker: "caller", text: "Friday at 1 works fine for me.", time: "0:08" },
         { speaker: "agent", text: "Perfect, I've updated the schedule. See you Friday!", time: "0:12" },
       ],
@@ -329,7 +329,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "Robert called about slow drains in both bathrooms. AI diagnosed likely main line issue. Booked inspection for tomorrow morning.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you?", time: "0:00" },
         { speaker: "caller", text: "Both my bathrooms have really slow drains. It started a couple days ago.", time: "0:06" },
         { speaker: "ai", text: "When multiple drains are slow at the same time, it could indicate a main line issue. A drain inspection typically starts around $150-200. Would you like to schedule one?", time: "0:14" },
         { speaker: "caller", text: "Yes, as soon as possible please.", time: "0:22" },
@@ -368,7 +368,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: true,
       summary: "Tom called after hours. AI took a message about needing a thermostat replacement. Will call back during business hours.",
       transcript: [
-        { speaker: "ai", text: "Hi, this is Acme HVAC & Plumbing's AI assistant. We're currently closed but I can take a message. How can I help?", time: "0:00" },
+        { speaker: "ai", text: "Hi, this is Northern Removals's AI assistant. We're currently closed but I can take a message. How can I help?", time: "0:00" },
         { speaker: "caller", text: "My thermostat stopped working and I need it replaced. Can someone call me back?", time: "0:06" },
         { speaker: "ai", text: "Absolutely. I'll have someone call you back first thing tomorrow morning. A thermostat replacement typically runs $150-400. Is there anything else?", time: "0:13" },
       ],
@@ -386,7 +386,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: false,
       summary: "Maria called about installing a tankless water heater. Extensive consultation. Booked estimate visit for Thursday.",
       transcript: [
-        { speaker: "agent", text: "Acme HVAC & Plumbing, this is John speaking. How can I help you?", time: "0:00" },
+        { speaker: "agent", text: "Northern Removals, this is John speaking. How can I help you?", time: "0:00" },
         { speaker: "caller", text: "I'm interested in switching to a tankless water heater. Can you tell me about it?", time: "0:05" },
         { speaker: "agent", text: "Absolutely! Tankless water heaters are great for energy savings. They typically run $2,000-4,500 installed.", time: "0:12" },
       ],
@@ -418,7 +418,7 @@ function createMockCalls(): CallRecord[] {
       aiHandled: false,
       summary: "Called Kevin to schedule seasonal HVAC maintenance. Booked both AC and furnace tune-ups. Applied loyalty discount.",
       transcript: [
-        { speaker: "agent", text: "Hi Kevin, it's John from Acme HVAC. I'm calling about your seasonal maintenance.", time: "0:00" },
+        { speaker: "agent", text: "Hi Kevin, it's John from Northern Removals. I'm calling about your seasonal maintenance.", time: "0:00" },
         { speaker: "caller", text: "Oh right, it's that time of year already. Let's get both done.", time: "0:06" },
         { speaker: "agent", text: "Perfect! Since you're a loyal customer, I can offer you 20% off both tune-ups.", time: "0:12" },
       ],

@@ -174,7 +174,7 @@ const defaultSettings: AllSettings = {
     role: "Owner",
   },
   general: {
-    businessName: "Acme HVAC & Plumbing",
+    businessName: "Northern Removals",
     phone: "(555) 123-4567",
     email: "info@acmehvac.com",
     address: "100 Main Street, Springfield, IL 62701",
@@ -183,10 +183,10 @@ const defaultSettings: AllSettings = {
     businessHours: defaultBusinessHours,
   },
   aiAgent: {
-    agentName: "Acme HVAC Assistant",
+    agentName: "Northern Removals Assistant",
     voice: "Professional (Clear, Neutral)",
     greeting:
-      "Hi, this is Acme HVAC's AI assistant. This call may be recorded. How can I help you today?",
+      "Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?",
     answerCalls: true,
     autoRespondSms: true,
     leadScoring: true,
@@ -201,7 +201,7 @@ const defaultSettings: AllSettings = {
   },
   email: {
     businessEmail: "info@acmehvac.com",
-    emailSignature: "Best regards,\nAcme HVAC & Plumbing\n(555) 123-4567",
+    emailSignature: "Best regards,\nNorthern Removals\n(555) 123-4567",
     sendConfirmations: true,
     sendReminders: true,
     sendReviewRequests: false,

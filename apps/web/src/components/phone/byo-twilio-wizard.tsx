@@ -95,7 +95,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
       } else if (err instanceof TypeError) {
         // Network error — API server not running
         setConnectError(
-          "Cannot reach the API server. Make sure the backend is running on http://localhost:3001",
+          "Cannot reach the API server. Make sure the backend is running.",
         );
       } else {
         setConnectError("Failed to connect. Please check your credentials and try again.");

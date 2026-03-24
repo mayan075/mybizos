@@ -122,9 +122,9 @@ const PLATFORM_TO_PROVIDER: Record<Platform, string | null> = {
 // ── Mock Data (fallback when API is unavailable) ──
 
 const FALLBACK_ACCOUNTS: ConnectedAccount[] = [
-  { platform: "facebook", name: "Acme HVAC & Plumbing", connected: true, avatarInitials: "AH" },
+  { platform: "facebook", name: "Northern Removals", connected: true, avatarInitials: "NR" },
   { platform: "instagram", name: "", connected: false, avatarInitials: "" },
-  { platform: "google_business", name: "Acme HVAC — Austin, TX", connected: true, avatarInitials: "AH" },
+  { platform: "google_business", name: "Northern Removals — Melbourne", connected: true, avatarInitials: "NR" },
   { platform: "linkedin", name: "", connected: false, avatarInitials: "" },
   { platform: "nextdoor", name: "", connected: false, avatarInitials: "" },
 ];
@@ -264,7 +264,7 @@ const AI_SUGGESTIONS: AiSuggestion[] = [
   {
     id: "ai2",
     title: "Customer Spotlight: The Johnson Family's Kitchen Remodel",
-    text: "We're so proud of this kitchen remodel we completed for the Johnson family! New copper piping, a gorgeous farmhouse sink, an instant hot water dispenser, and a complete re-route of their drain lines.\n\nMrs. Johnson said: \"The team was incredibly professional and finished ahead of schedule. Our new kitchen is a dream!\"\n\nThank you for trusting Acme HVAC & Plumbing! #CustomerSpotlight #KitchenRemodel #PlumbingDoneRight",
+    text: "We're so proud of this kitchen remodel we completed for the Johnson family! New copper piping, a gorgeous farmhouse sink, an instant hot water dispenser, and a complete re-route of their drain lines.\n\nMrs. Johnson said: \"The team was incredibly professional and finished ahead of schedule. Our new kitchen is a dream!\"\n\nThank you for trusting Northern Removals! #CustomerSpotlight #KitchenRemodel #PlumbingDoneRight",
     category: "social_proof",
   },
   {
@@ -421,7 +421,7 @@ export default function SocialPage() {
 
   const handleAiWrite = () => {
     setPostText(
-      "Is your faucet dripping? A leaky faucet wastes about 3,000 gallons of water per year -- that's money literally going down the drain!\n\nHere's a quick fix you can try:\n1. Turn off the water supply\n2. Remove the handle and inspect the washer\n3. Replace worn washers or O-rings\n\nStill leaking? Call Acme HVAC & Plumbing for fast, affordable repairs. We're available 24/7! #PlumbingTips #SaveWater #HomeRepair",
+      "Is your faucet dripping? A leaky faucet wastes about 3,000 gallons of water per year -- that's money literally going down the drain!\n\nHere's a quick fix you can try:\n1. Turn off the water supply\n2. Remove the handle and inspect the washer\n3. Replace worn washers or O-rings\n\nStill leaking? Call Northern Removals for fast, affordable repairs. We're available 24/7! #PlumbingTips #SaveWater #HomeRepair",
     );
   };
 

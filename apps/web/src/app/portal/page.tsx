@@ -39,7 +39,7 @@ const quickActions = [
 const upcomingAppointments = [
   {
     id: "apt-1",
-    service: "AC Maintenance & Tune-Up",
+    service: "Full Load Pickup",
     date: "Mar 28, 2026",
     time: "10:00 AM - 11:30 AM",
     technician: "Mike Rodriguez",
@@ -47,7 +47,7 @@ const upcomingAppointments = [
   },
   {
     id: "apt-2",
-    service: "Water Heater Inspection",
+    service: "Single Item Removal",
     date: "Apr 5, 2026",
     time: "2:00 PM - 3:00 PM",
     technician: "James Chen",
@@ -58,21 +58,21 @@ const upcomingAppointments = [
 const recentInvoices = [
   {
     id: "INV-1042",
-    service: "Furnace Repair — Ignitor Replacement",
+    service: "Partial Load Pickup",
     date: "Mar 10, 2026",
     amount: 285,
     status: "paid" as const,
   },
   {
     id: "INV-1051",
-    service: "AC Maintenance & Tune-Up",
+    service: "Full Load Pickup",
     date: "Mar 18, 2026",
     amount: 175,
     status: "unpaid" as const,
   },
   {
     id: "INV-1038",
-    service: "Kitchen Faucet Installation",
+    service: "Skip Bin Hire",
     date: "Feb 22, 2026",
     amount: 340,
     status: "paid" as const,

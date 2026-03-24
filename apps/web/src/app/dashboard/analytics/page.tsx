@@ -119,8 +119,8 @@ const funnelStages = [
 ];
 
 const campaigns = [
-  { name: "Spring AC Tune-Up", sent: 2450, opened: 1102, clicked: 340, converted: 47, revenue: "$9,400" },
-  { name: "Emergency Repair Promo", sent: 1800, opened: 936, clicked: 280, converted: 32, revenue: "$6,720" },
+  { name: "Spring Cleanout Special", sent: 2450, opened: 1102, clicked: 340, converted: 47, revenue: "$9,400" },
+  { name: "Same-Day Pickup Promo", sent: 1800, opened: 936, clicked: 280, converted: 32, revenue: "$6,720" },
   { name: "New Customer Welcome", sent: 320, opened: 256, clicked: 128, converted: 18, revenue: "$3,240" },
   { name: "Referral Program", sent: 890, opened: 534, clicked: 178, converted: 12, revenue: "$2,880" },
 ];

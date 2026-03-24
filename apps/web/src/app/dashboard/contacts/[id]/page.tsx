@@ -148,13 +148,13 @@ const contactConversations: Record<string, ContactConversation[]> = {
 const contactConversationMessages: Record<string, ContactConversationMessage[]> = {
   "cc1-sms": [
     { id: "cc1m1", sender: "contact", text: "Hi, I need to get my drains cleaned. Do you have anyone available this week?", time: "10:15 AM", status: "read" },
-    { id: "cc1m2", sender: "ai", text: "Hi Sarah! This is Acme HVAC & Plumbing's AI assistant. We'd be happy to help with drain cleaning! We have availability tomorrow at 10 AM, 1 PM, or Friday at 9 AM. Which works best for you?", time: "10:15 AM", status: "read" },
+    { id: "cc1m2", sender: "ai", text: "Hi Sarah! This is Northern Removals's AI assistant. We'd be happy to help with drain cleaning! We have availability tomorrow at 10 AM, 1 PM, or Friday at 9 AM. Which works best for you?", time: "10:15 AM", status: "read" },
     { id: "cc1m3", sender: "contact", text: "Tomorrow at 10 AM please!", time: "10:18 AM", status: "read" },
     { id: "cc1m4", sender: "ai", text: "You're all set! I've booked a drain cleaning appointment for tomorrow (Wednesday) at 10:00 AM. Our technician will arrive at your address on file. The service starts at $89. You'll receive a confirmation shortly.", time: "10:18 AM", status: "read" },
     { id: "cc1m5", sender: "contact", text: "Great, I'll see your technician tomorrow at 10 AM!", time: "10:20 AM", status: "read" },
   ],
   "cc1-email": [
-    { id: "cc1e1", sender: "user", text: "Hi Sarah,\n\nThank you for choosing Acme HVAC & Plumbing! Attached is the detailed estimate for your AC tune-up service.\n\nPackage includes:\n- Full system inspection\n- Filter replacement\n- Refrigerant check\n- Thermostat calibration\n\nTotal: $89.00\n\nPlease let me know if you have any questions.", time: "Yesterday, 2:30 PM", status: "read" },
+    { id: "cc1e1", sender: "user", text: "Hi Sarah,\n\nThank you for choosing Northern Removals! Attached is the detailed estimate for your AC tune-up service.\n\nPackage includes:\n- Full system inspection\n- Filter replacement\n- Refrigerant check\n- Thermostat calibration\n\nTotal: $89.00\n\nPlease let me know if you have any questions.", time: "Yesterday, 2:30 PM", status: "read" },
     { id: "cc1e2", sender: "contact", text: "Thanks for sending the estimate. The pricing looks good. Can we schedule this for next week?", time: "Yesterday, 4:15 PM", status: "read" },
     { id: "cc1e3", sender: "user", text: "Absolutely! I have openings on Tuesday at 10 AM or Wednesday at 2 PM. Which works better for you?", time: "Today, 9:00 AM", status: "delivered" },
   ],
@@ -165,7 +165,7 @@ const contactConversationMessages: Record<string, ContactConversationMessage[]> 
     { id: "cc2m4", sender: "ai", text: "I understand budget is important! Let me have our service manager review your project details and get back to you with the best possible pricing. You should hear back within a few hours. Is there anything else I can help with?", time: "9:46 AM", status: "read" },
   ],
   "cc3-call": [
-    { id: "cc3c1", sender: "ai", text: "AI Call Transcript\n\nAI: Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you today?\n\nDavid: Hi, I'd like to schedule an AC maintenance check. My unit hasn't been serviced in about a year.\n\nAI: I'd be happy to help you schedule an AC maintenance visit. We recommend annual tune-ups to keep your system running efficiently. We have availability next Tuesday at 9 AM or Wednesday at 1 PM. Would either of those work?\n\nDavid: Tuesday at 9 works great.\n\nAI: I've booked your AC tune-up for next Tuesday at 9:00 AM. Our technician will arrive at your address on file. The service typically takes about an hour and starts around $89-$120. You'll receive a confirmation text shortly. Is there anything else I can help with?\n\nDavid: No, that's all. Thanks!\n\nAI: You're welcome! Have a great day.", time: "Yesterday, 3:15 PM", status: "read" },
+    { id: "cc3c1", sender: "ai", text: "AI Call Transcript\n\nAI: Hi, this is Northern Removals's AI assistant. This call may be recorded. How can I help you today?\n\nDavid: Hi, I'd like to schedule an AC maintenance check. My unit hasn't been serviced in about a year.\n\nAI: I'd be happy to help you schedule an AC maintenance visit. We recommend annual tune-ups to keep your system running efficiently. We have availability next Tuesday at 9 AM or Wednesday at 1 PM. Would either of those work?\n\nDavid: Tuesday at 9 works great.\n\nAI: I've booked your AC tune-up for next Tuesday at 9:00 AM. Our technician will arrive at your address on file. The service typically takes about an hour and starts around $89-$120. You'll receive a confirmation text shortly. Is there anything else I can help with?\n\nDavid: No, that's all. Thanks!\n\nAI: You're welcome! Have a great day.", time: "Yesterday, 3:15 PM", status: "read" },
   ],
 };
 

@@ -297,7 +297,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Demo Login (Jim&apos;s Plumbing)
+                Demo Login (Northern Removals)
               </>
             )}
           </button>

@@ -34,7 +34,7 @@ const notifications = [
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-500",
     title: "New lead: Sarah Johnson",
-    description: "Quote request for drain cleaning",
+    description: "Quote request via website",
     time: "5 min ago",
     read: false,
     href: "/dashboard/contacts/c1",
@@ -45,7 +45,7 @@ const notifications = [
     iconBg: "bg-purple-500/10",
     iconColor: "text-purple-500",
     title: "AI booked: Tom Anderson",
-    description: "AC Tune-Up, Tomorrow 10:00 AM",
+    description: "Service appointment, Tomorrow 10:00 AM",
     time: "15 min ago",
     read: false,
     href: "/dashboard/scheduling",
@@ -56,7 +56,7 @@ const notifications = [
     iconBg: "bg-purple-500/10",
     iconColor: "text-purple-500",
     title: "AI qualified lead: Mike Thompson",
-    description: "Water heater replacement, $3,000 budget",
+    description: "New job inquiry, $3,000 budget",
     time: "23 min ago",
     read: false,
     href: "/dashboard/contacts/c2",
@@ -125,9 +125,9 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
 
   const user = useMemo(() => getUser(), []);
   const onboarding = useMemo(() => getOnboardingData(), []);
-  const userName = user?.name ?? "Demo User";
-  const userEmail = user?.email ?? "demo@mybizos.com";
-  const orgName = onboarding?.businessName ?? user?.orgName ?? "Demo Business";
+  const userName = user?.name ?? "User";
+  const userEmail = user?.email ?? "";
+  const orgName = onboarding?.businessName ?? user?.orgName ?? "My Business";
   const userInitials = getInitials(userName);
 
   const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;

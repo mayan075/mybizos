@@ -172,7 +172,7 @@ const mockWorkflows: Record<string, Workflow> = {
         type: "send_sms",
         config: {
           message:
-            "Hi {{contact.firstName}}! Thanks for reaching out to Acme HVAC. We got your info and someone will be in touch within the hour. Reply STOP to opt out.",
+            "Hi {{contact.firstName}}! Thanks for reaching out to {{business.name}}. We got your info and someone will be in touch within the hour. Reply STOP to opt out.",
           delay: 60,
         },
       },
@@ -249,7 +249,7 @@ const mockWorkflows: Record<string, Workflow> = {
         type: "send_sms",
         config: {
           message:
-            "Hi {{contact.firstName}}! Thanks for choosing Acme HVAC. We'd love your feedback — it takes 30 seconds: {{review.link}}",
+            "Hi {{contact.firstName}}! Thanks for choosing {{business.name}}. We'd love your feedback — it takes 30 seconds: {{review.link}}",
         },
       },
       {
@@ -288,7 +288,7 @@ const mockWorkflows: Record<string, Workflow> = {
         type: "send_sms",
         config: {
           message:
-            "Happy Birthday, {{contact.firstName}}! 🎂 As a gift from Acme HVAC, here's 15% off your next service. Use code BDAY15. Have a great day!",
+            "Happy Birthday, {{contact.firstName}}! 🎂 As a gift from {{business.name}}, here's 15% off your next service. Use code BDAY15. Have a great day!",
         },
       },
     ],

@@ -6,7 +6,8 @@
  * and automatic token refresh.
  */
 
-import type { Device, Call } from '@twilio/voice-sdk';
+import type { Device } from '@twilio/voice-sdk';
+import type { Call } from '@twilio/voice-sdk';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -200,9 +201,12 @@ export async function initDevice(): Promise<void> {
       device = null;
     }
 
+    // Import Call type for codec enum access
+    const { Call: CallClass } = await import('@twilio/voice-sdk');
+
     device = new Device(token, {
       logLevel: 1,
-      codecPreferences: [Device.Codec.Opus, Device.Codec.PCMU],
+      codecPreferences: [CallClass.Codec.Opus, CallClass.Codec.PCMU],
       closeProtection: true,
     });
 

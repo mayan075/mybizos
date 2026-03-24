@@ -18,28 +18,28 @@ const initialMessages: Message[] = [
     id: "msg-1",
     sender: "customer",
     senderName: "You",
-    text: "Hi, I noticed my AC is making a rattling noise when it kicks on. Should I be concerned?",
+    text: "Hi, I have a bunch of old furniture I need cleared out. Can you do a pickup this week?",
     timestamp: "Mar 20, 2026 at 2:15 PM",
   },
   {
     id: "msg-2",
     sender: "business",
-    senderName: "Precision HVAC & Plumbing",
-    text: "Hi Sarah! A rattling noise can sometimes indicate a loose component or debris in the unit. It's a good idea to have it checked before summer. Would you like us to take a look during your upcoming tune-up on Mar 28?",
+    senderName: "BUSINESS_NAME",
+    text: "Hi Sarah! We'd be happy to help with the furniture removal. Could you let us know roughly how many items? That way we can send the right sized truck. We have availability on Thursday and Friday this week.",
     timestamp: "Mar 20, 2026 at 2:18 PM",
   },
   {
     id: "msg-3",
     sender: "customer",
     senderName: "You",
-    text: "Yes, that would be great! Can Mike take a look at it during the appointment?",
+    text: "It's a couch, two armchairs, a dining table, and some boxes. Would Thursday morning work?",
     timestamp: "Mar 20, 2026 at 2:22 PM",
   },
   {
     id: "msg-4",
     sender: "business",
-    senderName: "Precision HVAC & Plumbing",
-    text: "Absolutely! I've added a note to your appointment so Mike knows to inspect the rattling noise. If it turns out to be something bigger, he'll give you options right there. See you on the 28th!",
+    senderName: "BUSINESS_NAME",
+    text: "Thursday morning works great! I've booked you in for 10 AM. Our team of two will arrive with the truck. Based on what you described, it should take about an hour. We'll send you a confirmation text the day before. See you Thursday!",
     timestamp: "Mar 20, 2026 at 2:25 PM",
   },
 ];
@@ -48,10 +48,10 @@ export default function MessagesPage() {
   const onboarding = useMemo(() => getOnboardingData(), []);
   const bizName = onboarding?.businessName ?? "Your Business";
 
-  // Replace hardcoded business name in initial messages with dynamic name
+  // Replace placeholder business name in initial messages with dynamic name
   const dynamicMessages = useMemo(() => {
     return initialMessages.map((m) =>
-      m.senderName === "Precision HVAC & Plumbing"
+      m.senderName === "BUSINESS_NAME"
         ? { ...m, senderName: bizName }
         : m,
     );

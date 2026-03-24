@@ -43,7 +43,7 @@ export const mockContacts: MockContact[] = [
     email: "sarah@example.com",
     score: 92,
     lastActivity: "2 hours ago",
-    tags: ["Hot Lead", "HVAC"],
+    tags: ["Hot Lead", "Removals"],
     source: "Phone",
   },
   {
@@ -53,7 +53,7 @@ export const mockContacts: MockContact[] = [
     email: "mike.chen@email.com",
     score: 78,
     lastActivity: "5 hours ago",
-    tags: ["Plumbing"],
+    tags: ["Rubbish"],
     source: "Web Form",
   },
   {
@@ -63,7 +63,7 @@ export const mockContacts: MockContact[] = [
     email: "dpark@gmail.com",
     score: 85,
     lastActivity: "1 day ago",
-    tags: ["Hot Lead", "Furnace"],
+    tags: ["Hot Lead", "Full Load"],
     source: "AI Call",
   },
   {
@@ -83,7 +83,7 @@ export const mockContacts: MockContact[] = [
     email: "jwilson@email.com",
     score: 45,
     lastActivity: "3 days ago",
-    tags: ["HVAC", "Commercial"],
+    tags: ["Removals", "Commercial"],
     source: "Google Ads",
   },
   {
@@ -103,7 +103,7 @@ export const mockContacts: MockContact[] = [
     email: "rmartinez@business.com",
     score: 56,
     lastActivity: "4 days ago",
-    tags: ["Plumbing"],
+    tags: ["Rubbish"],
     source: "Yelp",
   },
   {
@@ -113,7 +113,7 @@ export const mockContacts: MockContact[] = [
     email: "ataylor@home.com",
     score: 73,
     lastActivity: "1 day ago",
-    tags: ["HVAC", "Residential"],
+    tags: ["Removals", "Residential"],
     source: "SMS",
   },
   {
@@ -123,7 +123,7 @@ export const mockContacts: MockContact[] = [
     email: "carlos.h@gmail.com",
     score: 88,
     lastActivity: "6 hours ago",
-    tags: ["Hot Lead", "Plumbing"],
+    tags: ["Hot Lead", "Rubbish"],
     source: "AI Call",
   },
   {
@@ -133,7 +133,7 @@ export const mockContacts: MockContact[] = [
     email: "kthompson@mail.com",
     score: 35,
     lastActivity: "1 week ago",
-    tags: ["HVAC"],
+    tags: ["Removals"],
     source: "Google Ads",
   },
 ];
@@ -148,7 +148,7 @@ export const mockContactDetails: Record<string, MockContactDetail> = {
     address: "742 Evergreen Terrace, Springfield, IL",
     source: "Phone",
     score: 92,
-    tags: ["Hot Lead", "HVAC"],
+    tags: ["Hot Lead", "Removals"],
     lastActivity: "2 hours ago",
     createdAt: "Mar 15, 2026",
   },
@@ -161,7 +161,7 @@ export const mockContactDetails: Record<string, MockContactDetail> = {
     address: "123 Oak Street, Springfield, IL",
     source: "Web Form",
     score: 78,
-    tags: ["Plumbing"],
+    tags: ["Rubbish"],
     lastActivity: "5 hours ago",
     createdAt: "Mar 10, 2026",
   },
@@ -174,7 +174,7 @@ export const mockContactDetails: Record<string, MockContactDetail> = {
     address: "456 Pine Ave, Springfield, IL",
     source: "AI Call",
     score: 85,
-    tags: ["Hot Lead", "Furnace"],
+    tags: ["Hot Lead", "Full Load"],
     lastActivity: "1 day ago",
     createdAt: "Mar 12, 2026",
   },
@@ -214,7 +214,7 @@ export const mockTimeline: MockTimelineEntry[] = [
     iconName: "Phone",
     title: "AI answered inbound call",
     description:
-      "Customer inquired about AC maintenance. AI qualified as high-intent lead and scheduled callback.",
+      "Customer inquired about rubbish removal. AI qualified as high-intent lead and scheduled callback.",
     time: "2 hours ago",
     color: "text-primary",
     bg: "bg-primary/10",
@@ -224,7 +224,7 @@ export const mockTimeline: MockTimelineEntry[] = [
     type: "appointment",
     iconName: "CalendarCheck",
     title: "Appointment booked",
-    description: "AC Tune-Up \u2014 Tomorrow at 10:00 AM",
+    description: "Full Load Pickup \u2014 Tomorrow at 10:00 AM",
     time: "2 hours ago",
     color: "text-success",
     bg: "bg-success/10",
@@ -255,7 +255,7 @@ export const mockTimeline: MockTimelineEntry[] = [
     type: "email",
     iconName: "Mail",
     title: "Follow-up email sent",
-    description: "Service estimate PDF attached \u2014 AC Tune-Up package details.",
+    description: "Service estimate PDF attached \u2014 Full Load Pickup package details.",
     time: "1 day ago",
     color: "text-primary",
     bg: "bg-primary/10",
@@ -266,7 +266,7 @@ export const mockTimeline: MockTimelineEntry[] = [
     iconName: "Phone",
     title: "Initial call \u2014 AI agent",
     description:
-      "First contact. Customer asked about HVAC services. AI collected contact details and service needs.",
+      "First contact. Customer asked about removal services. AI collected contact details and service needs.",
     time: "3 days ago",
     color: "text-primary",
     bg: "bg-primary/10",
@@ -352,22 +352,22 @@ export const mockPipelineColumns: MockPipelineColumn[] = [
 
 export const mockDeals: Record<string, MockDeal[]> = {
   new_lead: [
-    { id: "d1", title: "AC Installation", contact: "Sarah Johnson", value: 4500, daysInStage: 1, score: 92, tags: ["HVAC", "Residential"] },
-    { id: "d2", title: "Furnace Replacement", contact: "David Park", value: 6200, daysInStage: 2, score: 85, tags: ["HVAC"] },
-    { id: "d3", title: "Pipe Repair", contact: "Amanda Taylor", value: 800, daysInStage: 0, score: 73, tags: ["Plumbing"] },
-    { id: "d7", title: "Duct Cleaning", contact: "Tom Bradley", value: 350, daysInStage: 1, score: 60, tags: ["HVAC", "Maintenance"] },
+    { id: "d1", title: "Full Load Pickup", contact: "Sarah Johnson", value: 450, daysInStage: 1, score: 92, tags: ["Removals", "Residential"] },
+    { id: "d2", title: "Office Cleanout", contact: "David Park", value: 620, daysInStage: 2, score: 85, tags: ["Removals"] },
+    { id: "d3", title: "Single Item Removal", contact: "Amanda Taylor", value: 120, daysInStage: 0, score: 73, tags: ["Rubbish"] },
+    { id: "d7", title: "Green Waste Removal", contact: "Tom Bradley", value: 250, daysInStage: 1, score: 60, tags: ["Removals", "Maintenance"] },
   ],
   quoted: [
-    { id: "d4", title: "Water Heater Install", contact: "Mike Chen", value: 2800, daysInStage: 3, score: 78, tags: ["Plumbing"] },
-    { id: "d5", title: "HVAC Maintenance Plan", contact: "Lisa Wang", value: 1200, daysInStage: 5, score: 64, tags: ["HVAC", "Contract"] },
+    { id: "d4", title: "Skip Bin Hire", contact: "Mike Chen", value: 380, daysInStage: 3, score: 78, tags: ["Rubbish"] },
+    { id: "d5", title: "Monthly Pickup Contract", contact: "Lisa Wang", value: 1200, daysInStage: 5, score: 64, tags: ["Removals", "Contract"] },
   ],
   scheduled: [
-    { id: "d8", title: "Boiler Inspection", contact: "Carlos Hernandez", value: 450, daysInStage: 1, score: 88, tags: ["HVAC"] },
-    { id: "d9", title: "Drain Cleaning", contact: "Karen Thompson", value: 300, daysInStage: 0, score: 55, tags: ["Plumbing"] },
+    { id: "d8", title: "Partial Load Pickup", contact: "Carlos Hernandez", value: 280, daysInStage: 1, score: 88, tags: ["Removals"] },
+    { id: "d9", title: "Hard Rubbish Collection", contact: "Karen Thompson", value: 300, daysInStage: 0, score: 55, tags: ["Rubbish"] },
   ],
   won: [
-    { id: "d6", title: "Emergency Pipe Fix", contact: "James Wilson", value: 950, daysInStage: 0, score: 45, tags: ["Plumbing", "Emergency"] },
-    { id: "d10", title: "AC Tune-Up", contact: "Emily Davis", value: 189, daysInStage: 2, score: 91, tags: ["HVAC"] },
+    { id: "d6", title: "Emergency Cleanout", contact: "James Wilson", value: 550, daysInStage: 0, score: 45, tags: ["Rubbish", "Emergency"] },
+    { id: "d10", title: "Estate Clearance", contact: "Emily Davis", value: 890, daysInStage: 2, score: 91, tags: ["Removals"] },
   ],
 };
 
@@ -412,7 +412,7 @@ export const mockConversations: MockConversation[] = [
     contact: "Mike Chen",
     initials: "MC",
     channel: "sms",
-    lastMessage: "Can you send me the estimate for the water heater?",
+    lastMessage: "Can you send me the estimate for the skip bin hire?",
     time: "15m ago",
     unread: true,
     aiHandled: true,
@@ -423,7 +423,7 @@ export const mockConversations: MockConversation[] = [
     contact: "David Park",
     initials: "DP",
     channel: "email",
-    lastMessage: "Re: Furnace Replacement Quote \u2014 Thanks for the detailed...",
+    lastMessage: "Re: Full Load Removal Quote \u2014 Thanks for the detailed...",
     time: "1h ago",
     unread: false,
     aiHandled: false,
@@ -456,7 +456,7 @@ export const mockConversations: MockConversation[] = [
     contact: "Emily Davis",
     initials: "ED",
     channel: "call",
-    lastMessage: "AI Call Summary: Emergency plumbing request \u2014 escalated to...",
+    lastMessage: "AI Call Summary: Urgent pickup request \u2014 escalated to...",
     time: "1d ago",
     unread: false,
     aiHandled: true,
@@ -488,38 +488,38 @@ export const mockConversations: MockConversation[] = [
 
 export const mockMessages: Record<string, MockChatMessage[]> = {
   conv1: [
-    { id: "m1", sender: "contact", text: "Hi, I need to schedule an AC tune-up. What times do you have available this week?", time: "10:23 AM", status: "read" },
-    { id: "m2", sender: "ai", text: "Hi Sarah! This is Acme HVAC's AI assistant. I'd be happy to help you schedule an AC tune-up. We have availability tomorrow (Wednesday) at 10 AM, 1 PM, or 3 PM. We also have Thursday morning slots. Which works best for you?", time: "10:23 AM", status: "read" },
+    { id: "m1", sender: "contact", text: "Hi, I need to schedule a rubbish removal. What times do you have available this week?", time: "10:23 AM", status: "read" },
+    { id: "m2", sender: "ai", text: "Hi Sarah! This is Northern Removals' AI assistant. I'd be happy to help you schedule a pickup. We have availability tomorrow (Wednesday) at 10 AM, 1 PM, or 3 PM. We also have Thursday morning slots. Which works best for you?", time: "10:23 AM", status: "read" },
     { id: "m3", sender: "contact", text: "Tomorrow at 10 AM works perfectly.", time: "10:25 AM", status: "read" },
-    { id: "m4", sender: "ai", text: "I've booked you for an AC tune-up tomorrow, Wednesday at 10:00 AM. Our technician will arrive at your address on file. The service typically takes about an hour and starts at $89. You'll receive a confirmation text shortly. Is there anything else I can help with?", time: "10:25 AM", status: "read" },
-    { id: "m5", sender: "contact", text: "Great, I'll see your technician tomorrow at 10 AM!", time: "10:26 AM", status: "read" },
+    { id: "m4", sender: "ai", text: "I've booked you for a full load pickup tomorrow, Wednesday at 10:00 AM. Our team will arrive at your address on file. The service typically takes 1-2 hours. You'll receive a confirmation text shortly. Is there anything else I can help with?", time: "10:25 AM", status: "read" },
+    { id: "m5", sender: "contact", text: "Great, I'll see your team tomorrow at 10 AM!", time: "10:26 AM", status: "read" },
   ],
   conv2: [
-    { id: "m2-1", sender: "contact", text: "Hi, I got a quote for a water heater installation but I lost the email. Can you resend it?", time: "9:45 AM", status: "read" },
-    { id: "m2-2", sender: "ai", text: "Hi Mike! This is Acme HVAC's AI assistant. I'd be happy to resend your water heater installation quote. I've forwarded it to your email on file (mike.chen@email.com). The quote was for a 50-gallon tankless unit at $2,800 installed. Would you like to schedule the installation?", time: "9:45 AM", status: "read" },
-    { id: "m2-3", sender: "contact", text: "Can you send me the estimate for the water heater?", time: "9:50 AM", status: "read" },
+    { id: "m2-1", sender: "contact", text: "Hi, I got a quote for a skip bin hire but I lost the email. Can you resend it?", time: "9:45 AM", status: "read" },
+    { id: "m2-2", sender: "ai", text: "Hi Mike! This is Northern Removals' AI assistant. I'd be happy to resend your skip bin hire quote. I've forwarded it to your email on file (mike.chen@email.com). The quote was for a 6-cubic-metre bin at $380. Would you like to schedule the delivery?", time: "9:45 AM", status: "read" },
+    { id: "m2-3", sender: "contact", text: "Can you send me the estimate for the skip bin hire?", time: "9:50 AM", status: "read" },
   ],
   conv3: [
-    { id: "m3-1", sender: "user", text: "Hi David, following up on your furnace replacement inquiry. I've attached a detailed quote with three options ranging from $4,200 to $6,800 depending on the model.", time: "Yesterday", status: "read" },
-    { id: "m3-2", sender: "contact", text: "Thanks for the detailed breakdown. I'm leaning towards the mid-range option. Can we schedule a time to discuss the installation timeline?", time: "1h ago", status: "read" },
+    { id: "m3-1", sender: "user", text: "Hi David, following up on your office cleanout inquiry. I've attached a detailed quote with options ranging from $400 to $800 depending on the load.", time: "Yesterday", status: "read" },
+    { id: "m3-2", sender: "contact", text: "Thanks for the detailed breakdown. I'm leaning towards the full load option. Can we schedule a time to discuss the pickup timeline?", time: "1h ago", status: "read" },
   ],
   conv4: [
-    { id: "m4-1", sender: "ai", text: "AI Call Summary: Lisa Wang called to inquire about annual HVAC maintenance plans. She has a 3-year-old system and wants preventive care. Quoted $29/month plan. She asked to receive details via email before deciding.", time: "3h ago", status: "read" },
+    { id: "m4-1", sender: "ai", text: "AI Call Summary: Lisa Wang called to inquire about regular pickup plans. She has a commercial property and wants scheduled collections. Quoted $29/month plan. She asked to receive details via email before deciding.", time: "3h ago", status: "read" },
   ],
   conv5: [
-    { id: "m5-1", sender: "user", text: "Hi James! Glad we could get that pipe fixed quickly. Is everything working well now?", time: "Yesterday", status: "read" },
-    { id: "m5-2", sender: "contact", text: "Everything's great! No more leaking. Thanks for the quick fix! 5 stars from me.", time: "1d ago", status: "read" },
+    { id: "m5-1", sender: "user", text: "Hi James! Glad we could get that cleared out quickly. Is everything looking good now?", time: "Yesterday", status: "read" },
+    { id: "m5-2", sender: "contact", text: "Everything's great! Place looks fantastic. Thanks for the quick work! 5 stars from me.", time: "1d ago", status: "read" },
   ],
   conv6: [
-    { id: "m6-1", sender: "ai", text: "AI Call Summary: Emergency plumbing request from Emily Davis. Reported water leak under kitchen sink. Flagged as emergency. AI escalated to on-call technician immediately. Estimated arrival time communicated: 45 minutes.", time: "1d ago", status: "read" },
+    { id: "m6-1", sender: "ai", text: "AI Call Summary: Urgent pickup request from Emily Davis. Needs same-day rubbish removal for a tenant move-out. Flagged as urgent. AI escalated to dispatch team immediately. Estimated arrival time communicated: 45 minutes.", time: "1d ago", status: "read" },
   ],
   conv7: [
-    { id: "m7-1", sender: "ai", text: "Hi Carlos! This is Acme HVAC's AI assistant. Your boiler inspection is confirmed for this Friday at 9 AM. Our technician will arrive at your address.", time: "2d ago", status: "read" },
-    { id: "m7-2", sender: "contact", text: "What time should I expect the technician?", time: "2d ago", status: "read" },
+    { id: "m7-1", sender: "ai", text: "Hi Carlos! This is Northern Removals' AI assistant. Your partial load pickup is confirmed for this Friday at 9 AM. Our team will arrive at your address.", time: "2d ago", status: "read" },
+    { id: "m7-2", sender: "contact", text: "What time should I expect the team?", time: "2d ago", status: "read" },
   ],
   conv8: [
-    { id: "m8-1", sender: "contact", text: "I got your flyer about seasonal maintenance specials. I'd like to schedule an HVAC check before summer.", time: "3d ago", status: "read" },
-    { id: "m8-2", sender: "user", text: "Hi Karen! Great timing. We have openings next week for seasonal tune-ups. Would Tuesday or Wednesday work for you?", time: "3d ago", status: "read" },
+    { id: "m8-1", sender: "contact", text: "I got your flyer about spring cleanout specials. I'd like to schedule a pickup before the weekend.", time: "3d ago", status: "read" },
+    { id: "m8-2", sender: "user", text: "Hi Karen! Great timing. We have openings next week for pickups. Would Tuesday or Wednesday work for you?", time: "3d ago", status: "read" },
   ],
 };
 
@@ -542,7 +542,7 @@ export interface MockAppointment {
 export const mockAppointments: MockAppointment[] = [
   {
     id: "a1",
-    title: "AC Tune-Up",
+    title: "Full Load Pickup",
     customer: "Sarah Johnson",
     time: "10:00 AM - 11:00 AM",
     duration: 1,
@@ -553,7 +553,7 @@ export const mockAppointments: MockAppointment[] = [
   },
   {
     id: "a2",
-    title: "Plumbing Inspection",
+    title: "Skip Bin Delivery",
     customer: "Mike Chen",
     time: "2:00 PM - 3:30 PM",
     duration: 1.5,
@@ -564,7 +564,7 @@ export const mockAppointments: MockAppointment[] = [
   },
   {
     id: "a3",
-    title: "Furnace Repair",
+    title: "Partial Load Pickup",
     customer: "Lisa Wang",
     time: "9:00 AM - 11:00 AM",
     duration: 2,
@@ -575,7 +575,7 @@ export const mockAppointments: MockAppointment[] = [
   },
   {
     id: "a4",
-    title: "Water Heater Install",
+    title: "Estate Clearance",
     customer: "James Wilson",
     time: "1:00 PM - 4:00 PM",
     duration: 3,
@@ -586,7 +586,7 @@ export const mockAppointments: MockAppointment[] = [
   },
   {
     id: "a5",
-    title: "AC Maintenance",
+    title: "Single Item Pickup",
     customer: "Emily Davis",
     time: "11:00 AM - 12:00 PM",
     duration: 1,
@@ -597,7 +597,7 @@ export const mockAppointments: MockAppointment[] = [
   },
   {
     id: "a6",
-    title: "Drain Cleaning",
+    title: "Green Waste Collection",
     customer: "Carlos Hernandez",
     time: "9:00 AM - 10:00 AM",
     duration: 1,
@@ -691,7 +691,7 @@ export const mockActivity: MockActivityItem[] = [
     type: "call",
     iconName: "Phone",
     title: "AI answered call from (555) 123-4567",
-    description: "Qualified lead \u2014 HVAC maintenance inquiry",
+    description: "Qualified lead \u2014 rubbish removal inquiry",
     time: "2 min ago",
     color: "text-primary",
   },
@@ -700,7 +700,7 @@ export const mockActivity: MockActivityItem[] = [
     type: "appointment",
     iconName: "CalendarCheck",
     title: "Appointment booked \u2014 Sarah Johnson",
-    description: "AC Tune-Up \u2014 Tomorrow at 10:00 AM",
+    description: "Full Load Pickup \u2014 Tomorrow at 10:00 AM",
     time: "15 min ago",
     color: "text-success",
   },
@@ -718,7 +718,7 @@ export const mockActivity: MockActivityItem[] = [
     type: "lead",
     iconName: "TrendingUp",
     title: "New lead scored: 85/100",
-    description: "David Park \u2014 Furnace replacement inquiry",
+    description: "David Park \u2014 Office cleanout inquiry",
     time: "2 hr ago",
     color: "text-warning",
   },
@@ -727,7 +727,7 @@ export const mockActivity: MockActivityItem[] = [
     type: "call",
     iconName: "Phone",
     title: "AI answered call from (555) 987-6543",
-    description: "Plumbing emergency \u2014 routed to on-call tech",
+    description: "Urgent pickup request \u2014 routed to dispatch team",
     time: "3 hr ago",
     color: "text-primary",
   },
@@ -746,7 +746,7 @@ export const mockUpcomingAppointments: MockUpcomingAppointment[] = [
   {
     id: "1",
     customer: "Sarah Johnson",
-    service: "AC Tune-Up",
+    service: "Full Load Pickup",
     time: "10:00 AM",
     date: "Tomorrow",
     status: "confirmed",
@@ -754,7 +754,7 @@ export const mockUpcomingAppointments: MockUpcomingAppointment[] = [
   {
     id: "2",
     customer: "Mike Chen",
-    service: "Plumbing Inspection",
+    service: "Skip Bin Delivery",
     time: "2:00 PM",
     date: "Friday",
     status: "scheduled",
@@ -762,7 +762,7 @@ export const mockUpcomingAppointments: MockUpcomingAppointment[] = [
   {
     id: "3",
     customer: "Lisa Wang",
-    service: "Furnace Repair",
+    service: "Partial Load Pickup",
     time: "9:00 AM",
     date: "Monday",
     status: "scheduled",

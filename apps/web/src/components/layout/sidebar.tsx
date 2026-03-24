@@ -109,8 +109,8 @@ export function Sidebar() {
 
   const user = useMemo(() => getUser(), []);
   const onboarding = useMemo(() => getOnboardingData(), []);
-  const userName = user?.name ?? "Demo User";
-  const orgName = onboarding?.businessName ?? user?.orgName ?? "Demo Business";
+  const userName = user?.name ?? "User";
+  const orgName = onboarding?.businessName ?? user?.orgName ?? "My Business";
   const userInitials = getInitials(userName);
 
   // Only show Admin section to platform admins

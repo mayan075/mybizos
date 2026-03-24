@@ -17,10 +17,8 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function twimlResponse(c: { body: (data: string, init?: { headers?: Record<string, string> }) => Response }, twiml: string) {
-  return c.body(twiml, {
-    headers: { 'Content-Type': 'application/xml' },
-  });
+function twimlResponse(c: { text: (data: string, status?: number, headers?: Record<string, string>) => Response }, twiml: string) {
+  return c.text(twiml, 200, { 'Content-Type': 'text/xml' });
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────

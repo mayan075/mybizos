@@ -345,7 +345,7 @@ function StepContent({
 </ul>
 <p><strong>Book your tune-up today and save 20%!</strong></p>
 <p>Use code <strong>SPRING20</strong> when scheduling online or mention it when you call.</p>
-<p>Best regards,<br/>The Acme HVAC Team</p>`,
+<p>Best regards,<br/>The Northern Removals Team</p>`,
         });
       } else {
         onChange({
