@@ -61,3 +61,19 @@ export {
   type VapiMessage,
   type VapiCallListFilters,
 } from "./vapi/index.js";
+
+// OAuth Integrations
+export {
+  OAUTH_PROVIDERS,
+  buildOAuthUrl,
+  exchangeCodeForTokens,
+  refreshAccessToken,
+  revokeTokens,
+  fetchAccountName,
+  type OAuthProvider,
+  type OAuthProviderConfig,
+  type OAuthTokens,
+  type OAuthConnectionStatus,
+  type OAuthCredentials,
+  type OAuthConnection,
+} from "./oauth/index.js";

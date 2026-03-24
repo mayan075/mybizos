@@ -21,6 +21,7 @@ import { twilioWebhookRoutes } from './routes/webhooks/twilio.js';
 import { emailWebhookRoutes } from './routes/webhooks/email.js';
 import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
 import { stripeWebhookRoutes } from './routes/webhooks/stripe.js';
+import { integrationRoutes } from './routes/integrations.js';
 
 const app = new Hono();
 
@@ -69,7 +70,7 @@ app.get('/health', async (c) => {
     const { db } = await import('@mybizos/db');
     const { sql } = await import('drizzle-orm');
     const result = await db.execute(sql`SELECT 1 as ok`);
-    dbStatus = result.rows && result.rows.length > 0 ? 'connected' : 'no-result';
+    dbStatus = Array.isArray(result) && result.length > 0 ? 'connected' : 'no-result';
   } catch (err) {
     dbStatus = 'disconnected';
     dbError = err instanceof Error ? err.message : String(err);
@@ -101,6 +102,7 @@ app.route('/orgs/:orgId/reviews', reviewRoutes);
 app.route('/orgs/:orgId/sequences', sequenceRoutes);
 app.route('/orgs/:orgId', aiRoutes);
 app.route('/orgs/:orgId/phone-system', phoneSystemRoutes);
+app.route('/orgs/:orgId/integrations', integrationRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);

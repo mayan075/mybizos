@@ -120,7 +120,7 @@ dashboard.get('/stats', async (c) => {
         .from(aiCallLogs)
         .where(and(
           withOrgScope(aiCallLogs.orgId, orgId),
-          gte(aiCallLogs.startedAt, weekAgo),
+          gte(aiCallLogs.createdAt, weekAgo),
         ));
       aiCallsThisWeek = aiCallResult?.value ?? 0;
     } catch {

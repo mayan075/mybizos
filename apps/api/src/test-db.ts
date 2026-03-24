@@ -28,8 +28,9 @@ async function testDatabaseConnection() {
   try {
     // 2. Simple connectivity test
     log('1. Testing basic connectivity...');
+    const { sql } = await import('drizzle-orm');
     const start = performance.now();
-    const result = await db.execute(new (await import('drizzle-orm')).SQL(['SELECT 1 as ok'], []));
+    await db.execute(sql`SELECT 1 as ok`);
     const duration = Math.round(performance.now() - start);
     log(`   OK - Connected in ${duration}ms`);
     log('');

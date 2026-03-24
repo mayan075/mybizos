@@ -69,6 +69,19 @@ interface AiAgentSettings {
   autoBook: boolean;
   emergencyEscalation: boolean;
   priceQuoting: boolean;
+  transferEmergency: boolean;
+  transferHuman: boolean;
+  transferHighValue: boolean;
+  personalPhone: string;
+  personalityNotes: string;
+}
+
+interface EmailSettings {
+  businessEmail: string;
+  emailSignature: string;
+  sendConfirmations: boolean;
+  sendReminders: boolean;
+  sendReviewRequests: boolean;
 }
 
 interface IntegrationStatus {
@@ -84,6 +97,7 @@ interface AllSettings {
   profile: ProfileSettings;
   general: GeneralSettings;
   aiAgent: AiAgentSettings;
+  email: EmailSettings;
   integrations: IntegrationStatus;
 }
 
@@ -118,19 +132,17 @@ const TIMEZONES = [
 ];
 
 const VOICES = [
-  "Alloy (Neutral, Professional)",
-  "Echo (Warm, Friendly)",
-  "Fable (Clear, Authoritative)",
-  "Nova (Energetic, Upbeat)",
-  "Onyx (Deep, Calm)",
-  "Shimmer (Gentle, Reassuring)",
+  "Professional (Clear, Neutral)",
+  "Friendly (Warm, Welcoming)",
+  "Energetic (Upbeat, Enthusiastic)",
 ];
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User },
   { id: "general", label: "General", icon: Building2 },
   { id: "phone", label: "Phone System", icon: PhoneCall },
-  { id: "ai-agent", label: "AI Agent", icon: Bot },
+  { id: "ai-agent", label: "AI Receptionist", icon: Bot },
+  { id: "email", label: "Email", icon: Mail },
   { id: "integrations", label: "Integrations", icon: Plug },
   { id: "billing", label: "Billing", icon: CreditCard },
 ] as const;
@@ -172,7 +184,7 @@ const defaultSettings: AllSettings = {
   },
   aiAgent: {
     agentName: "Acme HVAC Assistant",
-    voice: "Alloy (Neutral, Professional)",
+    voice: "Professional (Clear, Neutral)",
     greeting:
       "Hi, this is Acme HVAC's AI assistant. This call may be recorded. How can I help you today?",
     answerCalls: true,
@@ -181,6 +193,18 @@ const defaultSettings: AllSettings = {
     autoBook: true,
     emergencyEscalation: true,
     priceQuoting: true,
+    transferEmergency: true,
+    transferHuman: true,
+    transferHighValue: false,
+    personalPhone: "",
+    personalityNotes: "",
+  },
+  email: {
+    businessEmail: "info@acmehvac.com",
+    emailSignature: "Best regards,\nAcme HVAC & Plumbing\n(555) 123-4567",
+    sendConfirmations: true,
+    sendReminders: true,
+    sendReviewRequests: false,
   },
   integrations: {
     twilio: false,
@@ -214,6 +238,7 @@ function loadSettings(): AllSettings {
         },
       },
       aiAgent: { ...defaultSettings.aiAgent, ...parsed.aiAgent },
+      email: { ...defaultSettings.email, ...parsed.email },
       integrations: { ...defaultSettings.integrations, ...parsed.integrations },
     };
   } catch {
