@@ -198,7 +198,7 @@ function useMicrophonePermission() {
 /*  Device Status Badge                                                        */
 /* -------------------------------------------------------------------------- */
 
-function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
+function DeviceStatusBadge({ status, error }: { status: DeviceStatus; error?: string | null }) {
   if (status === "registered") {
     return (
       <span className="flex items-center gap-1 text-[10px] text-emerald-600">
@@ -217,9 +217,9 @@ function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
   }
   if (status === "error") {
     return (
-      <span className="flex items-center gap-1 text-[10px] text-red-500">
+      <span className="flex items-center gap-1 text-[10px] text-red-500" title={error ?? "Disconnected"}>
         <WifiOff className="h-2.5 w-2.5" />
-        Disconnected
+        {error ? "Error" : "Disconnected"}
       </span>
     );
   }
@@ -419,12 +419,8 @@ export function FloatingDialer() {
       // Re-initialize the device now that setup is complete
       await initDevice();
     } else {
-      // Show the actual error message
-      const errorMsg =
-        typeof result === "object" && "error" in result && typeof result.error === "string"
-          ? result.error
-          : "Setup failed. Check your Twilio configuration and try again.";
-      setSetupError(errorMsg);
+      // Show the actual error message from the setup result
+      setSetupError(result.error ?? "Setup failed. Check your Twilio configuration and try again.");
     }
   }, [numbersLoading, callerNumbers.length]);
 
@@ -463,7 +459,7 @@ export function FloatingDialer() {
               <span className="text-sm font-semibold text-foreground">
                 {isCallActive ? "Active Call" : "Dialer"}
               </span>
-              <DeviceStatusBadge status={deviceStatus} />
+              <DeviceStatusBadge status={deviceStatus} error={deviceError} />
             </div>
             <div className="flex items-center gap-1">
               <button

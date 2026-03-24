@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
+import { config } from '../config.js';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -28,13 +29,19 @@ export const orgScopeMiddleware: MiddlewareHandler = async (c, next) => {
   const orgId = user.orgId;
 
   // If the route has an :orgId param, verify it matches the user's org.
-  // In dev mode, also allow "demo" as an alias for the user's actual org.
+  // In dev mode, also allow "demo" and "org_01" as aliases for the user's actual org
+  // (the frontend may send "org_01" before it has a real JWT with the correct orgId).
   const paramOrgId = c.req.param('orgId');
   if (paramOrgId && paramOrgId !== orgId && paramOrgId !== 'demo') {
-    return c.json(
-      { error: 'Access denied: you do not belong to this organization', code: 'FORBIDDEN', status: 403 },
-      403,
-    );
+    // In development, treat "org_01" as an alias for the real org
+    if (paramOrgId === 'org_01' && config.NODE_ENV === 'development') {
+      // Allow — the dev user's real orgId is already set
+    } else {
+      return c.json(
+        { error: 'Access denied: you do not belong to this organization', code: 'FORBIDDEN', status: 403 },
+        403,
+      );
+    }
   }
 
   c.set('orgId', orgId);
