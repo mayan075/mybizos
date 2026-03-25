@@ -2,10 +2,10 @@
 
 import { useApiQuery, useApiMutation } from "./use-api";
 import {
-  mockPipelineColumns,
   type MockDeal,
   type MockPipelineColumn,
-} from "@/lib/mock-data";
+} from "@/lib/types";
+import { mockPipelineColumns } from "@/lib/mock-data";
 
 // --------------------------------------------------------
 // usePipelines — fetch pipeline column definitions

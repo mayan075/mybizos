@@ -8,6 +8,7 @@
 
 import type { Device } from '@twilio/voice-sdk';
 import type { Call } from '@twilio/voice-sdk';
+import { env } from './env';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ const listeners = new Set<StateListener>();
 let tokenRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // API base URL
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_BASE = env.NEXT_PUBLIC_API_URL;
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 

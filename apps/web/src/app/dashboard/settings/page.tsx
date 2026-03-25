@@ -476,6 +476,18 @@ function SettingsContent() {
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
+  // --- Billing state (fetched from API, not hardcoded) ---
+  interface BillingData {
+    plan: string;
+    status: string;
+    subscription: { id: string; currentPeriodEnd: number; cancelAtPeriodEnd: boolean } | null;
+    usage: { aiMinutes: number; aiMinutesLimit: number; smsSent: number; smsLimit: number };
+    invoices: { id: string; date: string; amount: string; status: string; hostedUrl: string | null; pdfUrl: string | null }[];
+  }
+  const [billingData, setBillingData] = useState<BillingData | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+
   // Load from API on mount, fall back to localStorage
   useEffect(() => {
     let cancelled = false;
@@ -488,6 +500,50 @@ function SettingsContent() {
     }
     load();
     return () => { cancelled = true; };
+  }, []);
+
+  // Fetch billing data when billing tab is active
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    let cancelled = false;
+    async function fetchBilling() {
+      setBillingLoading(true);
+      try {
+        const orgId = getOrgId();
+        const result = await tryFetch(() =>
+          apiClient.get<{ data: BillingData }>(`/orgs/${orgId}/billing`),
+        );
+        if (!cancelled && result && typeof result === "object" && "data" in result) {
+          setBillingData((result as { data: BillingData }).data);
+        }
+      } catch {
+        // API unavailable
+      }
+      if (!cancelled) setBillingLoading(false);
+    }
+    fetchBilling();
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+  const openBillingPortal = useCallback(async () => {
+    setPortalLoading(true);
+    try {
+      const orgId = getOrgId();
+      const result = await tryFetch(() =>
+        apiClient.post<{ data: { url: string } }>(`/orgs/${orgId}/billing/portal`, {}),
+      );
+      if (result && typeof result === "object" && "data" in result) {
+        const url = (result as { data: { url: string } }).data?.url;
+        if (url) {
+          window.location.href = url;
+          return;
+        }
+      }
+      showToast("Unable to open billing portal. Please try again.");
+    } catch {
+      showToast("Unable to open billing portal. Please try again.");
+    }
+    setPortalLoading(false);
   }, []);
 
   // --- Updaters ---
@@ -1679,110 +1735,142 @@ function SettingsContent() {
                 Billing & Subscription
               </h2>
 
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Pro Plan
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      $199/month per location
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                    Active
-                  </span>
+              {billingLoading && !billingData ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading billing info...</span>
                 </div>
-                <div className="grid gap-4 grid-cols-3 mt-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      AI Minutes Used
-                    </p>
-                    <p className="text-sm font-semibold text-foreground">
-                      847 / 2,000
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">SMS Sent</p>
-                    <p className="text-sm font-semibold text-foreground">
-                      1,234 / 5,000
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Next Billing
-                    </p>
-                    <p className="text-sm font-semibold text-foreground">
-                      Apr 1, 2026
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">
-                  Payment Method
-                </h3>
-                <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div className="flex items-center gap-3">
-                    <CreditCard className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-foreground">
-                        Visa ending in 4242
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Expires 12/2027
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      showToast(
-                        "Payment method update — redirecting to Stripe portal"
-                      )
-                    }
-                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Update
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">
-                  Recent Invoices
-                </h3>
-                <div className="divide-y divide-border rounded-lg border border-border">
-                  {[
-                    { date: "Mar 1, 2026", amount: "$199.00", status: "Paid" },
-                    { date: "Feb 1, 2026", amount: "$199.00", status: "Paid" },
-                    { date: "Jan 1, 2026", amount: "$199.00", status: "Paid" },
-                  ].map((inv) => (
-                    <div
-                      key={inv.date}
-                      className="flex items-center justify-between px-4 py-3"
-                    >
-                      <div className="flex items-center gap-4">
-                        <p className="text-sm text-foreground">{inv.date}</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {inv.amount}
+              ) : (
+                <>
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {billingData?.plan === "pro" ? "Pro Plan" : "Free Plan"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {billingData?.plan === "pro" ? "$199/month per location" : "Get started for free"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-emerald-600">
-                          {inv.status}
-                        </span>
-                        <button
-                          onClick={() => showToast("Invoice download started")}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Download
-                        </button>
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        billingData?.status === "active"
+                          ? "bg-emerald-500/10 text-emerald-700"
+                          : "bg-amber-500/10 text-amber-700"
+                      )}>
+                        {billingData?.status === "active" ? "Active" : billingData?.status === "trialing" ? "Trial" : "Inactive"}
+                      </span>
+                    </div>
+                    <div className="grid gap-4 grid-cols-3 mt-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          AI Minutes Used
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {billingData?.usage?.aiMinutes?.toLocaleString() ?? "0"} / {billingData?.usage?.aiMinutesLimit?.toLocaleString() ?? "100"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">SMS Sent</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {billingData?.usage?.smsSent?.toLocaleString() ?? "0"} / {billingData?.usage?.smsLimit?.toLocaleString() ?? "50"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Next Billing
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {billingData?.subscription?.currentPeriodEnd
+                            ? new Date(billingData.subscription.currentPeriodEnd * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                            : "N/A"}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    {billingData?.subscription?.cancelAtPeriodEnd && (
+                      <p className="text-xs text-amber-600 mt-2">
+                        Your subscription will cancel at the end of the current period.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-foreground">
+                      Manage Subscription
+                    </h3>
+                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-foreground">
+                            Update payment method, change plan, or view full billing history
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Opens Stripe Customer Portal
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={openBillingPortal}
+                        disabled={portalLoading}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                      >
+                        {portalLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        )}
+                        Manage Billing
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-foreground">
+                      Recent Invoices
+                    </h3>
+                    <div className="divide-y divide-border rounded-lg border border-border">
+                      {(billingData?.invoices ?? []).length === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                          No invoices yet
+                        </div>
+                      ) : (
+                        billingData?.invoices.map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="flex items-center justify-between px-4 py-3"
+                          >
+                            <div className="flex items-center gap-4">
+                              <p className="text-sm text-foreground">{inv.date}</p>
+                              <p className="text-sm font-medium text-foreground">
+                                {inv.amount}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={cn(
+                                "text-xs font-medium",
+                                inv.status === "Paid" ? "text-emerald-600" : "text-amber-600"
+                              )}>
+                                {inv.status}
+                              </span>
+                              {inv.pdfUrl && (
+                                <a
+                                  href={inv.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  Download
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

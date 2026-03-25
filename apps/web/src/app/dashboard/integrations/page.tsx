@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
+import { env } from "@/lib/env";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -290,8 +291,7 @@ export default function IntegrationsPage() {
     }
 
     // Redirect to the API OAuth start endpoint
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-    window.location.href = `${apiBase}/orgs/${ORG_ID}/integrations/${provider}/auth`;
+    window.location.href = `${env.NEXT_PUBLIC_API_URL}/orgs/${ORG_ID}/integrations/${provider}/auth`;
   }
 
   // Disconnect handler

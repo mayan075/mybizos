@@ -26,6 +26,9 @@
     "turbo": "^2.5.0",
     "vitest": "^3.2.4"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp"]
+  },
   "engines": {
     "node": ">=20.0.0"
   }

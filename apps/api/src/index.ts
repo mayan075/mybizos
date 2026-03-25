@@ -29,6 +29,7 @@ import { adminRoutes } from './routes/admin.js';
 import { callsRoutes } from './routes/calls.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { aiContentRoutes } from './routes/ai-content.js';
+import { billingRoutes } from './routes/billing.js';
 import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
@@ -116,6 +117,7 @@ app.route('/orgs/:orgId/voice', voiceSetupRoutes);
 app.route('/orgs/:orgId/calls', callsRoutes);
 app.route('/orgs/:orgId/assistant', assistantRoutes);
 app.route('/orgs/:orgId/ai', aiContentRoutes);
+app.route('/orgs/:orgId/billing', billingRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);
