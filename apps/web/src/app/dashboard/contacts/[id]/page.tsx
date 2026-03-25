@@ -32,7 +32,7 @@ import { useContact } from "@/lib/hooks/use-contacts";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { trackPageVisit } from "@/lib/recently-viewed";
 import type { LucideIcon } from "lucide-react";
-import type { MockTimelineEntry, MockChatMessage } from "@/lib/mock-data";
+import type { TimelineEntry, ChatMessage } from "@/lib/types";
 
 // ============================================================
 // Icon map for timeline
@@ -48,11 +48,11 @@ const iconMap: Record<string, LucideIcon> = {
   StickyNote,
 };
 
-interface TimelineEntryWithIcon extends MockTimelineEntry {
+interface TimelineEntryWithIcon extends TimelineEntry {
   icon: LucideIcon;
 }
 
-function resolveIcon(entry: MockTimelineEntry): TimelineEntryWithIcon {
+function resolveIcon(entry: TimelineEntry): TimelineEntryWithIcon {
   return {
     ...entry,
     icon: iconMap[entry.iconName] ?? Phone,
@@ -253,7 +253,7 @@ export default function ContactDetailPage({
   const contact = contactData.contact;
   const initials = contact.name
     .split(" ")
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("");
 
   // Track this page visit for recently viewed
@@ -472,7 +472,7 @@ export default function ContactDetailPage({
               </span>
             </div>
             <div className="flex gap-1.5 mt-2">
-              {contact.tags.map((tag) => (
+              {contact.tags.map((tag: string) => (
                 <span
                   key={tag}
                   className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"

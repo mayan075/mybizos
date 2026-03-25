@@ -25,7 +25,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ListSkeleton } from "@/components/skeletons/list-skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { MockContact } from "@/lib/mock-data";
+import type { Contact } from "@/lib/types";
 
 /* -------------------------------------------------------------------------- */
 /*  Validation helpers                                                         */
@@ -126,7 +126,7 @@ export default function ContactsPage() {
   const [showModal, setShowModal] = useState(false);
 
   // Local additions (optimistic UI for when API is offline)
-  const [localContacts, setLocalContacts] = useState<MockContact[]>([]);
+  const [localContacts, setLocalContacts] = useState<Contact[]>([]);
 
   // New contact form state
   const [newName, setNewName] = useState("");
@@ -215,7 +215,7 @@ export default function ContactsPage() {
     setIsSaving(true);
 
     const id = `c${Date.now()}`;
-    const newContact: MockContact = {
+    const newContact: Contact = {
       id,
       name: newName.trim(),
       phone: newPhone.trim() || "",

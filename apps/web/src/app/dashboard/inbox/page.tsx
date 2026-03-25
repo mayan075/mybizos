@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
-import { type MockConversation, type MockChatMessage } from "@/lib/mock-data";
+import type { Conversation, ChatMessage } from "@/lib/types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { InboxSkeleton } from "@/components/skeletons/inbox-skeleton";
@@ -141,8 +141,8 @@ export default function InboxPage() {
   const [showQuickCreate, setShowQuickCreate] = useState(false);
 
   // Local state — empty by default; real data comes from the API
-  const [localConversations, setLocalConversations] = useState<MockConversation[]>([]);
-  const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>({});
+  const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
+  const [localMessages, setLocalMessages] = useState<Record<string, ChatMessage[]>>({});
 
   // Polling state for "New messages" banner
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -170,16 +170,16 @@ export default function InboxPage() {
       try {
         const path = buildPath("/orgs/:orgId/conversations");
         const result = await tryFetch(() =>
-          apiClient.get<MockConversation[]>(path),
+          apiClient.get<Conversation[]>(path),
         );
         if (result && Array.isArray(result)) {
-          const newIds = new Set(result.map((c: MockConversation) => c.id));
+          const newIds = new Set(result.map((c: Conversation) => c.id));
           const hasNew = result.some(
-            (c: MockConversation) => !lastConversationIdsRef.current.has(c.id),
+            (c: Conversation) => !lastConversationIdsRef.current.has(c.id),
           );
 
           // Check for new unread messages in existing conversations
-          const hasNewUnread = result.some((c: MockConversation) => {
+          const hasNewUnread = result.some((c: Conversation) => {
             const existing = apiConversations.find((e) => e.id === c.id);
             return existing && !existing.unread && c.unread;
           });
@@ -243,7 +243,7 @@ export default function InboxPage() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
-    const newMsg: MockChatMessage = {
+    const newMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: "user",
       text: messageText.trim(),

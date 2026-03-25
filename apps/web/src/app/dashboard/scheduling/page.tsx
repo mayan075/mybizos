@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
-import { type MockAppointment } from "@/lib/mock-data";
+import type { Appointment } from "@/lib/types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SchedulingSkeleton } from "@/components/skeletons/scheduling-skeleton";
 
@@ -107,7 +107,7 @@ export default function SchedulingPage() {
   const { mutate: createAppointmentApi } = useCreateAppointment();
 
   // Local additions for optimistic UI
-  const [localAppointments, setLocalAppointments] = useState<MockAppointment[]>([]);
+  const [localAppointments, setLocalAppointments] = useState<Appointment[]>([]);
 
   // Merge API/mock data with local additions
   const appointments = useMemo(() => {
@@ -151,7 +151,7 @@ export default function SchedulingPage() {
         ? "12:00 PM"
         : `${endHour}:00 AM`;
 
-    const newApt: MockAppointment = {
+    const newApt: Appointment = {
       id: `a-${Date.now()}`,
       title: newTitle,
       customer: newCustomer.trim(),

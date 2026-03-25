@@ -1,17 +1,13 @@
 "use client";
 
 import { useApiQuery } from "./use-api";
-import {
-  type MockStat,
-  type MockActivityItem,
-  type MockUpcomingAppointment,
-} from "@/lib/types";
+import type { DashboardStat, ActivityItem, UpcomingAppointment } from "@/lib/types";
 
 // --------------------------------------------------------
 // Empty-state defaults (shown for new accounts with no data)
 // --------------------------------------------------------
 
-const emptyStats: MockStat[] = [
+const emptyStats: DashboardStat[] = [
   {
     label: "Leads Today",
     value: "0",
@@ -59,8 +55,8 @@ const emptyStats: MockStat[] = [
 // --------------------------------------------------------
 
 interface DashboardStats {
-  stats: MockStat[];
-  upcomingAppointments: MockUpcomingAppointment[];
+  stats: DashboardStat[];
+  upcomingAppointments: UpcomingAppointment[];
 }
 
 function useDashboardStats() {
@@ -80,7 +76,7 @@ function useDashboardStats() {
 // --------------------------------------------------------
 
 function useRecentActivity() {
-  return useApiQuery<MockActivityItem[]>(
+  return useApiQuery<ActivityItem[]>(
     "/orgs/:orgId/dashboard/activity",
     [],
   );

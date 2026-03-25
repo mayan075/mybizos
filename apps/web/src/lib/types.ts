@@ -130,18 +130,3 @@ export interface Appointment {
   location: string;
 }
 
-// ============================================================
-// Backward-compatible aliases (gradually remove)
-// ============================================================
-
-export type MockStat = DashboardStat;
-export type MockActivityItem = ActivityItem;
-export type MockUpcomingAppointment = UpcomingAppointment;
-export type MockContact = Contact;
-export type MockContactDetail = ContactDetail;
-export type MockTimelineEntry = TimelineEntry;
-export type MockPipelineColumn = PipelineColumn;
-export type MockDeal = Deal;
-export type MockConversation = Conversation;
-export type MockChatMessage = ChatMessage;
-export type MockAppointment = Appointment;

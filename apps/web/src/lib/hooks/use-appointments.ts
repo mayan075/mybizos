@@ -1,9 +1,7 @@
 "use client";
 
 import { useApiQuery, useApiMutation } from "./use-api";
-import {
-  type MockAppointment,
-} from "@/lib/types";
+import type { Appointment } from "@/lib/types";
 
 // --------------------------------------------------------
 // useAppointments — fetch appointments for a date range
@@ -14,7 +12,7 @@ function useAppointments(weekStart?: string, weekEnd?: string) {
   if (weekStart) params.weekStart = weekStart;
   if (weekEnd) params.weekEnd = weekEnd;
 
-  return useApiQuery<MockAppointment[]>(
+  return useApiQuery<Appointment[]>(
     "/orgs/:orgId/appointments",
     [],
     Object.keys(params).length > 0 ? params : undefined,
@@ -35,7 +33,7 @@ interface CreateAppointmentInput {
 }
 
 function useCreateAppointment() {
-  return useApiMutation<CreateAppointmentInput, MockAppointment>(
+  return useApiMutation<CreateAppointmentInput, Appointment>(
     "/orgs/:orgId/appointments",
     "post",
   );

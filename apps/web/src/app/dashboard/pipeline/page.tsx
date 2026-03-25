@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PipelineSkeleton } from "@/components/skeletons/pipeline-skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { MockDeal } from "@/lib/mock-data";
+import type { Deal } from "@/lib/types";
 
 /* -------------------------------------------------------------------------- */
 /*  Validation                                                                 */
@@ -80,8 +80,8 @@ export default function PipelinePage() {
   const { mutate: moveDealApi } = useMoveDeal();
 
   // Local state for optimistic UI (mirrors original behavior)
-  const [deals, setDeals] = useState<Record<string, MockDeal[]> | null>(null);
-  const [draggedDeal, setDraggedDeal] = useState<{ deal: MockDeal; fromCol: string } | null>(null);
+  const [deals, setDeals] = useState<Record<string, Deal[]> | null>(null);
+  const [draggedDeal, setDraggedDeal] = useState<{ deal: Deal; fromCol: string } | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
 
@@ -104,7 +104,7 @@ export default function PipelinePage() {
     setFormErrors({});
   }
 
-  function handleDragStart(deal: MockDeal, fromCol: string) {
+  function handleDragStart(deal: Deal, fromCol: string) {
     setDraggedDeal({ deal, fromCol });
   }
 
@@ -155,7 +155,7 @@ export default function PipelinePage() {
 
     setIsSaving(true);
 
-    const deal: MockDeal = {
+    const deal: Deal = {
       id: `d-${Date.now()}`,
       title: newTitle.trim(),
       contact: newContact.trim(),

@@ -2,10 +2,7 @@
 
 import { useMemo } from "react";
 import { useApiQuery, useApiMutation } from "./use-api";
-import {
-  type MockConversation,
-  type MockChatMessage,
-} from "@/lib/types";
+import type { Conversation, ChatMessage } from "@/lib/types";
 
 // --------------------------------------------------------
 // useConversations — inbox list with optional filters
@@ -21,7 +18,7 @@ function useConversations(options: UseConversationsOptions = {}) {
   if (options.filter && options.filter !== "all") params.filter = options.filter;
   if (options.search) params.search = options.search;
 
-  const result = useApiQuery<MockConversation[]>(
+  const result = useApiQuery<Conversation[]>(
     "/orgs/:orgId/conversations",
     [],
     Object.keys(params).length > 0 ? params : undefined,
@@ -56,9 +53,9 @@ function useConversations(options: UseConversationsOptions = {}) {
 // --------------------------------------------------------
 
 function useMessages(conversationId: string) {
-  const fallback: MockChatMessage[] = [];
+  const fallback: ChatMessage[] = [];
 
-  return useApiQuery<MockChatMessage[]>(
+  return useApiQuery<ChatMessage[]>(
     `/orgs/:orgId/conversations/${conversationId}/messages`,
     fallback,
   );
@@ -73,7 +70,7 @@ interface SendMessageInput {
 }
 
 function useSendMessage(conversationId: string) {
-  return useApiMutation<SendMessageInput, MockChatMessage>(
+  return useApiMutation<SendMessageInput, ChatMessage>(
     `/orgs/:orgId/conversations/${conversationId}/messages`,
     "post",
   );

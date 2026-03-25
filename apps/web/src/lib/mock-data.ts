@@ -3,7 +3,7 @@
  * Used as fallback when the API is unavailable.
  */
 
-// Re-export all types (including backward-compatible Mock* aliases)
+// Re-export all types
 export type {
   DashboardStat,
   ActivityItem,
@@ -16,17 +16,6 @@ export type {
   Conversation,
   ChatMessage,
   Appointment,
-  MockStat,
-  MockActivityItem,
-  MockUpcomingAppointment,
-  MockContact,
-  MockContactDetail,
-  MockTimelineEntry,
-  MockPipelineColumn,
-  MockDeal,
-  MockConversation,
-  MockChatMessage,
-  MockAppointment,
 } from "./types";
 
 import type {

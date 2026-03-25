@@ -1,10 +1,7 @@
 "use client";
 
 import { useApiQuery, useApiMutation } from "./use-api";
-import {
-  type MockDeal,
-  type MockPipelineColumn,
-} from "@/lib/types";
+import type { Deal, PipelineColumn } from "@/lib/types";
 import { mockPipelineColumns } from "@/lib/mock-data";
 
 // --------------------------------------------------------
@@ -12,7 +9,7 @@ import { mockPipelineColumns } from "@/lib/mock-data";
 // --------------------------------------------------------
 
 function usePipelines() {
-  return useApiQuery<MockPipelineColumn[]>(
+  return useApiQuery<PipelineColumn[]>(
     "/orgs/:orgId/pipelines",
     mockPipelineColumns,
   );
@@ -26,7 +23,7 @@ function useDeals(pipelineId?: string) {
   const params: Record<string, string> = {};
   if (pipelineId) params.pipelineId = pipelineId;
 
-  return useApiQuery<Record<string, MockDeal[]>>(
+  return useApiQuery<Record<string, Deal[]>>(
     "/orgs/:orgId/deals",
     {},
     Object.keys(params).length > 0 ? params : undefined,
@@ -45,7 +42,7 @@ interface CreateDealInput {
 }
 
 function useCreateDeal() {
-  return useApiMutation<CreateDealInput, MockDeal>(
+  return useApiMutation<CreateDealInput, Deal>(
     "/orgs/:orgId/deals",
     "post",
   );
@@ -61,7 +58,7 @@ interface MoveDealInput {
 }
 
 function useMoveDeal() {
-  return useApiMutation<MoveDealInput, MockDeal>(
+  return useApiMutation<MoveDealInput, Deal>(
     "/orgs/:orgId/deals",
     "patch",
   );

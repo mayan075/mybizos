@@ -2,11 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useApiQuery, useApiMutation, getOrgId } from "./use-api";
-import {
-  type MockContact,
-  type MockContactDetail,
-  type MockTimelineEntry,
-} from "@/lib/types";
+import type { Contact, ContactDetail, TimelineEntry } from "@/lib/types";
 import { mockDefaultContact } from "@/lib/mock-data";
 
 // --------------------------------------------------------
@@ -23,7 +19,7 @@ function useContacts(options: UseContactsOptions = {}) {
   if (options.search) params.search = options.search;
   if (options.tags && options.tags.length > 0) params.tags = options.tags.join(",");
 
-  const result = useApiQuery<MockContact[]>(
+  const result = useApiQuery<Contact[]>(
     "/orgs/:orgId/contacts",
     [],
     Object.keys(params).length > 0 ? params : undefined,
@@ -54,8 +50,8 @@ function useContacts(options: UseContactsOptions = {}) {
 // --------------------------------------------------------
 
 interface ContactWithTimeline {
-  contact: MockContactDetail;
-  timeline: MockTimelineEntry[];
+  contact: ContactDetail;
+  timeline: TimelineEntry[];
 }
 
 function useContact(id: string) {
@@ -82,7 +78,7 @@ interface CreateContactInput {
 }
 
 function useCreateContact() {
-  return useApiMutation<CreateContactInput, MockContact>(
+  return useApiMutation<CreateContactInput, Contact>(
     "/orgs/:orgId/contacts",
     "post",
   );
@@ -104,7 +100,7 @@ interface UpdateContactInput {
 function useUpdateContact() {
   const orgId = getOrgId();
 
-  const mutation = useApiMutation<UpdateContactInput, MockContact>(
+  const mutation = useApiMutation<UpdateContactInput, Contact>(
     "/orgs/:orgId/contacts",
     "patch",
   );
