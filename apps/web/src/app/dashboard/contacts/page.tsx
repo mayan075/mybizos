@@ -433,8 +433,9 @@ export default function ContactsPage() {
           />
         </div>
         <button
-          onClick={() => toast.info("Filters coming soon")}
-          className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
+          disabled
+          title="Filters not yet available"
+          className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground opacity-50 cursor-not-allowed"
         >
           <Filter className="h-4 w-4" />
           Filter
