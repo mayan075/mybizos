@@ -4,18 +4,24 @@ import { useState } from "react";
 import Link from "next/link";
 import { Zap, Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      await apiClient.post("/auth/forgot-password", { email });
+    } catch {
+      // Always show success to avoid email enumeration attacks
+    }
 
     setIsLoading(false);
     setIsSubmitted(true);

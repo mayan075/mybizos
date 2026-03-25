@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
  * - Public routes (/login, /register, /book/*, /review/*) are always accessible.
  */
 
-const PUBLIC_PATHS = ["/login", "/register", "/book", "/review"];
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/book", "/review"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
