@@ -263,7 +263,7 @@ export default function NewInvoicePage() {
                         className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                          {contact.name.split(" ").map((n) => n[0]).join("")}
+                          {(contact.name || "?").split(" ").map((n: string) => n[0]).join("")}
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">{contact.name}</p>

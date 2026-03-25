@@ -250,22 +250,23 @@ export default function ContactDetailPage({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const contact = contactData.contact;
-  const initials = contact.name
+  const contact = contactData?.contact;
+  const initials = (contact?.name ?? "")
     .split(" ")
+    .filter(Boolean)
     .map((n) => n[0])
     .join("");
 
   // Track this page visit for recently viewed
   useEffect(() => {
-    if (contact.name) {
+    if (contact?.name) {
       trackPageVisit({
         path: `/dashboard/contacts/${id}`,
         label: contact.name,
         type: "Contact",
       });
     }
-  }, [id, contact.name]);
+  }, [id, contact?.name]);
 
   // Tab state from URL
   const tabParam = searchParams.get("tab") as TabKey | null;
@@ -313,7 +314,7 @@ export default function ContactDetailPage({
   // Merged timeline
   const timeline: TimelineEntryWithIcon[] = [
     ...localTimeline,
-    ...contactData.timeline.map(resolveIcon),
+    ...(contactData?.timeline ?? []).map(resolveIcon),
   ];
 
   // Add note handler
@@ -400,10 +401,10 @@ export default function ContactDetailPage({
   function handleCall() {
     // Dispatch a custom event that the floating dialer can listen for
     const event = new CustomEvent("mybizos:dial", {
-      detail: { phone: contact.phone, name: contact.name },
+      detail: { phone: contact?.phone, name: contact?.name },
     });
     window.dispatchEvent(event);
-    showToast(`Calling ${contact.name}...`);
+    showToast(`Calling ${contact?.name ?? "contact"}...`);
   }
 
   // SMS quick action - switch to conversations and compose
@@ -432,6 +433,15 @@ export default function ContactDetailPage({
   // Current conversation messages
   const currentMessages = selectedConvId ? (convMessages[selectedConvId] ?? []) : [];
   const selectedConv = conversations.find((c) => c.id === selectedConvId);
+
+  // Guard: wait for contact data to resolve
+  if (!contact) {
+    return (
+      <div className="flex items-center justify-center py-24 text-muted-foreground">
+        Loading contact...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
