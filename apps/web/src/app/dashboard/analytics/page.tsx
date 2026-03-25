@@ -342,7 +342,7 @@ export default function AnalyticsPage() {
                   </div>
                   {idx > 0 && (
                     <span className="text-[10px] text-muted-foreground shrink-0 w-10 text-right">
-                      {Math.round((stage.count / funnelStages[idx - 1].count) * 100)}%
+                      {funnelStages[idx - 1].count > 0 ? Math.round((stage.count / funnelStages[idx - 1].count) * 100) : 0}%
                     </span>
                   )}
                 </div>
@@ -355,25 +355,24 @@ export default function AnalyticsPage() {
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-5">
             <p className="text-xs text-muted-foreground">Avg Deal Velocity</p>
-            <p className="mt-1 text-2xl font-bold text-foreground">4.2 days</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">--</p>
             <p className="text-xs text-muted-foreground mt-1">From lead to close</p>
-            <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-500">
-              <ArrowDownRight className="h-3 w-3" />
-              1.3 days faster than last month
-            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Will calculate once you have closed deals
+            </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
               <p className="text-sm font-semibold text-foreground">Stale Deals Alert</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-amber-500">8</p>
+            <p className="mt-2 text-2xl font-bold text-muted-foreground">0</p>
             <p className="text-xs text-muted-foreground mt-1">
               Deals stuck for 7+ days without activity
             </p>
-            <button className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-              View stale deals &rarr;
-            </button>
+            <a href="/dashboard/pipeline" className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors inline-block">
+              View pipeline &rarr;
+            </a>
           </div>
         </div>
       </div>
