@@ -149,15 +149,15 @@ export default function ContactsPage() {
     const q = search.toLowerCase();
     const result = contacts.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.phone.includes(search),
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q) ||
+        (c.phone || "").includes(search),
     );
 
     result.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") {
-        cmp = a.name.localeCompare(b.name);
+        cmp = (a.name || "").localeCompare(b.name || "");
       } else if (sortKey === "score") {
         cmp = a.score - b.score;
       }
@@ -453,7 +453,7 @@ export default function ContactsPage() {
               c.phone,
               c.source,
               String(c.score),
-              c.tags.join("; "),
+              (c.tags || []).join("; "),
               c.lastActivity,
             ]);
             const csvContent = [
