@@ -114,6 +114,8 @@ app.route('/orgs/:orgId/integrations', integrationRoutes);
 app.route('/orgs/:orgId/voice', voiceTokenRoutes);
 app.route('/orgs/:orgId/voice', voiceSetupRoutes);
 app.route('/orgs/:orgId/calls', callsRoutes);
+app.route('/orgs/:orgId/assistant', assistantRoutes);
+app.route('/orgs/:orgId/ai', aiContentRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);

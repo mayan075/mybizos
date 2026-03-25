@@ -113,7 +113,27 @@ export function Sidebar() {
   const user = useMemo(() => getUser(), []);
   const onboarding = useMemo(() => getOnboardingData(), []);
   const userName = user?.name ?? "User";
-  const orgName = onboarding?.businessName ?? user?.orgName ?? "My Business";
+
+  // Resolve business name from multiple sources (priority order):
+  // 1. JWT token orgName
+  // 2. Onboarding data businessName
+  // 3. localStorage settings businessName
+  // 4. "My Business" as last resort
+  const orgName = useMemo(() => {
+    if (user?.orgName && user.orgName !== "My Business") return user.orgName;
+    if (onboarding?.businessName) return onboarding.businessName;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("mybizos_settings");
+        if (raw) {
+          const settings = JSON.parse(raw) as { businessName?: string };
+          if (settings.businessName) return settings.businessName;
+        }
+      } catch { /* ignore */ }
+    }
+    return "My Business";
+  }, [user, onboarding]);
+
   const userInitials = getInitials(userName);
 
   // Fetch real unread conversation count from API

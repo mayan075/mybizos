@@ -49,10 +49,18 @@ export default function GlobalError({
         {/* Heading */}
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-foreground">
-            Something went wrong
+            We hit a snag
           </h2>
           <p className="text-sm text-muted-foreground">
-            An unexpected error occurred. This has been logged for our team to investigate.
+            {error.message?.includes("fetch") || error.message?.includes("network") || error.message?.includes("Failed to fetch")
+              ? "Could not connect to the server. Check your internet connection and try again."
+              : error.message?.includes("401") || error.message?.includes("Unauthorized")
+                ? "Your session has expired. Please log in again."
+                : error.message?.includes("404")
+                  ? "The page or resource you requested was not found."
+                  : error.message?.includes("500") || error.message?.includes("Internal Server")
+                    ? "The server encountered an error. Our team has been notified. Please try again in a moment."
+                    : "An error occurred while loading this page. This has been logged for our team to investigate."}
           </p>
         </div>
 

@@ -13,10 +13,6 @@ import {
   Mic,
   MicOff,
   Pause,
-  Play,
-  Volume2,
-  Circle,
-  ArrowRightLeft,
   Hash,
   X,
   User,
@@ -63,8 +59,6 @@ import {
   type TwilioCallState,
   type DeviceStatus,
 } from "@/lib/twilio-device";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -719,7 +713,6 @@ async function logCallToApi(params: {
 
 export default function CallsPage() {
   usePageTitle("Calls");
-  const router = useRouter();
 
   // Fetch call history via API
   const { data: callRecords, isLoading: callsLoading, refetch: refetchCalls } = useApiQuery<CallRecord[]>(

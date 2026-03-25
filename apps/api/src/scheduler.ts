@@ -19,6 +19,7 @@ import { runJob } from './jobs/index.js';
 //  - dailySummary:         daily at 21:00 UTC (7am AEST next day)
 //  - staleDealAlerts:      daily at 21:00 UTC (7am AEST next day)
 //  - leadScoring:          every 30 minutes
+//  - sequenceProcessor:    every 5 minutes
 // ═════════════════════════════════════════════════════════════════════════════════
 
 interface ScheduledJob {
@@ -57,6 +58,12 @@ const jobs: ScheduledJob[] = [
     name: 'leadScoring',
     cronExpression: '*/30 * * * *',   // Every 30 minutes
     handler: async () => runJob('leadScoring'),
+    task: null,
+  },
+  {
+    name: 'sequenceProcessor',
+    cronExpression: '*/5 * * * *',    // Every 5 minutes
+    handler: async () => runJob('sequenceProcessor'),
     task: null,
   },
 ];

@@ -16,6 +16,10 @@ import {
   Receipt,
   CalendarDays,
   History,
+  ArrowRight,
+  Bot,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useRecentActivity, emptyStats } from "@/lib/hooks/use-dashboard";
@@ -23,6 +27,8 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { WelcomeBanner, GettingStartedChecklist } from "@/components/onboarding/getting-started";
 import { Tooltip } from "@/components/ui/tooltip";
 import { getRecentlyViewed, type RecentlyViewedItem } from "@/lib/recently-viewed";
+import { getOnboardingData } from "@/lib/onboarding";
+import { getUser } from "@/lib/auth";
 import type { LucideIcon } from "lucide-react";
 
 const iconMap: Record<string, LucideIcon> = {
@@ -46,7 +52,7 @@ const statTooltips: Record<string, string> = {
     "Total value of deals marked as Won in your pipeline this month.",
 };
 
-/* Clean white cards with colored top border — Stripe-style */
+/* Clean white cards with colored top border -- Stripe-style */
 const statBorderColors = [
   "border-t-blue-500",
   "border-t-emerald-500",
@@ -78,6 +84,142 @@ const recentTypeBg: Record<string, string> = {
   Page: "bg-muted text-muted-foreground",
 };
 
+// ── Getting Started action cards for new users ──────────────────────────
+
+interface SetupAction {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+}
+
+const setupActions: SetupAction[] = [
+  {
+    id: "phone",
+    title: "Set up your phone",
+    description: "Connect a phone number so customers can call and text you.",
+    href: "/dashboard/settings/phone",
+    icon: Phone,
+    iconBg: "bg-violet-500/10",
+    iconColor: "text-violet-600",
+  },
+  {
+    id: "contact",
+    title: "Add your first contact",
+    description: "Import existing customers or add them manually.",
+    href: "/dashboard/contacts?action=new",
+    icon: Users,
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-600",
+  },
+  {
+    id: "booking",
+    title: "Create your booking page",
+    description: "Let customers book appointments online, 24/7.",
+    href: "/dashboard/scheduling",
+    icon: CalendarDays,
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-600",
+  },
+  {
+    id: "ai",
+    title: "Configure AI agent",
+    description: "Set up your AI phone agent to answer calls automatically.",
+    href: "/dashboard/settings?tab=ai",
+    icon: Bot,
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-600",
+  },
+];
+
+// ── Helper: detect if user has meaningful data ──────────────────────────
+
+function useIsNewUser(stats: typeof emptyStats): boolean {
+  // Consider a user "new" if all stat values are "0" or "$0"
+  return stats.every((s) => s.value === "0" || s.value === "$0");
+}
+
+// ── New User Dashboard ──────────────────────────────────────────────────
+
+function NewUserDashboard() {
+  const router = useRouter();
+  const onboarding = typeof window !== "undefined" ? getOnboardingData() : null;
+  const user = typeof window !== "undefined" ? getUser() : null;
+  const businessName = onboarding?.businessName ?? user?.orgName ?? "your business";
+
+  return (
+    <div className="space-y-8 max-w-[900px] mx-auto">
+      {/* Big welcome */}
+      <div className="text-center pt-4">
+        <div className="flex justify-center mb-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+            <Sparkles className="h-7 w-7 text-primary" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">
+          Welcome to MyBizOS, {businessName}!
+        </h1>
+        <p className="text-base text-muted-foreground mt-2 max-w-lg mx-auto leading-relaxed">
+          Let&apos;s get your business set up. Complete these steps to start receiving leads and booking appointments.
+        </p>
+      </div>
+
+      {/* Progress indicator */}
+      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <CheckCircle2 className="h-4 w-4 text-success" />
+        <span>Account created</span>
+        <span className="text-border">|</span>
+        <span>4 steps remaining</span>
+      </div>
+
+      {/* Setup action cards */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {setupActions.map((action) => (
+          <button
+            key={action.id}
+            onClick={() => router.push(action.href)}
+            className="group relative flex items-start gap-4 rounded-xl border border-border/60 bg-card p-5 text-left shadow-sm hover:shadow-md hover:border-border hover:-translate-y-0.5 transition-all duration-200"
+          >
+            <div className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-[1.05]",
+              action.iconBg,
+            )}>
+              <action.icon className={cn("h-5 w-5", action.iconColor)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                {action.title}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                {action.description}
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+          </button>
+        ))}
+      </div>
+
+      {/* Quick skip link */}
+      <div className="text-center">
+        <p className="text-xs text-muted-foreground">
+          Already know what you&apos;re doing?{" "}
+          <button
+            onClick={() => router.push("/dashboard/contacts")}
+            className="text-primary font-medium hover:text-primary/80 transition-colors"
+          >
+            Jump to Contacts
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Dashboard Page ─────────────────────────────────────────────────
+
 export default function DashboardPage() {
   usePageTitle("Dashboard");
   const router = useRouter();
@@ -91,7 +233,6 @@ export default function DashboardPage() {
   }, []);
 
   // When the API is live and returns data, use it. When loading, show zeros.
-  // Only use mock stats when API is unreachable (isLive=false after loading).
   const stats = statsLoading
     ? emptyStats
     : statsLive
@@ -104,9 +245,21 @@ export default function DashboardPage() {
 
   const activityItems = activityLoading ? [] : recentActivity;
 
+  const isNewUser = useIsNewUser(stats);
+
+  // Show the new user experience if they have no data yet (and not loading)
+  if (!statsLoading && isNewUser) {
+    return (
+      <div className="space-y-6 max-w-[1400px]">
+        <WelcomeBanner />
+        <NewUserDashboard />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-[1400px]">
-      {/* Welcome banner — dismissable, shown only for first-time users */}
+      {/* Welcome banner -- dismissable, shown only for first-time users */}
       <WelcomeBanner />
 
       {/* Page header */}
@@ -117,10 +270,10 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Getting Started Checklist — the main onboarding widget */}
+      {/* Getting Started Checklist -- the main onboarding widget */}
       <GettingStartedChecklist />
 
-      {/* Stat cards — white cards with colored top border (Stripe-style) */}
+      {/* Stat cards -- white cards with colored top border (Stripe-style) */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, idx) => {
           const Icon = iconMap[stat.iconName] ?? Users;
@@ -175,7 +328,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Recently Viewed — only shown if there are items */}
+      {/* Recently Viewed -- only shown if there are items */}
       {recentlyViewed.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">

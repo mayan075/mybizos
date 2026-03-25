@@ -141,7 +141,30 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
   const onboarding = useMemo(() => getOnboardingData(), []);
   const userName = user?.name ?? "User";
   const userEmail = user?.email ?? "";
-  const orgName = onboarding?.businessName ?? user?.orgName ?? "My Business";
+
+  // Resolve business name from multiple sources (priority order):
+  // 1. JWT token orgName
+  // 2. Onboarding data businessName
+  // 3. localStorage settings businessName
+  // 4. "My Business" as last resort
+  const orgName = useMemo(() => {
+    // JWT orgName is highest priority (most authoritative)
+    if (user?.orgName && user.orgName !== "My Business") return user.orgName;
+    // Onboarding data
+    if (onboarding?.businessName) return onboarding.businessName;
+    // localStorage settings (from the settings page)
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("mybizos_settings");
+        if (raw) {
+          const settings = JSON.parse(raw) as { businessName?: string };
+          if (settings.businessName) return settings.businessName;
+        }
+      } catch { /* ignore */ }
+    }
+    return "My Business";
+  }, [user, onboarding]);
+
   const userInitials = getInitials(userName);
 
   const unreadCount = notifications.filter((n) => !readNotifications.has(n.id)).length;

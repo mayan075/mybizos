@@ -711,6 +711,19 @@ Respond with ONLY valid JSON (no markdown, no code fences):
     if (callLogs.length > 100) {
       callLogs.splice(0, callLogs.length - 100);
     }
+
+    // ── Post-Call Auto-Actions (fire-and-forget) ─────────────────────────
+    processPostCallActions(
+      summaryText,
+      conversation.callerPhone,
+      conversation.calledNumber,
+      CallSid,
+    ).catch((actionErr) => {
+      logger.error('Post-call auto-actions failed', {
+        callSid: CallSid,
+        error: actionErr instanceof Error ? actionErr.message : String(actionErr),
+      });
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error('Failed to generate call summary', {
@@ -724,6 +737,275 @@ Respond with ONLY valid JSON (no markdown, no code fences):
 
   return c.json({ received: true });
 });
+
+// ── Post-Call Auto-Actions Helper ────────────────────────────────────────────
+
+interface CallSummaryJson {
+  callerIntent: string;
+  outcome: string;
+  appointmentDetails: string | null;
+  urgency: string;
+  followUpNeeded: boolean;
+  followUpReason: string | null;
+}
+
+/**
+ * After a call is summarized by Claude, parse the summary and take automatic
+ * actions: create appointments, follow-up tasks, deals, and update lead scores.
+ */
+async function processPostCallActions(
+  summaryText: string,
+  callerPhone: string,
+  calledNumber: string,
+  callSid: string,
+): Promise<void> {
+  // Try to parse the summary JSON
+  let summary: CallSummaryJson;
+  try {
+    const cleanJson = summaryText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+    summary = JSON.parse(cleanJson) as CallSummaryJson;
+  } catch {
+    logger.warn('Could not parse call summary JSON for auto-actions', { callSid });
+    return;
+  }
+
+  // Resolve the org from the called number
+  let resolvedOrg: ResolvedOrg | null = null;
+  try {
+    resolvedOrg = await resolveOrgByPhoneNumber(calledNumber);
+  } catch {
+    logger.warn('Could not resolve org for post-call actions', { calledNumber });
+    return;
+  }
+
+  if (!resolvedOrg) {
+    logger.debug('No org resolved for post-call actions, skipping', { calledNumber });
+    return;
+  }
+
+  const orgId = resolvedOrg.orgId;
+
+  // Resolve the contact
+  let contactId: string | null = null;
+  try {
+    const contact = await resolveContact(orgId, callerPhone, 'phone');
+    contactId = contact.id;
+  } catch (err) {
+    logger.warn('Could not resolve contact for post-call actions', {
+      orgId,
+      callerPhone,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+
+  // Determine call outcome type
+  const outcomeLower = summary.outcome.toLowerCase();
+  const hasAppointment = summary.appointmentDetails !== null
+    && summary.appointmentDetails !== 'null'
+    && summary.appointmentDetails.trim() !== '';
+  const isQualified = outcomeLower.includes('qualif') || outcomeLower.includes('interest');
+  const isSpam = outcomeLower.includes('spam') || outcomeLower.includes('wrong number') || outcomeLower.includes('robo');
+
+  // ── Update contact's aiScore ─────────────────────────────────────────
+  let scoreAdjustment = 0;
+  if (hasAppointment) scoreAdjustment = 30;
+  else if (isQualified) scoreAdjustment = 20;
+  else if (isSpam) scoreAdjustment = -50;
+
+  if (scoreAdjustment !== 0 && contactId) {
+    try {
+      const { sql: sqlTag } = await import('drizzle-orm');
+      await db
+        .update(contacts)
+        .set({
+          aiScore: sqlTag`GREATEST(0, LEAST(100, ${contacts.aiScore} + ${scoreAdjustment}))`,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          withOrgScope(contacts.orgId, orgId),
+          eq(contacts.id, contactId),
+        ));
+
+      logger.info('Contact aiScore updated from call', {
+        contactId,
+        adjustment: String(scoreAdjustment),
+        callSid,
+      });
+    } catch (err) {
+      logger.error('Failed to update contact aiScore', {
+        contactId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // ── Create appointment if details found ──────────────────────────────
+  if (hasAppointment && contactId) {
+    try {
+      // Default to tomorrow 9am if we can't parse exact date from summary
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+
+      const endTime = new Date(tomorrow);
+      endTime.setHours(10, 0, 0, 0);
+
+      const [newAppointment] = await db
+        .insert(appointments)
+        .values({
+          orgId,
+          contactId,
+          title: summary.callerIntent || 'Appointment from AI call',
+          description: `Auto-created from AI call (${callSid}). Details: ${summary.appointmentDetails}`,
+          startTime: tomorrow,
+          endTime,
+          status: 'scheduled',
+          location: null,
+          notes: `AI-booked. Summary: ${summary.outcome}`,
+        })
+        .returning();
+
+      if (newAppointment) {
+        logger.info('Appointment auto-created from AI call', {
+          appointmentId: newAppointment.id,
+          contactId,
+          orgId,
+          callSid,
+        });
+
+        // Log activity
+        await activityService.logActivity(orgId, {
+          contactId,
+          type: 'appointment_booked',
+          title: 'AI booked appointment from call',
+          description: `AI automatically booked an appointment. Details: ${summary.appointmentDetails}`,
+          metadata: { callSid, appointmentId: newAppointment.id },
+        });
+
+        // Send confirmation SMS + email to caller (fire-and-forget)
+        notificationService.sendAppointmentConfirmation(orgId, newAppointment.id).catch((err) => {
+          logger.error('Failed to send appointment confirmation after AI call', {
+            appointmentId: newAppointment.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to auto-create appointment from AI call', {
+        callSid,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // ── Create follow-up activity if needed ──────────────────────────────
+  if (summary.followUpNeeded && contactId) {
+    try {
+      await activityService.logActivity(orgId, {
+        contactId,
+        type: 'task',
+        title: 'Follow-up needed from AI call',
+        description: summary.followUpReason ?? `AI flagged this call for follow-up. Caller intent: ${summary.callerIntent}`,
+        metadata: { callSid, urgency: summary.urgency, source: 'ai_call_auto_action' },
+      });
+
+      logger.info('Follow-up activity created from AI call', {
+        contactId,
+        orgId,
+        callSid,
+        reason: summary.followUpReason,
+      });
+
+      // Notify owner if urgency is high
+      if (summary.urgency === 'high') {
+        notificationService.sendOwnerNotification(
+          orgId,
+          `Urgent follow-up needed: ${summary.callerIntent}. Caller: ${callerPhone}. Reason: ${summary.followUpReason ?? 'AI flagged as high priority.'}`,
+          { subject: 'Urgent: Follow-up needed from AI call' },
+        ).catch((err) => {
+          logger.error('Failed to send urgent follow-up notification', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to create follow-up activity', {
+        callSid,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // ── Create deal if lead is qualified (and no appointment already) ────
+  if (isQualified && contactId && !hasAppointment) {
+    try {
+      // Find the default pipeline and its "new_lead" stage
+      const [defaultPipeline] = await db
+        .select()
+        .from(pipelines)
+        .where(and(
+          withOrgScope(pipelines.orgId, orgId),
+          eq(pipelines.isDefault, true),
+        ))
+        .limit(1);
+
+      if (defaultPipeline) {
+        const [newLeadStage] = await db
+          .select()
+          .from(pipelineStages)
+          .where(and(
+            eq(pipelineStages.pipelineId, defaultPipeline.id),
+            eq(pipelineStages.slug, 'new_lead'),
+          ))
+          .limit(1);
+
+        if (newLeadStage) {
+          const [newDeal] = await db
+            .insert(deals)
+            .values({
+              orgId,
+              pipelineId: defaultPipeline.id,
+              stageId: newLeadStage.id,
+              contactId,
+              title: summary.callerIntent || 'Lead from AI call',
+              value: '0',
+              currency: 'AUD',
+              metadata: { source: 'ai_call', callSid, urgency: summary.urgency },
+            })
+            .returning();
+
+          if (newDeal) {
+            logger.info('Deal auto-created from qualified AI call', {
+              dealId: newDeal.id,
+              contactId,
+              orgId,
+              callSid,
+            });
+
+            await activityService.logActivity(orgId, {
+              contactId,
+              dealId: newDeal.id,
+              type: 'deal_stage_change',
+              title: 'New deal from AI call',
+              description: `AI qualified this lead and created a deal. Intent: ${summary.callerIntent}`,
+              metadata: { callSid },
+            });
+          }
+        } else {
+          logger.warn('No "new_lead" stage found in default pipeline', { orgId, pipelineId: defaultPipeline.id });
+        }
+      } else {
+        logger.warn('No default pipeline found for auto-deal creation', { orgId });
+      }
+    } catch (err) {
+      logger.error('Failed to auto-create deal from AI call', {
+        callSid,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  GET /call-logs — View recent call logs (for debugging/admin)
@@ -906,6 +1188,7 @@ const outboundCallSchema = z.object({
 });
 
 twilioWebhooks.post('/outbound-call', async (c) => {
+  logger.warn('DEPRECATED: /outbound-call endpoint called. Use Voice SDK (device.connect) instead.');
   const body = await c.req.json();
   const parsed = outboundCallSchema.safeParse(body);
   if (!parsed.success) {

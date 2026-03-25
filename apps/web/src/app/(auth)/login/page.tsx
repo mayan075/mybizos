@@ -71,10 +71,10 @@ export default function LoginPage() {
         setError(err.message);
       } else if (err instanceof TypeError) {
         setError(
-          "Cannot connect to the API server. Make sure it is running on port 3001.",
+          "The API server is starting up. Please wait a moment and try again.",
         );
       } else {
-        setError("An unexpected error occurred. Please try again.");
+        setError("Something unexpected happened. Check your internet connection and try again.");
       }
     } finally {
       setIsLoading(false);
@@ -94,10 +94,10 @@ export default function LoginPage() {
         setError(err.message);
       } else if (err instanceof TypeError) {
         setError(
-          "Cannot connect to the API server. Make sure it is running on port 3001.",
+          "The API server is starting up. Please wait a moment and try again.",
         );
       } else {
-        setError("An unexpected error occurred. Please try again.");
+        setError("Something unexpected happened. Check your internet connection and try again.");
       }
     } finally {
       setIsDemoLoading(false);
