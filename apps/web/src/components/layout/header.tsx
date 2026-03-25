@@ -32,84 +32,19 @@ interface HeaderProps {
   onToggleMobileSidebar?: () => void;
 }
 
-const notifications = [
-  {
-    id: "n1",
-    icon: UserPlus,
-    iconBg: "bg-blue-500/10",
-    iconColor: "text-blue-500",
-    title: "New lead: Sarah Johnson",
-    description: "Quote request via website",
-    time: "5 min ago",
-    read: false,
-    href: "/dashboard/contacts/c1",
-  },
-  {
-    id: "n2",
-    icon: Bot,
-    iconBg: "bg-purple-500/10",
-    iconColor: "text-purple-500",
-    title: "AI booked: Tom Anderson",
-    description: "Service appointment, Tomorrow 10:00 AM",
-    time: "15 min ago",
-    read: false,
-    href: "/dashboard/scheduling",
-  },
-  {
-    id: "n3",
-    icon: Bot,
-    iconBg: "bg-purple-500/10",
-    iconColor: "text-purple-500",
-    title: "AI qualified lead: Mike Thompson",
-    description: "New job inquiry, $3,000 budget",
-    time: "23 min ago",
-    read: false,
-    href: "/dashboard/contacts/c2",
-  },
-  {
-    id: "n4",
-    icon: Star,
-    iconBg: "bg-yellow-500/10",
-    iconColor: "text-yellow-500",
-    title: "New 5-star Google review!",
-    description: "Sarah Johnson left a review",
-    time: "1 hr ago",
-    read: false,
-    href: "/dashboard/reviews",
-  },
-  {
-    id: "n5",
-    icon: Flame,
-    iconBg: "bg-orange-500/10",
-    iconColor: "text-orange-500",
-    title: "Hot lead: David Wilson",
-    description: "Visited pricing page 3 times",
-    time: "1 hr ago",
-    read: false,
-    href: "/dashboard/contacts/c3",
-  },
-  {
-    id: "n6",
-    icon: AlertTriangle,
-    iconBg: "bg-red-500/10",
-    iconColor: "text-red-500",
-    title: "2-star review needs response",
-    description: "Tom Anderson on Google",
-    time: "2 hr ago",
-    read: true,
-    href: "/dashboard/reviews",
-  },
-  {
-    id: "n7",
-    icon: Phone,
-    iconBg: "bg-indigo-500/10",
-    iconColor: "text-indigo-500",
-    title: "AI Phone Agent: 47 calls today",
-    description: "32 qualified, 15 booked",
-    time: "6:00 PM",
-    read: true,
-    href: "/dashboard/analytics",
-  },
+const notifications: Array<{
+  id: string;
+  icon: typeof UserPlus;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
+  href: string;
+}> = [
+  // Real notifications will come from the API
+  // Empty for now — no fake data
 ];
 
 function getInitials(name: string): string {
