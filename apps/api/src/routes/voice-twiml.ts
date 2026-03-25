@@ -1,8 +1,16 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
 import { db, organizations } from '@mybizos/db';
 import { sql } from 'drizzle-orm';
+
+const twimlPayloadSchema = z.object({
+  To: z.string().default(''),
+  From: z.string().default(''),
+  AccountSid: z.string().default(''),
+  CallSid: z.string().default(''),
+});
 
 const voiceTwiml = new Hono();
 
@@ -104,11 +112,12 @@ voiceTwiml.post('/twiml', async (c) => {
     // Twilio sends form-encoded POST body
     const body = await c.req.text();
     const params = new URLSearchParams(body);
+    const payload = twimlPayloadSchema.parse(Object.fromEntries(params));
 
-    const to = params.get('To') ?? '';
-    const from = params.get('From') ?? '';
-    const accountSid = params.get('AccountSid') ?? '';
-    const callSid = params.get('CallSid') ?? '';
+    const to = payload.To;
+    const from = payload.From;
+    const accountSid = payload.AccountSid;
+    const callSid = payload.CallSid;
 
     logger.info('Voice TwiML webhook received', {
       to,

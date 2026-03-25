@@ -33,6 +33,16 @@ const inviteMemberSchema = z.object({
   name: z.string().min(1, 'Name is required'),
 });
 
+const onboardingSchema = z.object({
+  businessName: z.string().min(1).max(200),
+  industry: z.string().max(100).optional(),
+  phone: z.string().max(30).optional(),
+  address: z.string().max(500).optional(),
+  serviceArea: z.string().max(500).optional(),
+  teamSize: z.string().max(50).optional(),
+  goals: z.array(z.string().max(200)).optional(),
+}).passthrough();
+
 // ── Mock data ──
 
 interface Org {
@@ -341,7 +351,15 @@ organizations.post('/:orgId/settings', async (c) => {
  */
 organizations.post('/:orgId/onboarding', async (c) => {
   const orgId = c.get('orgId');
-  const body = await c.req.json();
+  const raw = await c.req.json();
+  const parsed = onboardingSchema.safeParse(raw);
+  if (!parsed.success) {
+    return c.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', code: 'VALIDATION_ERROR', status: 400 },
+      400,
+    );
+  }
+  const body = parsed.data;
 
   // Try to persist to DB
   try {
