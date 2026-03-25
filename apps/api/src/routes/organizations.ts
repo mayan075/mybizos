@@ -93,19 +93,51 @@ const mockMembers: OrgMember[] = [
 
 /**
  * GET /orgs/:orgId — get organization details
+ * Tries real database first, falls back to mock data.
  */
 organizations.get('/:orgId', async (c) => {
   const orgId = c.get('orgId');
-  const org = mockOrgs.find((o) => o.id === orgId);
 
+  try {
+    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const [org] = await db
+      .select()
+      .from(orgsTable)
+      .where(withOrgScope(orgsTable.id, orgId));
+
+    if (org) {
+      logger.info('Organization served from REAL DATABASE', { orgId });
+      return c.json({
+        data: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          phone: org.phone ?? '',
+          email: org.email ?? '',
+          address: org.address ?? '',
+          timezone: org.timezone,
+          plan: 'starter',
+          createdAt: org.createdAt.toISOString(),
+          updatedAt: org.updatedAt.toISOString(),
+        },
+        _source: 'database',
+      });
+    }
+  } catch (err) {
+    logger.warn('DB unavailable for org get, using MOCK data', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Fallback to mock
+  const org = mockOrgs.find((o) => o.id === orgId);
   if (!org) {
     return c.json(
       { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
       404,
     );
   }
-
-  return c.json({ data: org });
+  return c.json({ data: org, _source: 'mock' });
 });
 
 /**
@@ -116,6 +148,26 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
   const body = await c.req.json();
   const parsed = updateOrgSchema.parse(body);
 
+  try {
+    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { eq } = await import('drizzle-orm');
+    const [updated] = await db
+      .update(orgsTable)
+      .set({ ...parsed, updatedAt: new Date() })
+      .where(withOrgScope(orgsTable.id, orgId))
+      .returning();
+
+    if (updated) {
+      logger.info('Organization updated in REAL DATABASE', { orgId });
+      return c.json({ data: updated, _source: 'database' });
+    }
+  } catch (err) {
+    logger.warn('DB unavailable for org update, using MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Fallback to mock
   const idx = mockOrgs.findIndex((o) => o.id === orgId);
   if (idx === -1) {
     return c.json(
@@ -125,15 +177,15 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
   }
 
   const existing = mockOrgs[idx] as Org;
-  const updated: Org = {
+  const updatedMock: Org = {
     ...existing,
     ...parsed,
     updatedAt: new Date().toISOString(),
   };
-  mockOrgs[idx] = updated;
+  mockOrgs[idx] = updatedMock;
 
-  logger.info('Organization updated', { orgId });
-  return c.json({ data: updated });
+  logger.info('Organization updated (mock)', { orgId });
+  return c.json({ data: updatedMock, _source: 'mock' });
 });
 
 /**
@@ -141,8 +193,46 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
  */
 organizations.get('/:orgId/members', async (c) => {
   const orgId = c.get('orgId');
+
+  try {
+    const { db, orgMembers, users, withOrgScope } = await import('@mybizos/db');
+    const { eq } = await import('drizzle-orm');
+    const rows = await db
+      .select({
+        id: orgMembers.id,
+        orgId: orgMembers.orgId,
+        userId: orgMembers.userId,
+        role: orgMembers.role,
+        isActive: orgMembers.isActive,
+        joinedAt: orgMembers.joinedAt,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(orgMembers)
+      .leftJoin(users, eq(orgMembers.userId, users.id))
+      .where(withOrgScope(orgMembers.orgId, orgId));
+
+    const members = rows.map((r) => ({
+      id: r.id,
+      orgId: r.orgId,
+      userId: r.userId,
+      name: r.userName ?? '',
+      email: r.userEmail ?? '',
+      role: r.role,
+      status: r.isActive ? 'active' : 'deactivated',
+      joinedAt: r.joinedAt.toISOString(),
+    }));
+
+    logger.info('Members served from REAL DATABASE', { orgId, count: members.length });
+    return c.json({ data: members, _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for members list, using MOCK', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const members = mockMembers.filter((m) => m.orgId === orgId);
-  return c.json({ data: members });
+  return c.json({ data: members, _source: 'mock' });
 });
 
 /**
@@ -191,9 +281,27 @@ const settingsSchema = z.record(z.string(), z.unknown());
  */
 organizations.get('/:orgId/settings', async (c) => {
   const orgId = c.get('orgId');
+
+  try {
+    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const [org] = await db
+      .select({ settings: orgsTable.settings })
+      .from(orgsTable)
+      .where(withOrgScope(orgsTable.id, orgId));
+
+    if (org) {
+      logger.info('Settings served from REAL DATABASE', { orgId });
+      return c.json({ data: org.settings ?? {}, _source: 'database' });
+    }
+  } catch (err) {
+    logger.warn('DB unavailable for settings get, using in-memory', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const settings = orgSettings[orgId] ?? {};
-  logger.info('Settings retrieved', { orgId });
-  return c.json({ data: settings });
+  logger.info('Settings retrieved (in-memory)', { orgId });
+  return c.json({ data: settings, _source: 'memory' });
 });
 
 /**
@@ -204,9 +312,28 @@ organizations.post('/:orgId/settings', async (c) => {
   const body = await c.req.json();
   const parsed = settingsSchema.parse(body);
 
+  // Try to save to DB first
+  try {
+    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { sql } = await import('drizzle-orm');
+    await db
+      .update(orgsTable)
+      .set({ settings: sql`COALESCE(${orgsTable.settings}, '{}'::jsonb) || ${JSON.stringify(parsed)}::jsonb`, updatedAt: new Date() })
+      .where(withOrgScope(orgsTable.id, orgId));
+
+    logger.info('Settings saved to REAL DATABASE', { orgId, keys: Object.keys(parsed) });
+    // Also update in-memory cache
+    orgSettings[orgId] = { ...orgSettings[orgId], ...parsed };
+    return c.json({ data: orgSettings[orgId], _source: 'database' });
+  } catch (err) {
+    logger.warn('DB unavailable for settings save, using in-memory', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   orgSettings[orgId] = { ...orgSettings[orgId], ...parsed };
-  logger.info('Settings saved', { orgId, keys: Object.keys(parsed) });
-  return c.json({ data: orgSettings[orgId] });
+  logger.info('Settings saved (in-memory)', { orgId, keys: Object.keys(parsed) });
+  return c.json({ data: orgSettings[orgId], _source: 'memory' });
 });
 
 /**
@@ -216,13 +343,37 @@ organizations.post('/:orgId/onboarding', async (c) => {
   const orgId = c.get('orgId');
   const body = await c.req.json();
 
-  // Store onboarding data under the 'onboarding' key in org settings
+  // Try to persist to DB
+  try {
+    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { sql } = await import('drizzle-orm');
+
+    const updateData: Record<string, unknown> = {
+      settings: sql`COALESCE(${orgsTable.settings}, '{}'::jsonb) || ${JSON.stringify({ onboarding: body })}::jsonb`,
+      updatedAt: new Date(),
+    };
+    if (body.businessName) {
+      updateData['name'] = body.businessName;
+    }
+
+    await db
+      .update(orgsTable)
+      .set(updateData)
+      .where(withOrgScope(orgsTable.id, orgId));
+
+    logger.info('Onboarding data saved to REAL DATABASE', { orgId, businessName: body.businessName });
+  } catch (err) {
+    logger.warn('DB unavailable for onboarding save, using in-memory', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Also update in-memory
   if (!orgSettings[orgId]) {
     orgSettings[orgId] = {};
   }
   orgSettings[orgId]['onboarding'] = body;
 
-  // Also update the org name from onboarding if provided
   if (body.businessName) {
     const orgIdx = mockOrgs.findIndex((o) => o.id === orgId);
     if (orgIdx !== -1) {

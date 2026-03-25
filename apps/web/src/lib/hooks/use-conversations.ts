@@ -5,7 +5,7 @@ import { useApiQuery, useApiMutation } from "./use-api";
 import {
   type MockConversation,
   type MockChatMessage,
-} from "@/lib/mock-data";
+} from "@/lib/types";
 
 // --------------------------------------------------------
 // useConversations — inbox list with optional filters

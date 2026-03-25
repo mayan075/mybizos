@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
+import { env } from "@/lib/env";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -256,8 +257,7 @@ export default function AdminSettingsPage() {
     saveAdminSettings(settings);
 
     // Also try to persist to API
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-    fetch(`${API_BASE}/admin/settings`, {
+    fetch(`${env.NEXT_PUBLIC_API_URL}/admin/settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ section, settings }),
@@ -280,8 +280,7 @@ export default function AdminSettingsPage() {
     }
     setTesting("twilio");
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-      const res = await fetch(`${API_BASE}/admin/test/twilio`, {
+      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/twilio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -320,8 +319,7 @@ export default function AdminSettingsPage() {
     }
     setTesting("resend");
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-      const res = await fetch(`${API_BASE}/admin/test/resend`, {
+      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/resend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: settings.resend.apiKey }),
@@ -357,8 +355,7 @@ export default function AdminSettingsPage() {
     }
     setTesting("anthropic");
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-      const res = await fetch(`${API_BASE}/admin/test/anthropic`, {
+      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/anthropic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: settings.anthropic.apiKey }),

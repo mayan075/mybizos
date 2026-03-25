@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 import { SetupWizard, SuccessCelebration } from "@/app/dashboard/settings/phone/setup-wizard";
 import { SectionCard } from "./shared-ui";
 import {
@@ -57,7 +58,7 @@ interface PurchasedNumber {
 /*  API Helpers                                                                */
 /* -------------------------------------------------------------------------- */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_BASE = env.NEXT_PUBLIC_API_URL;
 
 async function apiFetch<T>(
   path: string,

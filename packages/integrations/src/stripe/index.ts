@@ -88,6 +88,27 @@ export interface PaymentLinkResult {
   active: boolean;
 }
 
+export interface CreateSubscriptionOptions {
+  customerId: string;
+  priceId: string;
+  trialDays?: number;
+  metadata?: Record<string, string>;
+}
+
+export interface SubscriptionResult {
+  id: string;
+  status: string;
+  currentPeriodStart: number;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
+  priceId: string;
+  productId: string;
+}
+
+export interface BillingPortalResult {
+  url: string;
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
@@ -350,6 +371,78 @@ export class StripeClient {
     };
   }
 
+  // ─── Subscriptions ────────────────────────────────────────────────────
+
+  /**
+   * Create a subscription for a customer.
+   */
+  async createSubscription(
+    options: CreateSubscriptionOptions,
+  ): Promise<SubscriptionResult> {
+    const sub = await this.stripe.subscriptions.create({
+      customer: options.customerId,
+      items: [{ price: options.priceId }],
+      trial_period_days: options.trialDays,
+      metadata: options.metadata,
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice.payment_intent"],
+    });
+    return this.formatSubscription(sub);
+  }
+
+  /**
+   * Retrieve a subscription by ID.
+   */
+  async getSubscription(subscriptionId: string): Promise<SubscriptionResult> {
+    const sub = await this.stripe.subscriptions.retrieve(subscriptionId);
+    return this.formatSubscription(sub);
+  }
+
+  /**
+   * Cancel a subscription, either immediately or at end of billing period.
+   */
+  async cancelSubscription(
+    subscriptionId: string,
+    immediately = false,
+  ): Promise<SubscriptionResult> {
+    if (immediately) {
+      const sub = await this.stripe.subscriptions.cancel(subscriptionId);
+      return this.formatSubscription(sub);
+    }
+    const sub = await this.stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
+    return this.formatSubscription(sub);
+  }
+
+  /**
+   * Create a Stripe Billing Portal session for self-service management.
+   */
+  async createBillingPortalSession(
+    customerId: string,
+    returnUrl: string,
+  ): Promise<BillingPortalResult> {
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+    return { url: session.url };
+  }
+
+  /**
+   * List invoices for a customer.
+   */
+  async listInvoices(
+    customerId: string,
+    limit = 10,
+  ): Promise<InvoiceResult[]> {
+    const invoices = await this.stripe.invoices.list({
+      customer: customerId,
+      limit,
+    });
+    return invoices.data.map((inv) => this.formatInvoice(inv));
+  }
+
   // ─── Webhooks ──────────────────────────────────────────────────────────
 
   /**
@@ -377,6 +470,22 @@ export class StripeClient {
       invoicePdf: invoice.invoice_pdf ?? null,
       dueDate: invoice.due_date,
       customerEmail: invoice.customer_email ?? null,
+    };
+  }
+
+  private formatSubscription(sub: Stripe.Subscription): SubscriptionResult {
+    const item = sub.items.data[0];
+    return {
+      id: sub.id,
+      status: sub.status,
+      currentPeriodStart: sub.current_period_start,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAtPeriodEnd: sub.cancel_at_period_end,
+      priceId: item?.price?.id ?? "",
+      productId:
+        typeof item?.price?.product === "string"
+          ? item.price.product
+          : item?.price?.product?.id ?? "",
     };
   }
 }

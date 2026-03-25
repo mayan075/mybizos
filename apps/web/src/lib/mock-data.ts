@@ -3,39 +3,51 @@
  * Used as fallback when the API is unavailable.
  */
 
+// Re-export all types (including backward-compatible Mock* aliases)
+export type {
+  DashboardStat,
+  ActivityItem,
+  UpcomingAppointment,
+  Contact,
+  ContactDetail,
+  TimelineEntry,
+  PipelineColumn,
+  Deal,
+  Conversation,
+  ChatMessage,
+  Appointment,
+  MockStat,
+  MockActivityItem,
+  MockUpcomingAppointment,
+  MockContact,
+  MockContactDetail,
+  MockTimelineEntry,
+  MockPipelineColumn,
+  MockDeal,
+  MockConversation,
+  MockChatMessage,
+  MockAppointment,
+} from "./types";
+
+import type {
+  Contact,
+  ContactDetail,
+  TimelineEntry,
+  PipelineColumn,
+  Deal,
+  Conversation,
+  ChatMessage,
+  Appointment,
+  DashboardStat,
+  ActivityItem,
+  UpcomingAppointment,
+} from "./types";
+
 // ============================================================
 // Contacts
 // ============================================================
 
-export interface MockContact {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  score: number;
-  lastActivity: string;
-  tags: string[];
-  source: string;
-}
-
-export interface MockContactDetail extends MockContact {
-  company: string;
-  address: string;
-  createdAt: string;
-}
-
-export interface MockTimelineEntry {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  time: string;
-  iconName: string;
-  color: string;
-  bg: string;
-}
-
-export const mockContacts: MockContact[] = [
+export const mockContacts: Contact[] = [
   {
     id: "c1",
     name: "Sarah Johnson",
@@ -138,7 +150,7 @@ export const mockContacts: MockContact[] = [
   },
 ];
 
-export const mockContactDetails: Record<string, MockContactDetail> = {
+export const mockContactDetails: Record<string, ContactDetail> = {
   c1: {
     id: "c1",
     name: "Sarah Johnson",
@@ -193,7 +205,7 @@ export const mockContactDetails: Record<string, MockContactDetail> = {
   },
 };
 
-export const mockDefaultContact: MockContactDetail = {
+export const mockDefaultContact: ContactDetail = {
   id: "c0",
   name: "Unknown Contact",
   email: "unknown@example.com",
@@ -207,7 +219,7 @@ export const mockDefaultContact: MockContactDetail = {
   createdAt: "Mar 20, 2026",
 };
 
-export const mockTimeline: MockTimelineEntry[] = [
+export const mockTimeline: TimelineEntry[] = [
   {
     id: "t1",
     type: "call",
@@ -327,30 +339,14 @@ export const mockTimeline: MockTimelineEntry[] = [
 // Pipeline / Deals
 // ============================================================
 
-export interface MockDeal {
-  id: string;
-  title: string;
-  contact: string;
-  value: number;
-  daysInStage: number;
-  score: number;
-  tags: string[];
-}
-
-export interface MockPipelineColumn {
-  id: string;
-  title: string;
-  color: string;
-}
-
-export const mockPipelineColumns: MockPipelineColumn[] = [
+export const mockPipelineColumns: PipelineColumn[] = [
   { id: "new_lead", title: "New Lead", color: "bg-info" },
   { id: "quoted", title: "Quoted", color: "bg-warning" },
   { id: "scheduled", title: "Scheduled", color: "bg-primary" },
   { id: "won", title: "Won", color: "bg-success" },
 ];
 
-export const mockDeals: Record<string, MockDeal[]> = {
+export const mockDeals: Record<string, Deal[]> = {
   new_lead: [
     { id: "d1", title: "Full Load Pickup", contact: "Sarah Johnson", value: 450, daysInStage: 1, score: 92, tags: ["Removals", "Residential"] },
     { id: "d2", title: "Office Cleanout", contact: "David Park", value: 620, daysInStage: 2, score: 85, tags: ["Removals"] },
@@ -375,27 +371,7 @@ export const mockDeals: Record<string, MockDeal[]> = {
 // Conversations / Inbox
 // ============================================================
 
-export interface MockConversation {
-  id: string;
-  contact: string;
-  initials: string;
-  channel: "sms" | "email" | "call";
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  aiHandled: boolean;
-  status: "open" | "closed";
-}
-
-export interface MockChatMessage {
-  id: string;
-  sender: "contact" | "user" | "ai";
-  text: string;
-  time: string;
-  status: "sent" | "delivered" | "read";
-}
-
-export const mockConversations: MockConversation[] = [
+export const mockConversations: Conversation[] = [
   {
     id: "conv1",
     contact: "Sarah Johnson",
@@ -486,7 +462,7 @@ export const mockConversations: MockConversation[] = [
   },
 ];
 
-export const mockMessages: Record<string, MockChatMessage[]> = {
+export const mockMessages: Record<string, ChatMessage[]> = {
   conv1: [
     { id: "m1", sender: "contact", text: "Hi, I need to schedule a rubbish removal. What times do you have available this week?", time: "10:23 AM", status: "read" },
     { id: "m2", sender: "ai", text: "Hi Sarah! This is Northern Removals' AI assistant. I'd be happy to help you schedule a pickup. We have availability tomorrow (Wednesday) at 10 AM, 1 PM, or 3 PM. We also have Thursday morning slots. Which works best for you?", time: "10:23 AM", status: "read" },
@@ -527,19 +503,7 @@ export const mockMessages: Record<string, MockChatMessage[]> = {
 // Appointments / Scheduling
 // ============================================================
 
-export interface MockAppointment {
-  id: string;
-  title: string;
-  customer: string;
-  time: string;
-  duration: number;
-  dayIndex: number;
-  hourStart: number;
-  status: "scheduled" | "confirmed" | "completed";
-  location: string;
-}
-
-export const mockAppointments: MockAppointment[] = [
+export const mockAppointments: Appointment[] = [
   {
     id: "a1",
     title: "Full Load Pickup",
@@ -612,37 +576,7 @@ export const mockAppointments: MockAppointment[] = [
 // Dashboard Stats
 // ============================================================
 
-export interface MockStat {
-  label: string;
-  value: string;
-  change: string;
-  trend: "up" | "down";
-  iconName: string;
-  color: string;
-  bg: string;
-  href: string;
-}
-
-export interface MockActivityItem {
-  id: string;
-  type: string;
-  iconName: string;
-  title: string;
-  description: string;
-  time: string;
-  color: string;
-}
-
-export interface MockUpcomingAppointment {
-  id: string;
-  customer: string;
-  service: string;
-  time: string;
-  date: string;
-  status: "confirmed" | "scheduled";
-}
-
-export const mockStats: MockStat[] = [
+export const mockStats: DashboardStat[] = [
   {
     label: "Leads Today",
     value: "12",
@@ -685,7 +619,7 @@ export const mockStats: MockStat[] = [
   },
 ];
 
-export const mockActivity: MockActivityItem[] = [
+export const mockActivity: ActivityItem[] = [
   {
     id: "1",
     type: "call",
@@ -742,7 +676,7 @@ export const mockActivity: MockActivityItem[] = [
   },
 ];
 
-export const mockUpcomingAppointments: MockUpcomingAppointment[] = [
+export const mockUpcomingAppointments: UpcomingAppointment[] = [
   {
     id: "1",
     customer: "Sarah Johnson",

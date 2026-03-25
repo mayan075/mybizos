@@ -84,54 +84,54 @@ interface AiAgent {
   updatedAt: string;
 }
 
-const mockAgents: AiAgent[] = [
-  {
-    id: 'agent_01',
-    orgId: 'org_01',
-    name: 'Main Phone Agent',
-    type: 'phone',
-    greeting:
-      "Hi, this is Acme HVAC & Plumbing's AI assistant. This call may be recorded. How can I help you today?",
-    businessContext:
-      'Acme HVAC & Plumbing serves the Springfield, IL area. We offer HVAC installation, repair, and maintenance as well as plumbing services for residential and commercial customers.',
-    escalationRules: {
-      maxMisunderstandings: 2,
-      emergencyKeywords: ['flooding', 'gas leak', 'fire', 'emergency', 'burst pipe'],
-      escalationPhone: '+15559999999',
+/**
+ * Build default AI agents for an org. Uses org name instead of hardcoded business names.
+ */
+function buildDefaultAgents(orgId: string, businessName: string): AiAgent[] {
+  const name = businessName || 'Your Business';
+  return [
+    {
+      id: 'agent_01',
+      orgId,
+      name: 'Main Phone Agent',
+      type: 'phone',
+      greeting: `Hi, this is ${name}'s AI assistant. This call may be recorded. How can I help you today?`,
+      businessContext: `${name} is a local service business. We provide high-quality services to residential and commercial customers.`,
+      escalationRules: {
+        maxMisunderstandings: 2,
+        emergencyKeywords: ['flooding', 'gas leak', 'fire', 'emergency', 'burst pipe'],
+        escalationPhone: '',
+      },
+      priceRanges: [],
+      enabled: true,
+      totalCalls: 0,
+      totalLeadsQualified: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
-    priceRanges: [
-      { service: 'HVAC Inspection', minPrice: 75, maxPrice: 150 },
-      { service: 'Furnace Repair', minPrice: 150, maxPrice: 500 },
-      { service: 'AC Installation', minPrice: 3000, maxPrice: 8000 },
-      { service: 'Plumbing Repair', minPrice: 100, maxPrice: 350 },
-    ],
-    enabled: true,
-    totalCalls: 147,
-    totalLeadsQualified: 89,
-    createdAt: '2026-01-15T00:00:00Z',
-    updatedAt: '2026-03-01T00:00:00Z',
-  },
-  {
-    id: 'agent_02',
-    orgId: 'org_01',
-    name: 'SMS Follow-Up Agent',
-    type: 'sms',
-    greeting:
-      "Hi! This is Acme HVAC & Plumbing's assistant. How can I help you today?",
-    businessContext:
-      'Follow up with leads, confirm appointments, and answer basic service questions via SMS.',
-    escalationRules: {
-      maxMisunderstandings: 2,
-      emergencyKeywords: ['flooding', 'gas leak', 'fire', 'emergency'],
+    {
+      id: 'agent_02',
+      orgId,
+      name: 'SMS Follow-Up Agent',
+      type: 'sms',
+      greeting: `Hi! This is ${name}'s assistant. How can I help you today?`,
+      businessContext: 'Follow up with leads, confirm appointments, and answer basic service questions via SMS.',
+      escalationRules: {
+        maxMisunderstandings: 2,
+        emergencyKeywords: ['flooding', 'gas leak', 'fire', 'emergency'],
+      },
+      priceRanges: [],
+      enabled: true,
+      totalCalls: 0,
+      totalLeadsQualified: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
-    priceRanges: [],
-    enabled: true,
-    totalCalls: 0,
-    totalLeadsQualified: 0,
-    createdAt: '2026-02-01T00:00:00Z',
-    updatedAt: '2026-02-01T00:00:00Z',
-  },
-];
+  ];
+}
+
+// Build initial mock agents using dynamic name
+const mockAgents: AiAgent[] = buildDefaultAgents('org_01', 'Your Business');
 
 // ── Routes ──
 

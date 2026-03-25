@@ -5,7 +5,7 @@ import {
   type MockStat,
   type MockActivityItem,
   type MockUpcomingAppointment,
-} from "@/lib/mock-data";
+} from "@/lib/types";
 
 // --------------------------------------------------------
 // Empty-state defaults (shown for new accounts with no data)

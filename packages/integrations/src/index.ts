@@ -33,6 +33,9 @@ export {
   type InvoiceResult,
   type CreatePaymentLinkOptions,
   type PaymentLinkResult,
+  type CreateSubscriptionOptions,
+  type SubscriptionResult,
+  type BillingPortalResult,
 } from "./stripe/index.js";
 
 // Google Calendar

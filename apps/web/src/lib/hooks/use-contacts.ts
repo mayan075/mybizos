@@ -3,11 +3,11 @@
 import { useCallback, useMemo } from "react";
 import { useApiQuery, useApiMutation, getOrgId } from "./use-api";
 import {
-  mockDefaultContact,
   type MockContact,
   type MockContactDetail,
   type MockTimelineEntry,
-} from "@/lib/mock-data";
+} from "@/lib/types";
+import { mockDefaultContact } from "@/lib/mock-data";
 
 // --------------------------------------------------------
 // useContacts — list with optional search / filter

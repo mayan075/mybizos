@@ -3,7 +3,7 @@
 import { useApiQuery, useApiMutation } from "./use-api";
 import {
   type MockAppointment,
-} from "@/lib/mock-data";
+} from "@/lib/types";
 
 // --------------------------------------------------------
 // useAppointments — fetch appointments for a date range

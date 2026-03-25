@@ -4,6 +4,8 @@
  * instead of showing hardcoded mock / "Jim's Plumbing" placeholders.
  */
 
+import { env } from "./env";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -287,7 +289,7 @@ export async function loadOnboardingFromApi(orgId: string): Promise<OnboardingDa
 
   // Try API
   try {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+    const API_BASE = env.NEXT_PUBLIC_API_URL;
     const token = localStorage.getItem("mybizos_token");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;

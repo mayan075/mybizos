@@ -18,6 +18,7 @@ import {
   Box,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 import { ChatWidget } from "@/components/widgets/chat-widget";
 
 /* -------------------------------------------------------------------------- */
@@ -679,8 +680,7 @@ export default function BookingPage() {
     let cancelled = false;
     async function fetchOrgInfo() {
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-        const res = await fetch(`${API_BASE}/public/org/${slug}`, {
+        const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/public/org/${slug}`, {
           signal: AbortSignal.timeout(5000),
         });
         if (res.ok) {
@@ -760,8 +760,7 @@ export default function BookingPage() {
       };
 
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-        const res = await fetch(`${API_BASE}/public/book/${slug}`, {
+        const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/public/book/${slug}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bookingPayload),
