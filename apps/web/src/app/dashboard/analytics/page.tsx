@@ -491,30 +491,30 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground">Lifetime Value</p>
-                <p className="mt-1 text-xl font-bold text-foreground">$1,240</p>
+                <p className="mt-1 text-xl font-bold text-foreground">$0</p>
                 <p className="text-[10px] text-muted-foreground">avg per customer</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Retention Rate</p>
-                <p className="mt-1 text-xl font-bold text-foreground">78%</p>
+                <p className="mt-1 text-xl font-bold text-foreground">--</p>
                 <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-                  <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: "78%" }} />
+                  <div className="h-1.5 rounded-full bg-muted" style={{ width: "0%" }} />
                 </div>
               </div>
             </div>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-rose-500" />
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
               <p className="text-sm font-semibold text-foreground">At-Risk Customers</p>
             </div>
-            <p className="mt-2 text-2xl font-bold text-rose-500">5</p>
+            <p className="mt-2 text-2xl font-bold text-muted-foreground">0</p>
             <p className="text-xs text-muted-foreground mt-1">
               Customers who haven&apos;t visited in 90+ days
             </p>
-            <button className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-              View at-risk list &rarr;
-            </button>
+            <a href="/dashboard/contacts" className="mt-3 text-xs font-medium text-primary hover:text-primary/80 transition-colors inline-block">
+              View contacts &rarr;
+            </a>
           </div>
         </div>
       </div>

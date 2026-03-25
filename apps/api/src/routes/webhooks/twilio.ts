@@ -458,6 +458,8 @@ twilioWebhooks.post('/sms', async (c) => {
   let businessVertical: string = DEFAULT_BUSINESS.vertical;
   let agentName = DEFAULT_BUSINESS.agentName;
 
+  logger.info('[SMS DB] Step 1: Resolving org for number', { to: To });
+
   try {
     resolvedOrg = await resolveOrgByPhoneNumber(To);
     if (resolvedOrg) {
@@ -465,12 +467,16 @@ twilioWebhooks.post('/sms', async (c) => {
       businessVertical = resolvedOrg.vertical;
       // Use agent name from settings if available, else default
       agentName = (resolvedOrg.settings as Record<string, unknown>)?.agentName as string ?? DEFAULT_BUSINESS.agentName;
+      logger.info('[SMS DB] Step 1 OK: Org resolved', {
+        orgId: resolvedOrg.orgId,
+        orgName: resolvedOrg.orgName,
+      });
     } else {
-      logger.warn('No org found for Twilio number, using default business config', { to: To });
+      logger.error('[SMS DB] Step 1 FAILED: No org found for Twilio number', { to: To });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('Org resolution failed, using default', { to: To, error: msg });
+    logger.error('[SMS DB] Step 1 FAILED: Org resolution threw error', { to: To, error: msg });
   }
 
   // ── Step 2: Resolve contact (find or create) ───────────────────────────
@@ -478,19 +484,24 @@ twilioWebhooks.post('/sms', async (c) => {
   let orgId: string | null = resolvedOrg?.orgId ?? null;
 
   if (orgId) {
+    logger.info('[SMS DB] Step 2: Resolving contact', { orgId, from: From });
     try {
       const contact = await resolveContact(orgId, From, 'sms');
       contactId = contact.id;
+      logger.info('[SMS DB] Step 2 OK: Contact resolved', { contactId, orgId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Contact resolution failed', { orgId, from: From, error: msg });
+      logger.error('[SMS DB] Step 2 FAILED: Contact resolution error', { orgId, from: From, error: msg });
     }
+  } else {
+    logger.error('[SMS DB] Step 2 SKIPPED: No orgId — contact resolution impossible');
   }
 
   // ── Step 3: Find or create conversation ─────────────────────────────────
   let conversationId: string | null = null;
 
   if (orgId && contactId) {
+    logger.info('[SMS DB] Step 3: Finding/creating conversation', { orgId, contactId });
     try {
       // Look for an existing open/snoozed SMS conversation with this contact
       const [existingConvo] = await db
@@ -506,7 +517,7 @@ twilioWebhooks.post('/sms', async (c) => {
 
       if (existingConvo) {
         conversationId = existingConvo.id;
-        logger.debug('Using existing SMS conversation', { conversationId, orgId, contactId });
+        logger.info('[SMS DB] Step 3 OK: Using existing conversation', { conversationId });
       } else {
         // Create a new conversation
         const newConvo = await conversationService.create(orgId, {
@@ -514,27 +525,35 @@ twilioWebhooks.post('/sms', async (c) => {
           channel: 'sms',
         });
         conversationId = newConvo.id;
-        logger.info('New SMS conversation created', { conversationId, orgId, contactId });
+        logger.info('[SMS DB] Step 3 OK: New conversation created', { conversationId });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Conversation find/create failed', { orgId, contactId, error: msg });
+      logger.error('[SMS DB] Step 3 FAILED: Conversation find/create error', { orgId, contactId, error: msg });
     }
+  } else {
+    logger.error('[SMS DB] Step 3 SKIPPED: Missing orgId or contactId', { orgId, contactId });
   }
 
-  // ── Step 4: Persist inbound message (fire-and-forget) ───────────────────
+  // ── Step 4: Persist inbound message (AWAITED — must succeed) ────────────
   if (orgId && conversationId) {
-    conversationService.createMessage(orgId, conversationId, {
-      direction: 'inbound',
-      channel: 'sms',
-      senderType: 'contact',
-      senderId: contactId,
-      body: Body,
-      metadata: { messageSid: MessageSid, from: From, to: To },
-    }).catch((err) => {
+    logger.info('[SMS DB] Step 4: Persisting inbound message', { orgId, conversationId });
+    try {
+      const inboundMsg = await conversationService.createMessage(orgId, conversationId, {
+        direction: 'inbound',
+        channel: 'sms',
+        senderType: 'contact',
+        senderId: contactId,
+        body: Body,
+        metadata: { messageSid: MessageSid, from: From, to: To },
+      });
+      logger.info('[SMS DB] Step 4 OK: Inbound message saved', { messageId: inboundMsg.id });
+    } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Failed to persist inbound SMS message', { conversationId, error: msg });
-    });
+      logger.error('[SMS DB] Step 4 FAILED: Could not persist inbound message', { conversationId, error: msg });
+    }
+  } else {
+    logger.error('[SMS DB] Step 4 SKIPPED: No orgId or conversationId', { orgId, conversationId });
   }
 
   // ── Step 5: Get or initialize in-memory conversation for Claude context ─
@@ -587,21 +606,27 @@ twilioWebhooks.post('/sms', async (c) => {
   // Store the AI reply in in-memory conversation history
   smsConvo.messages.push({ role: 'assistant', content: replyText });
 
-  // ── Step 7: Persist AI response message (fire-and-forget) ───────────────
+  // ── Step 7: Persist AI response message (AWAITED) ───────────────────────
   if (orgId && conversationId) {
-    conversationService.createMessage(orgId, conversationId, {
-      direction: 'outbound',
-      channel: 'sms',
-      senderType: 'ai',
-      body: replyText,
-      metadata: { messageSid: MessageSid, inReplyTo: From },
-    }).catch((err) => {
+    logger.info('[SMS DB] Step 7: Persisting AI reply', { orgId, conversationId });
+    try {
+      const outboundMsg = await conversationService.createMessage(orgId, conversationId, {
+        direction: 'outbound',
+        channel: 'sms',
+        senderType: 'ai',
+        body: replyText,
+        metadata: { messageSid: MessageSid, inReplyTo: From },
+      });
+      logger.info('[SMS DB] Step 7 OK: AI reply saved', { messageId: outboundMsg.id });
+    } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Failed to persist AI SMS response', { conversationId, error: msg });
-    });
+      logger.error('[SMS DB] Step 7 FAILED: Could not persist AI reply', { conversationId, error: msg });
+    }
+  } else {
+    logger.error('[SMS DB] Step 7 SKIPPED: No orgId or conversationId', { orgId, conversationId });
   }
 
-  // ── Step 8: Log activity (fire-and-forget) ──────────────────────────────
+  // ── Step 8: Log activity (fire-and-forget — non-critical) ──────────────
   if (orgId) {
     activityService.logActivity(orgId, {
       contactId,
@@ -617,7 +642,7 @@ twilioWebhooks.post('/sms', async (c) => {
       },
     }).catch((err) => {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Failed to log SMS activity', { orgId, error: msg });
+      logger.error('[SMS DB] Step 8 FAILED: Activity log error', { orgId, error: msg });
     });
   }
 
