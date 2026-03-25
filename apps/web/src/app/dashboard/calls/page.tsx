@@ -894,6 +894,29 @@ export default function CallsPage() {
     });
   }, []);
 
+  // Handle clear all (long press)
+  const handleClearAll = useCallback(() => {
+    setCallError(null);
+    setRawDigits("");
+  }, []);
+
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDeleteDown = useCallback(() => {
+    longPressRef.current = setTimeout(() => {
+      handleClearAll();
+      longPressRef.current = null;
+    }, 500);
+  }, [handleClearAll]);
+
+  const handleDeleteUp = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+      handleBackspace();
+    }
+  }, [handleBackspace]);
+
   // Handle text input (paste support)
   const handleInputChange = useCallback((value: string) => {
     setCallError(null);
@@ -1153,8 +1176,13 @@ export default function CallsPage() {
                   />
                   {rawDigits.length > 0 && (
                     <button
-                      onClick={handleBackspace}
-                      className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted"
+                      onMouseDown={handleDeleteDown}
+                      onMouseUp={handleDeleteUp}
+                      onMouseLeave={handleDeleteUp}
+                      onTouchStart={handleDeleteDown}
+                      onTouchEnd={handleDeleteUp}
+                      title="Tap to delete one digit, hold to clear all"
+                      className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted active:bg-red-50 active:text-red-500"
                     >
                       <Delete className="h-5 w-5" />
                     </button>

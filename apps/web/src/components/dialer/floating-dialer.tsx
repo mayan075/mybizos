@@ -365,6 +365,29 @@ export function FloatingDialer() {
     });
   }, []);
 
+  const handleClearAll = useCallback(() => {
+    clearError();
+    setSetupError(null);
+    setRawDigits("");
+  }, []);
+
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDeleteDown = useCallback(() => {
+    longPressRef.current = setTimeout(() => {
+      handleClearAll();
+      longPressRef.current = null;
+    }, 500);
+  }, [handleClearAll]);
+
+  const handleDeleteUp = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+      handleBackspace();
+    }
+  }, [handleBackspace]);
+
   const handleInputChange = useCallback((value: string) => {
     clearError();
     setSetupError(null);
@@ -677,8 +700,13 @@ export function FloatingDialer() {
                   />
                   {rawDigits.length > 0 && (
                     <button
-                      onClick={handleBackspace}
-                      className="p-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted"
+                      onMouseDown={handleDeleteDown}
+                      onMouseUp={handleDeleteUp}
+                      onMouseLeave={handleDeleteUp}
+                      onTouchStart={handleDeleteDown}
+                      onTouchEnd={handleDeleteUp}
+                      title="Tap to delete one digit, hold to clear all"
+                      className="p-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted active:bg-red-50 active:text-red-500"
                     >
                       <Delete className="h-4 w-4" />
                     </button>
