@@ -86,6 +86,13 @@ const STEPS: OnboardingStep[] = [
 // Helpers
 // ---------------------------------------------------------------------------
 
+function toTitleCase(str: string): string {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase(),
+  );
+}
+
 function getCompletedSteps(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
@@ -131,7 +138,8 @@ function dismissGettingStarted(): void {
 export function WelcomeBanner() {
   const [visible, setVisible] = useState(false);
   const onboarding = typeof window !== "undefined" ? getOnboardingData() : null;
-  const businessName = onboarding?.businessName ?? "your business";
+  const rawName = onboarding?.businessName ?? "your business";
+  const businessName = toTitleCase(rawName);
 
   useEffect(() => {
     setVisible(!isWelcomeDismissed());

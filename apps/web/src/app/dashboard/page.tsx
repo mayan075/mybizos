@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -20,11 +20,14 @@ import {
   Bot,
   Sparkles,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useRecentActivity, emptyStats } from "@/lib/hooks/use-dashboard";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { WelcomeBanner, GettingStartedChecklist } from "@/components/onboarding/getting-started";
+import { WelcomeBanner } from "@/components/onboarding/getting-started";
 import { Tooltip } from "@/components/ui/tooltip";
 import { getRecentlyViewed, type RecentlyViewedItem } from "@/lib/recently-viewed";
 import { getOnboardingData } from "@/lib/onboarding";
@@ -135,6 +138,29 @@ const setupActions: SetupAction[] = [
   },
 ];
 
+// ── localStorage key for dismissing Getting Started ─────────────────────
+
+const GETTING_STARTED_DISMISSED_KEY = "mybizos_getting_started_banner_dismissed";
+
+function isGettingStartedBannerDismissed(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "true";
+}
+
+function dismissGettingStartedBanner(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(GETTING_STARTED_DISMISSED_KEY, "true");
+}
+
+// ── Helper: capitalize each word in a string (Title Case) ───────────────
+
+function toTitleCase(str: string): string {
+  return str.replace(
+    /\w\S*/g,
+    (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase(),
+  );
+}
+
 // ── Helper: detect if user has meaningful data ──────────────────────────
 
 function useIsNewUser(stats: typeof emptyStats): boolean {
@@ -142,78 +168,165 @@ function useIsNewUser(stats: typeof emptyStats): boolean {
   return stats.every((s) => s.value === "0" || s.value === "$0");
 }
 
-// ── New User Dashboard ──────────────────────────────────────────────────
+// ── Dashboard Skeleton (shown while checking new user status) ───────────
 
-function NewUserDashboard() {
-  const router = useRouter();
-  const onboarding = typeof window !== "undefined" ? getOnboardingData() : null;
-  const user = typeof window !== "undefined" ? getUser() : null;
-  const businessName = onboarding?.businessName ?? user?.orgName ?? "your business";
-
+function DashboardSkeleton() {
   return (
-    <div className="space-y-8 max-w-[900px] mx-auto">
-      {/* Big welcome */}
-      <div className="text-center pt-4">
-        <div className="flex justify-center mb-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-            <Sparkles className="h-7 w-7 text-primary" />
-          </div>
-        </div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">
-          Welcome to MyBizOS, {businessName}!
-        </h1>
-        <p className="text-base text-muted-foreground mt-2 max-w-lg mx-auto leading-relaxed">
-          Let&apos;s get your business set up. Complete these steps to start receiving leads and booking appointments.
-        </p>
+    <div className="space-y-6 max-w-[1400px]">
+      {/* Header skeleton */}
+      <div>
+        <div className="h-7 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-4 w-72 animate-pulse rounded-md bg-muted mt-2" />
       </div>
 
-      {/* Progress indicator */}
-      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <CheckCircle2 className="h-4 w-4 text-success" />
-        <span>Account created</span>
-        <span className="text-border">|</span>
-        <span>4 steps remaining</span>
-      </div>
-
-      {/* Setup action cards */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {setupActions.map((action) => (
-          <button
-            key={action.id}
-            onClick={() => router.push(action.href)}
-            className="group relative flex items-start gap-4 rounded-xl border border-border/60 bg-card p-5 text-left shadow-sm hover:shadow-md hover:border-border hover:-translate-y-0.5 transition-all duration-200"
+      {/* Stat cards skeleton */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl bg-card border border-border/60 border-t-2 border-t-muted p-6 shadow-sm"
           >
-            <div className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-[1.05]",
-              action.iconBg,
-            )}>
-              <action.icon className={cn("h-5 w-5", action.iconColor)} />
+            <div className="flex items-center justify-between">
+              <div className="h-11 w-11 animate-pulse rounded-xl bg-muted" />
+              <div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                {action.title}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                {action.description}
-              </p>
+            <div className="mt-5 space-y-2">
+              <div className="h-8 w-16 animate-pulse rounded-md bg-muted" />
+              <div className="h-3 w-24 animate-pulse rounded-md bg-muted" />
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-          </button>
+          </div>
         ))}
       </div>
 
-      {/* Quick skip link */}
-      <div className="text-center">
-        <p className="text-xs text-muted-foreground">
-          Already know what you&apos;re doing?{" "}
-          <button
-            onClick={() => router.push("/dashboard/contacts")}
-            className="text-primary font-medium hover:text-primary/80 transition-colors"
-          >
-            Jump to Contacts
-          </button>
-        </p>
+      {/* Content grid skeleton */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 rounded-xl bg-card border border-border/60 shadow-sm p-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-4 py-4">
+              <div className="h-9 w-9 rounded-xl animate-pulse bg-muted shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 rounded-md animate-pulse bg-muted" />
+                <div className="h-3 w-1/2 rounded-md animate-pulse bg-muted" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl bg-card border border-border/60 shadow-sm p-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="py-4 space-y-2">
+              <div className="h-4 w-32 rounded-md animate-pulse bg-muted" />
+              <div className="h-3 w-24 rounded-md animate-pulse bg-muted" />
+            </div>
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── Getting Started Banner (collapsible, dismissable) ───────────────────
+
+function GettingStartedBanner() {
+  const router = useRouter();
+  const [dismissed, setDismissed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setDismissed(isGettingStartedBannerDismissed());
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    dismissGettingStartedBanner();
+    setDismissed(true);
+  }, []);
+
+  if (dismissed) return null;
+
+  const onboarding = typeof window !== "undefined" ? getOnboardingData() : null;
+  const user = typeof window !== "undefined" ? getUser() : null;
+  const rawName = onboarding?.businessName ?? user?.orgName ?? "your business";
+  const businessName = toTitleCase(rawName);
+
+  return (
+    <div className="rounded-xl bg-card border border-border/60 overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground tracking-tight">
+                Welcome to MyBizOS, {businessName}!
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+                Complete these steps to get the most out of MyBizOS.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              aria-label={collapsed ? "Expand getting started" : "Collapse getting started"}
+            >
+              {collapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              aria-label="Dismiss getting started"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Action cards -- shown when not collapsed */}
+      {!collapsed && (
+        <div className="px-5 pb-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {setupActions.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => router.push(action.href)}
+                className="group relative flex items-start gap-3 rounded-xl border border-border/60 bg-background p-4 text-left hover:shadow-sm hover:border-border hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <div className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-[1.05]",
+                  action.iconBg,
+                )}>
+                  <action.icon className={cn("h-4 w-4", action.iconColor)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {action.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    {action.description}
+                  </p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </button>
+            ))}
+          </div>
+          {/* Dismiss link */}
+          <div className="text-center mt-3">
+            <button
+              onClick={handleDismiss}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              I&apos;ll explore on my own
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -247,31 +360,37 @@ export default function DashboardPage() {
 
   const isNewUser = useIsNewUser(stats);
 
-  // Show the new user experience if they have no data yet (and not loading)
-  if (!statsLoading && isNewUser) {
+  // Problem 1 fix: While stats are still loading, show a skeleton instead of
+  // flashing the stats layout and then switching to Getting Started.
+  if (statsLoading) {
     return (
       <div className="space-y-6 max-w-[1400px]">
-        <WelcomeBanner />
-        <NewUserDashboard />
+        <DashboardSkeleton />
       </div>
     );
   }
+
+  // Problem 2 fix: Instead of a full-page takeover for new users, we always
+  // show the real dashboard. New users see a Getting Started banner at the top
+  // (collapsible, dismissable) followed by the real (possibly empty) dashboard.
 
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Welcome banner -- dismissable, shown only for first-time users */}
       <WelcomeBanner />
 
+      {/* Getting Started Banner -- shown for new users, collapsible & dismissable */}
+      {isNewUser && <GettingStartedBanner />}
+
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-          Welcome back. Here&apos;s what&apos;s happening with your business.
+          {isNewUser
+            ? "Your dashboard will fill up as you start using MyBizOS."
+            : "Welcome back. Here\u0027s what\u0027s happening with your business."}
         </p>
       </div>
-
-      {/* Getting Started Checklist -- the main onboarding widget */}
-      <GettingStartedChecklist />
 
       {/* Stat cards -- white cards with colored top border (Stripe-style) */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -313,11 +432,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-5">
                 <p className="text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
-                  {statsLoading ? (
-                    <span className="inline-block h-8 w-16 animate-pulse rounded-md bg-muted" />
-                  ) : (
-                    stat.value
-                  )}
+                  {stat.value}
                 </p>
                 <p className="text-xs font-medium text-muted-foreground mt-1 uppercase tracking-wider">
                   {stat.label}
@@ -472,20 +587,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="rounded-xl bg-card border border-border/60 shadow-sm p-1">
-            {statsLoading ? (
-              <div className="space-y-0">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="px-5 py-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="h-4 w-32 rounded-md animate-pulse bg-muted" />
-                      <div className="h-5 w-16 rounded-full animate-pulse bg-muted" />
-                    </div>
-                    <div className="h-3 w-24 rounded-md animate-pulse bg-muted" />
-                    <div className="h-3 w-36 rounded-md animate-pulse bg-muted" />
-                  </div>
-                ))}
-              </div>
-            ) : upcomingAppointments.length === 0 ? (
+            {upcomingAppointments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-14 text-center px-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 mb-3">
                   <CalendarCheck className="h-6 w-6 text-muted-foreground" />
