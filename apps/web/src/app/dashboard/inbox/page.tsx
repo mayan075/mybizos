@@ -398,8 +398,8 @@ export default function InboxPage() {
           {/* Conversation items */}
           <div className="flex-1 overflow-y-auto">
             {filtered.map((conv) => {
-              const ChannelIcon = channelIcons[conv.channel];
-              const unknown = isUnknownContact(conv.contact);
+              const ChannelIcon = channelIcons[conv.channel] || MessageSquare;
+              const unknown = isUnknownContact(conv.contact || "");
               return (
                 <button
                   key={conv.id}
@@ -436,7 +436,7 @@ export default function InboxPage() {
                             unknown && "italic text-muted-foreground",
                           )}
                         >
-                          {unknown ? `Unknown (${conv.contact})` : conv.contact}
+                          {unknown ? `Unknown (${conv.contact || "?"})` : (conv.contact || "Unknown")}
                         </span>
                         {conv.aiHandled && (
                           <Tooltip content="Handled by your AI agent" position="right">
@@ -454,7 +454,7 @@ export default function InboxPage() {
                         "truncate text-xs",
                         conv.unread ? "text-foreground font-medium" : "text-muted-foreground",
                       )}>
-                        {conv.lastMessage}
+                        {conv.lastMessage || "No messages yet"}
                       </p>
                     </div>
                   </div>
@@ -488,7 +488,7 @@ export default function InboxPage() {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold",
-                    isUnknownContact(selected.contact)
+                    isUnknownContact(selected.contact || "")
                       ? "bg-muted text-muted-foreground"
                       : "bg-primary/10 text-primary",
                   )}>
@@ -497,9 +497,9 @@ export default function InboxPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground">
-                        {isUnknownContact(selected.contact) ? `Unknown Contact` : selected.contact}
+                        {isUnknownContact(selected.contact || "") ? `Unknown Contact` : (selected.contact || "Unknown")}
                       </p>
-                      {isUnknownContact(selected.contact) && !showQuickCreate && (
+                      {isUnknownContact(selected.contact || "") && !showQuickCreate && (
                         <button
                           onClick={() => setShowQuickCreate(true)}
                           className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/15 transition-colors"
@@ -511,10 +511,10 @@ export default function InboxPage() {
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       {(() => {
-                        const Icon = channelIcons[selected.channel];
+                        const Icon = channelIcons[selected.channel] || MessageSquare;
                         return <Icon className="h-3 w-3" />;
                       })()}
-                      {isUnknownContact(selected.contact) ? selected.contact : selected.channel.toUpperCase()}
+                      {isUnknownContact(selected.contact || "") ? (selected.contact || "?") : (selected.channel || "sms").toUpperCase()}
                       {selected.aiHandled && (
                         <Tooltip
                           content="This conversation was handled by your AI agent. The AI answered the customer's call or message automatically, qualified the lead, and may have booked an appointment."
@@ -535,7 +535,7 @@ export default function InboxPage() {
               </div>
 
               {/* Quick-create contact form */}
-              {showQuickCreate && isUnknownContact(selected.contact) && (
+              {showQuickCreate && isUnknownContact(selected.contact || "") && (
                 <div className="border-b border-border px-5 py-3">
                   <ContactQuickCreate
                     phoneNumber={selected.contact}
