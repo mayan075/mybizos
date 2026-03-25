@@ -26,6 +26,10 @@ import { voiceTokenRoutes } from './routes/voice-token.js';
 import { voiceSetupRoutes } from './routes/voice-setup.js';
 import { voiceTwimlRoutes } from './routes/voice-twiml.js';
 import { adminRoutes } from './routes/admin.js';
+import { callsRoutes } from './routes/calls.js';
+import { assistantRoutes } from './routes/assistant.js';
+import { aiContentRoutes } from './routes/ai-content.js';
+import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
 
@@ -109,6 +113,7 @@ app.route('/orgs/:orgId/phone-system', phoneSystemRoutes);
 app.route('/orgs/:orgId/integrations', integrationRoutes);
 app.route('/orgs/:orgId/voice', voiceTokenRoutes);
 app.route('/orgs/:orgId/voice', voiceSetupRoutes);
+app.route('/orgs/:orgId/calls', callsRoutes);
 
 // Scheduling has both authenticated and public routes
 app.route('/', schedulingRoutes);
@@ -148,6 +153,23 @@ serve({
 });
 
 logger.info(`MyBizOS API server running on http://localhost:${port}`);
+
+// ── Start Background Job Scheduler ──
+
+const stopScheduler = startScheduler();
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  stopScheduler();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  stopScheduler();
+  process.exit(0);
+});
 
 export default app;
 export type AppType = typeof app;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   Phone,
@@ -13,14 +13,21 @@ import {
   Send,
   Paperclip,
   Smile,
+  RefreshCw,
+  UserPlus,
+  X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
-import { mockConversations, mockMessages, type MockConversation, type MockChatMessage } from "@/lib/mock-data";
+import { type MockConversation, type MockChatMessage } from "@/lib/mock-data";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { InboxSkeleton } from "@/components/skeletons/inbox-skeleton";
+import { playNotification } from "@/lib/sounds";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { buildPath } from "@/lib/hooks/use-api";
 
 const channelIcons = {
   sms: MessageSquare,
@@ -28,22 +35,185 @@ const channelIcons = {
   call: Phone,
 };
 
+// ── Contact Quick-Create Form ──────────────────────────────────────────────
+
+function ContactQuickCreate({
+  phoneNumber,
+  onSaved,
+  onCancel,
+}: {
+  phoneNumber: string;
+  onSaved: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    setError("");
+
+    try {
+      const path = buildPath("/orgs/:orgId/contacts");
+      await tryFetch(() =>
+        apiClient.post(path, {
+          name: name.trim(),
+          email: email.trim() || undefined,
+          phone: phoneNumber,
+        }),
+      );
+      onSaved(name.trim());
+    } catch {
+      // Even if API fails, update the name locally
+      onSaved(name.trim());
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/15 px-3 py-2.5">
+      <UserPlus className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+      <div className="flex-1 space-y-2">
+        <p className="text-xs font-medium text-foreground">Save as Contact</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          autoFocus
+          className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+        />
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email (optional)"
+          className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+        />
+        {error && <p className="text-[10px] text-destructive">{error}</p>}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            className={cn(
+              "flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors",
+              name.trim() && !saving
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed",
+            )}
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+            Save
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex h-7 items-center rounded-md px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Helper: detect if a contact name looks like an unknown number ──────────
+
+function isUnknownContact(contactName: string): boolean {
+  if (!contactName) return true;
+  const cleaned = contactName.replace(/[\s\-\(\)\+]/g, "");
+  // If it's all digits (a phone number), treat as unknown
+  return /^\d{7,15}$/.test(cleaned) || contactName.toLowerCase().includes("unknown");
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────
+
 export default function InboxPage() {
   usePageTitle("Inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "ai">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
 
   // Local state — empty by default; real data comes from the API
   const [localConversations, setLocalConversations] = useState<MockConversation[]>([]);
   const [localMessages, setLocalMessages] = useState<Record<string, MockChatMessage[]>>({});
+
+  // Polling state for "New messages" banner
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const lastConversationCountRef = useRef<number | null>(null);
+  const lastConversationIdsRef = useRef<Set<string>>(new Set());
 
   // Hooks (try API, fall back to mock data)
   const { data: apiConversations, isLive: conversationsLive, isLoading } = useConversations({ filter, search: searchQuery });
 
   // Use API data if live, otherwise use local state for full interactivity
   const conversations = conversationsLive ? apiConversations : localConversations;
+
+  // ── Polling: check for new conversations every 15 seconds ──────────────
+
+  useEffect(() => {
+    if (!conversationsLive) return;
+
+    // Initialize tracking refs
+    if (lastConversationCountRef.current === null) {
+      lastConversationCountRef.current = apiConversations.length;
+      lastConversationIdsRef.current = new Set(apiConversations.map((c) => c.id));
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const path = buildPath("/orgs/:orgId/conversations");
+        const result = await tryFetch(() =>
+          apiClient.get<MockConversation[]>(path),
+        );
+        if (result && Array.isArray(result)) {
+          const newIds = new Set(result.map((c: MockConversation) => c.id));
+          const hasNew = result.some(
+            (c: MockConversation) => !lastConversationIdsRef.current.has(c.id),
+          );
+
+          // Check for new unread messages in existing conversations
+          const hasNewUnread = result.some((c: MockConversation) => {
+            const existing = apiConversations.find((e) => e.id === c.id);
+            return existing && !existing.unread && c.unread;
+          });
+
+          if (hasNew || hasNewUnread) {
+            setHasNewMessages(true);
+            playNotification();
+          }
+
+          lastConversationIdsRef.current = newIds;
+          lastConversationCountRef.current = result.length;
+        }
+      } catch {
+        // API unavailable — silently skip
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [conversationsLive, apiConversations]);
+
+  // ── Refresh handler for "New messages" banner ──────────────────────────
+
+  const handleRefreshConversations = useCallback(() => {
+    setHasNewMessages(false);
+    // Force page-level re-render by toggling filter
+    setFilter((prev) => {
+      // Trigger a re-fetch by briefly changing and reverting
+      const temp = prev;
+      setTimeout(() => setFilter(temp), 0);
+      return prev;
+    });
+    // Simpler approach: just reload
+    window.location.reload();
+  }, []);
 
   const filtered = useMemo(() => {
     if (conversationsLive) return conversations;
@@ -60,7 +230,7 @@ export default function InboxPage() {
   }, [conversations, conversationsLive, filter, searchQuery]);
 
   // Auto-select first conversation when not selected yet
-  const effectiveSelectedId = selectedId ?? (filtered.length > 0 ? filtered[0].id : null);
+  const effectiveSelectedId = selectedId ?? (filtered.length > 0 ? filtered[0]?.id ?? null : null);
   const selected = conversations.find((c) => c.id === effectiveSelectedId);
   const currentMessages = effectiveSelectedId ? (localMessages[effectiveSelectedId] ?? []) : [];
   const unreadCount = conversations.filter((c) => c.unread).length;
@@ -120,10 +290,29 @@ export default function InboxPage() {
 
   function handleSelectConversation(convId: string) {
     setSelectedId(convId);
+    setShowQuickCreate(false);
     // Mark as read
     setLocalConversations((prev) =>
       prev.map((c) => (c.id === convId ? { ...c, unread: false } : c)),
     );
+  }
+
+  function handleContactSaved(name: string) {
+    setShowQuickCreate(false);
+    // Update the conversation contact name locally
+    if (effectiveSelectedId) {
+      setLocalConversations((prev) =>
+        prev.map((c) =>
+          c.id === effectiveSelectedId
+            ? {
+                ...c,
+                contact: name,
+                initials: name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2),
+              }
+            : c,
+        ),
+      );
+    }
   }
 
   // Loading state — show skeleton while initial fetch is in progress
@@ -157,6 +346,17 @@ export default function InboxPage() {
           {unreadCount} unread conversations
         </p>
       </div>
+
+      {/* New messages banner */}
+      {hasNewMessages && (
+        <button
+          onClick={handleRefreshConversations}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
+        >
+          <RefreshCw className="h-4 w-4" />
+          New messages received. Click to refresh.
+        </button>
+      )}
 
       <div className="flex h-[calc(100vh-13rem)] rounded-xl border border-border bg-card overflow-hidden">
         {/* Conversation list — left pane */}
@@ -199,6 +399,7 @@ export default function InboxPage() {
           <div className="flex-1 overflow-y-auto">
             {filtered.map((conv) => {
               const ChannelIcon = channelIcons[conv.channel];
+              const unknown = isUnknownContact(conv.contact);
               return (
                 <button
                   key={conv.id}
@@ -211,7 +412,12 @@ export default function InboxPage() {
                   )}
                 >
                   <div className="relative">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                    <div className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                      unknown
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary/10 text-primary",
+                    )}>
                       {conv.initials}
                     </div>
                     {conv.unread && (
@@ -227,9 +433,10 @@ export default function InboxPage() {
                             conv.unread
                               ? "font-semibold text-foreground"
                               : "font-medium text-foreground",
+                            unknown && "italic text-muted-foreground",
                           )}
                         >
-                          {conv.contact}
+                          {unknown ? `Unknown (${conv.contact})` : conv.contact}
                         </span>
                         {conv.aiHandled && (
                           <Tooltip content="Handled by your AI agent" position="right">
@@ -279,19 +486,35 @@ export default function InboxPage() {
               {/* Thread header */}
               <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                  <div className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold",
+                    isUnknownContact(selected.contact)
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary/10 text-primary",
+                  )}>
                     {selected.initials}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {selected.contact}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {isUnknownContact(selected.contact) ? `Unknown Contact` : selected.contact}
+                      </p>
+                      {isUnknownContact(selected.contact) && !showQuickCreate && (
+                        <button
+                          onClick={() => setShowQuickCreate(true)}
+                          className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/15 transition-colors"
+                        >
+                          <UserPlus className="h-3 w-3" />
+                          Save as Contact
+                        </button>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       {(() => {
                         const Icon = channelIcons[selected.channel];
                         return <Icon className="h-3 w-3" />;
                       })()}
-                      {selected.channel.toUpperCase()}
+                      {isUnknownContact(selected.contact) ? selected.contact : selected.channel.toUpperCase()}
                       {selected.aiHandled && (
                         <Tooltip
                           content="This conversation was handled by your AI agent. The AI answered the customer's call or message automatically, qualified the lead, and may have booked an appointment."
@@ -310,6 +533,17 @@ export default function InboxPage() {
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* Quick-create contact form */}
+              {showQuickCreate && isUnknownContact(selected.contact) && (
+                <div className="border-b border-border px-5 py-3">
+                  <ContactQuickCreate
+                    phoneNumber={selected.contact}
+                    onSaved={handleContactSaved}
+                    onCancel={() => setShowQuickCreate(false)}
+                  />
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4">

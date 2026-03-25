@@ -124,16 +124,29 @@ export const reviewService = {
 
   /**
    * Generate an AI response for a review using Claude.
+   * Uses real Claude API via platformAssistantService, with template fallback.
    */
   async generateResponse(orgId: string, reviewId: string) {
     const review = await reviewService.getById(orgId, reviewId);
 
-    // Build prompt for Claude to generate a professional response
-    const prompt = buildReviewResponsePrompt(review);
-
-    // In production this calls Claude API via @anthropic-ai/sdk.
-    // For now, generate a placeholder that demonstrates the pattern.
-    const aiResponse = generateMockAIResponse(review);
+    // Use real Claude API for response generation
+    let aiResponse: string;
+    try {
+      const { platformAssistantService } = await import('./platform-assistant-service.js');
+      aiResponse = await platformAssistantService.generateReviewResponse(orgId, {
+        reviewerName: review.reviewerName,
+        rating: review.rating,
+        reviewText: review.reviewText,
+        platform: review.platform,
+      });
+    } catch (err) {
+      logger.warn('Claude API failed for review response, using template fallback', {
+        orgId,
+        reviewId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      aiResponse = generateMockAIResponse(review);
+    }
 
     const [updated] = await db
       .update(reviews)

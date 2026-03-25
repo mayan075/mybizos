@@ -10,6 +10,7 @@ import {
 import { eq, and, desc, asc, count, sum, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
+import { sequenceTriggerService } from './sequence-trigger-service.js';
 
 export const pipelineService = {
   async list(orgId: string) {
@@ -337,6 +338,12 @@ export const dealService = {
     });
 
     logger.info('Deal stage changed', { orgId, dealId, newStageId });
+
+    // Fire sequence trigger (async, non-blocking)
+    sequenceTriggerService.onDealStageChanged(orgId, current.contactId, newStage.name).catch(() => {
+      // Errors already logged inside the trigger service
+    });
+
     return updated;
   },
 

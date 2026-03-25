@@ -94,7 +94,7 @@ async function fetchToken(): Promise<string | null> {
   const orgId = getOrgId();
   const authToken = getAuthToken();
 
-  console.error('[TwilioDevice] fetchToken: orgId=' + orgId + ', hasAuth=' + !!authToken + ', apiBase=' + API_BASE);
+  console.info('[TwilioDevice] fetchToken: orgId=' + orgId + ', hasAuth=' + !!authToken + ', apiBase=' + API_BASE);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ async function fetchToken(): Promise<string | null> {
 
   try {
     const url = `${API_BASE}/orgs/${orgId}/voice/token`;
-    console.error('[TwilioDevice] fetchToken: requesting', url);
+    console.info('[TwilioDevice] fetchToken: requesting', url);
     const res = await fetch(url, { headers });
     const data = await res.json();
 
@@ -120,7 +120,7 @@ async function fetchToken(): Promise<string | null> {
       return null;
     }
 
-    console.error('[TwilioDevice] fetchToken: success, identity=' + data.identity);
+    console.info('[TwilioDevice] fetchToken: success, identity=' + data.identity);
     identity = data.identity ?? null;
     setState({ needsSetup: false });
     return data.token as string;
@@ -198,16 +198,16 @@ export async function runVoiceSetup(): Promise<{ success: boolean; error?: strin
 export async function initDevice(): Promise<void> {
   // Don't re-initialize if already registered
   if (device && currentState.deviceStatus === 'registered') {
-    console.error('[TwilioDevice] initDevice: already registered, skipping');
+    console.info('[TwilioDevice] initDevice: already registered, skipping');
     return;
   }
 
   setState({ deviceStatus: 'initializing', error: null });
 
-  console.error('[TwilioDevice] initDevice: starting initialization...');
+  console.info('[TwilioDevice] initDevice: starting initialization...');
   const token = await fetchToken();
   if (!token) {
-    console.error('[TwilioDevice] initDevice: no token received. needsSetup=' + currentState.needsSetup + ', error=' + currentState.error);
+    console.info('[TwilioDevice] initDevice: no token received. needsSetup=' + currentState.needsSetup + ', error=' + currentState.error);
     if (currentState.needsSetup) {
       // Don't overwrite the error — the UI will show the setup button
       setState({ deviceStatus: 'error' });

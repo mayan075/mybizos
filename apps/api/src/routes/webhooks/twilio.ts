@@ -1,7 +1,16 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
-import { db, conversations, withOrgScope } from '@mybizos/db';
+import {
+  db,
+  conversations,
+  contacts,
+  appointments,
+  deals,
+  pipelines,
+  pipelineStages,
+  withOrgScope,
+} from '@mybizos/db';
 import { logger } from '../../middleware/logger.js';
 import { config } from '../../config.js';
 import { ClaudeClient } from '@mybizos/ai';
@@ -12,6 +21,7 @@ import { resolveOrgByPhoneNumber, type ResolvedOrg } from '../../services/phone-
 import { resolveContact } from '../../services/contact-resolution-service.js';
 import { conversationService } from '../../services/conversation-service.js';
 import { activityService } from '../../services/activity-service.js';
+import { notificationService } from '../../services/notification-service.js';
 
 const twilioWebhooks = new Hono();
 
@@ -884,8 +894,11 @@ async function getOrgTwilioNumbers(
   }
 }
 
-// ── Outbound Call ───────────────────────────────────────────────────────────
-// Makes a real outbound call via Twilio
+// ── Outbound Call (DEPRECATED) ──────────────────────────────────────────────
+// This endpoint is DEPRECATED. Browser calling now uses the Twilio Voice SDK
+// (device.connect) which goes through the /voice/twiml TwiML App webhook.
+// This REST API approach creates a SECOND call leg, causing the "double call"
+// bug. Kept only for backwards compatibility — frontend should NOT call this.
 
 const outboundCallSchema = z.object({
   to: z.string().min(10, 'Destination number is required'),

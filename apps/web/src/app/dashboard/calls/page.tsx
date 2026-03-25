@@ -29,6 +29,12 @@ import {
   ChevronDown,
   AlertCircle,
   PhoneOff,
+  Loader2,
+  Wifi,
+  WifiOff,
+  Settings,
+  Link as LinkIcon,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -45,6 +51,18 @@ import { apiClient, tryFetch } from "@/lib/api-client";
 import { useApiQuery, buildPath } from "@/lib/hooks/use-api";
 import { CallsSkeleton } from "@/components/skeletons/calls-skeleton";
 import type { PhoneNumber as TwilioPhoneNumber } from "@/components/phone/pricing-data";
+import {
+  initDevice,
+  makeCall,
+  hangUp,
+  toggleMute,
+  sendDigits,
+  subscribe,
+  runVoiceSetup,
+  clearError,
+  type TwilioCallState,
+  type DeviceStatus,
+} from "@/lib/twilio-device";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -54,7 +72,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type CallDirection = "inbound" | "outbound";
 type CallOutcome = "booked" | "qualified" | "voicemail" | "missed" | "escalated";
-type CallStatus = "idle" | "ringing" | "connected" | "on-hold" | "ended";
 type CallTab = "all" | "inbound" | "outbound" | "ai" | "missed";
 
 interface CallRecord {
@@ -128,6 +145,72 @@ function useCallerNumbers() {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Hook: useTwilioDevice — subscribe to Voice SDK singleton state             */
+/* -------------------------------------------------------------------------- */
+
+function useTwilioDevice() {
+  const [state, setState] = useState<TwilioCallState>({
+    deviceStatus: "uninitialized",
+    callStatus: "idle",
+    remoteNumber: null,
+    isMuted: false,
+    error: null,
+    needsSetup: false,
+  });
+
+  useEffect(() => {
+    const unsubscribe = subscribe(setState);
+    return unsubscribe;
+  }, []);
+
+  return state;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Hook: useMicrophonePermission                                              */
+/* -------------------------------------------------------------------------- */
+
+type MicPermission = "unknown" | "granted" | "denied" | "prompt" | "checking";
+
+function useMicrophonePermission() {
+  const [permission, setPermission] = useState<MicPermission>("unknown");
+
+  useEffect(() => {
+    async function checkPermission() {
+      try {
+        if (navigator.permissions) {
+          const result = await navigator.permissions.query({
+            name: "microphone" as PermissionName,
+          });
+          setPermission(result.state as MicPermission);
+          result.addEventListener("change", () => {
+            setPermission(result.state as MicPermission);
+          });
+        }
+      } catch {
+        setPermission("unknown");
+      }
+    }
+    checkPermission();
+  }, []);
+
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    setPermission("checking");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setPermission("granted");
+      return true;
+    } catch {
+      setPermission("denied");
+      return false;
+    }
+  }, []);
+
+  return { permission, requestPermission };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -182,10 +265,10 @@ const KEYPAD_KEYS = [
 /* -------------------------------------------------------------------------- */
 
 function OutcomeBadge({ outcome }: { outcome: CallOutcome }) {
-  const config = OUTCOME_CONFIG[outcome];
+  const cfg = OUTCOME_CONFIG[outcome];
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", config.className)}>
-      {config.label}
+    <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", cfg.className)}>
+      {cfg.label}
     </span>
   );
 }
@@ -298,7 +381,39 @@ function DialerKeypad({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Active Call View                                                            */
+/*  Device Status Badge                                                        */
+/* -------------------------------------------------------------------------- */
+
+function DeviceStatusBadge({ status, error }: { status: DeviceStatus; error?: string | null }) {
+  if (status === "registered") {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+        <Wifi className="h-2.5 w-2.5" />
+        Ready
+      </span>
+    );
+  }
+  if (status === "initializing") {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-amber-600">
+        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+        Connecting...
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="flex items-center gap-1 text-[10px] text-red-500" title={error ?? "Disconnected"}>
+        <WifiOff className="h-2.5 w-2.5" />
+        {error ? "Error" : "Disconnected"}
+      </span>
+    );
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Active Call View — uses Voice SDK state                                    */
 /* -------------------------------------------------------------------------- */
 
 function ActiveCallView({
@@ -308,30 +423,27 @@ function ActiveCallView({
   callTimer,
   onEnd,
   onToggleMute,
-  onToggleHold,
-  onToggleSpeaker,
-  onToggleRecord,
+  onSendDigits,
   isMuted,
-  isOnHold,
-  isSpeaker,
-  isRecording,
 }: {
   phoneNumber: string;
   contactName: string | null;
-  callStatus: CallStatus;
+  callStatus: "connecting" | "ringing" | "open";
   callTimer: number;
   onEnd: () => void;
   onToggleMute: () => void;
-  onToggleHold: () => void;
-  onToggleSpeaker: () => void;
-  onToggleRecord: () => void;
+  onSendDigits: (digit: string) => void;
   isMuted: boolean;
-  isOnHold: boolean;
-  isSpeaker: boolean;
-  isRecording: boolean;
 }) {
   const [showDtmf, setShowDtmf] = useState(false);
   const [callNotes, setCallNotes] = useState("");
+
+  const statusLabel =
+    callStatus === "connecting"
+      ? "Connecting..."
+      : callStatus === "ringing"
+        ? "Ringing..."
+        : "Connected";
 
   return (
     <div className="flex flex-col h-full">
@@ -355,21 +467,16 @@ function ActiveCallView({
         <div className="mt-3 flex items-center gap-2">
           <span className={cn(
             "text-xs font-medium px-2.5 py-1 rounded-full",
-            callStatus === "ringing"
-              ? "bg-amber-500/10 text-amber-600 animate-pulse"
-              : callStatus === "connected"
-                ? "bg-emerald-500/10 text-emerald-600"
-                : callStatus === "on-hold"
-                  ? "bg-orange-500/10 text-orange-600"
-                  : "bg-muted text-muted-foreground",
+            callStatus === "connecting"
+              ? "bg-blue-500/10 text-blue-600 animate-pulse"
+              : callStatus === "ringing"
+                ? "bg-amber-500/10 text-amber-600 animate-pulse"
+                : "bg-emerald-500/10 text-emerald-600",
           )}>
-            {callStatus === "ringing" ? "Ringing..." : callStatus === "connected" ? "Connected" : callStatus === "on-hold" ? "On Hold" : ""}
+            {statusLabel}
           </span>
         </div>
-        <p className={cn(
-          "text-3xl font-mono font-light text-foreground mt-2 tabular-nums",
-          callStatus === "connected" && "animate-[pulse_2s_ease-in-out_infinite]",
-        )}>
+        <p className="text-3xl font-mono font-light text-foreground mt-2 tabular-nums">
           {formatTimerDisplay(callTimer)}
         </p>
       </div>
@@ -377,7 +484,7 @@ function ActiveCallView({
       {/* DTMF Overlay */}
       {showDtmf && (
         <div className="px-6 pb-4">
-          <DialerKeypad onKeyPress={() => {}} compact />
+          <DialerKeypad onKeyPress={onSendDigits} compact />
         </div>
       )}
 
@@ -398,52 +505,11 @@ function ActiveCallView({
           </button>
 
           <button
-            onClick={onToggleHold}
-            className={cn(
-              "flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all",
-              isOnHold
-                ? "bg-orange-500/10 text-orange-600"
-                : "text-muted-foreground hover:bg-muted",
-            )}
+            className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-muted-foreground hover:bg-muted transition-all cursor-not-allowed opacity-50"
+            title="Hold not available with browser calling"
           >
-            {isOnHold ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+            <Pause className="h-5 w-5" />
             <span className="text-[10px] font-medium">Hold</span>
-          </button>
-
-          <button
-            onClick={onToggleSpeaker}
-            className={cn(
-              "flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all",
-              isSpeaker
-                ? "bg-blue-500/10 text-blue-600"
-                : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            <Volume2 className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Speaker</span>
-          </button>
-
-          <button
-            onClick={onToggleRecord}
-            className={cn(
-              "flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all",
-              isRecording
-                ? "bg-red-500/10 text-red-600"
-                : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            <div className="relative">
-              <Circle className="h-5 w-5" />
-              {isRecording && (
-                <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              )}
-            </div>
-            <span className="text-[10px] font-medium">Record</span>
-          </button>
-
-          <button className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-muted-foreground hover:bg-muted transition-all">
-            <ArrowRightLeft className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Transfer</span>
           </button>
 
           <button
@@ -471,25 +537,7 @@ function ActiveCallView({
         />
       </div>
 
-      {/* Live AI transcript */}
-      <div className="px-6 pb-2">
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Bot className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">AI Listening</span>
-            <div className="flex gap-0.5 ml-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground italic leading-relaxed">
-            &quot;...Yes, I can schedule that for next Tuesday afternoon. Does 2 PM work for you?&quot;
-          </p>
-        </div>
-      </div>
-
-      {/* End call button */}
+      {/* End call button — BIG RED */}
       <div className="p-6 pt-2">
         <button
           onClick={onEnd}
@@ -508,11 +556,15 @@ function ActiveCallView({
 /* -------------------------------------------------------------------------- */
 
 function CallSummaryView({
-  call,
+  phoneNumber,
+  contactName,
+  duration,
   onClose,
   onCallAgain,
 }: {
-  call: CallRecord;
+  phoneNumber: string;
+  contactName: string | null;
+  duration: number;
   onClose: () => void;
   onCallAgain: () => void;
 }) {
@@ -520,7 +572,7 @@ function CallSummaryView({
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <h3 className="text-sm font-semibold text-foreground">Call Summary</h3>
+        <h3 className="text-sm font-semibold text-foreground">Call Ended</h3>
         <button
           onClick={onClose}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors"
@@ -530,71 +582,58 @@ function CallSummaryView({
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        {/* Duration + recording */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            {formatDuration(call.duration)}
+        {/* Contact info */}
+        <div className="flex flex-col items-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
+            {contactName ? (
+              <span className="text-lg font-bold">
+                {contactName.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+              </span>
+            ) : (
+              <User className="h-6 w-6" />
+            )}
           </div>
-          {call.recordingAvailable && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
-              <Circle className="h-2 w-2 fill-current" />
-              Recording Available
-            </span>
-          )}
-        </div>
-
-        {/* AI Summary */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <Bot className="h-4 w-4 text-primary" />
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-              AI Summary
-            </h4>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {call.summary}
+          <p className="text-sm font-semibold text-foreground">
+            {contactName ?? formatE164ForDisplay(phoneNumber)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatE164ForDisplay(phoneNumber)}
           </p>
         </div>
 
-        {/* Actions taken */}
-        {call.actionsTaken.length > 0 && (
-          <div>
-            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2">
-              Actions Taken
-            </h4>
-            <div className="space-y-1.5">
-              {call.actionsTaken.map((action, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  {action}
-                </div>
-              ))}
-            </div>
+        {/* Duration */}
+        <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            {formatDuration(duration)}
           </div>
-        )}
+        </div>
+
+        {/* Summary text */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <PhoneOutgoing className="h-4 w-4 text-primary" />
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+              Call Summary
+            </h4>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Outbound call to {contactName ?? formatE164ForDisplay(phoneNumber)}. Duration: {formatDuration(duration)}.
+          </p>
+        </div>
 
         {/* Action buttons */}
         <div className="space-y-2 pt-2">
-          {call.recordingAvailable && (
-            <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
-              <Play className="h-4 w-4" />
-              Play Recording
-            </button>
-          )}
-          {!call.contactName && (
+          <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+            <CalendarPlus className="h-4 w-4" />
+            Book Follow-Up
+          </button>
+          {!contactName && (
             <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
               <UserPlus className="h-4 w-4" />
               Add to Contacts
             </button>
           )}
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors">
-            <CalendarPlus className="h-4 w-4" />
-            Book Follow-Up
-          </button>
           <button
             onClick={onCallAgain}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -649,6 +688,32 @@ function CallDetailPanel({ call }: { call: CallRecord }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Helper: Log call to API on end                                             */
+/* -------------------------------------------------------------------------- */
+
+async function logCallToApi(params: {
+  phoneNumber: string;
+  direction: "inbound" | "outbound";
+  duration: number;
+  contactName: string | null;
+}) {
+  try {
+    const path = buildPath("/orgs/:orgId/calls/log");
+    await tryFetch(() =>
+      apiClient.post(path, {
+        phoneNumber: params.phoneNumber,
+        direction: params.direction,
+        durationSeconds: params.duration,
+        contactName: params.contactName,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+  } catch {
+    // Fire-and-forget: don't block the UI if logging fails
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Main Page                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -656,8 +721,8 @@ export default function CallsPage() {
   usePageTitle("Calls");
   const router = useRouter();
 
-  // Fetch call history via API — no mock fallback
-  const { data: callRecords, isLoading: callsLoading } = useApiQuery<CallRecord[]>(
+  // Fetch call history via API
+  const { data: callRecords, isLoading: callsLoading, refetch: refetchCalls } = useApiQuery<CallRecord[]>(
     "/orgs/:orgId/calls",
     [],
   );
@@ -667,25 +732,40 @@ export default function CallsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  // Dialer state
+  // Dialer input state
   const [rawDigits, setRawDigits] = useState("");
-  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
-  const [callTimer, setCallTimer] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isOnHold, setIsOnHold] = useState(false);
-  const [isSpeaker, setIsSpeaker] = useState(false);
-  const [isRecording, setIsRecording] = useState(true);
-  const [activeCallNumber, setActiveCallNumber] = useState("");
   const [activeCallContact, setActiveCallContact] = useState<string | null>(null);
-  const [showCallSummary, setShowCallSummary] = useState(false);
-  const [lastCallData, setLastCallData] = useState<CallRecord | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
-  const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
+
+  // Post-call state
+  const [showCallSummary, setShowCallSummary] = useState(false);
+  const [lastCallNumber, setLastCallNumber] = useState("");
+  const [lastCallContact, setLastCallContact] = useState<string | null>(null);
+  const [lastCallDuration, setLastCallDuration] = useState(0);
+
+  // Setup state
+  const [isSettingUp, setIsSettingUp] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+
+  // Twilio Voice SDK state (singleton)
+  const twilioState = useTwilioDevice();
+  const {
+    deviceStatus,
+    callStatus: sdkCallStatus,
+    isMuted,
+    error: deviceError,
+    needsSetup,
+    remoteNumber,
+  } = twilioState;
 
   // Caller-from state
   const { numbers: callerNumbers, loading: numbersLoading } = useCallerNumbers();
   const [selectedFromSid, setSelectedFromSid] = useState<string | null>(null);
   const [showFromDropdown, setShowFromDropdown] = useState(false);
+
+  // Microphone permission
+  const { permission: micPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
 
   // Auto-select first number when loaded
   useEffect(() => {
@@ -696,13 +776,79 @@ export default function CallsPage() {
 
   const selectedFrom = callerNumbers.find((n) => n.sid === selectedFromSid) ?? null;
 
+  // Initialize Twilio Device when page loads
+  useEffect(() => {
+    if (deviceStatus === "uninitialized") {
+      initDevice();
+    }
+  }, [deviceStatus]);
+
+  // Call timer
+  const [callTimer, setCallTimer] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const callStartRef = useRef<number | null>(null);
+
+  // Track the number we dialed (since remoteNumber comes from SDK)
+  const dialedNumberRef = useRef<string>("");
+
+  // Manage call timer based on SDK callStatus
+  useEffect(() => {
+    if (sdkCallStatus === "open") {
+      if (!timerRef.current) {
+        callStartRef.current = Date.now();
+        timerRef.current = setInterval(() => {
+          setCallTimer((prev) => prev + 1);
+        }, 1000);
+      }
+    } else if (sdkCallStatus === "idle" || sdkCallStatus === "closed") {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      // Call just ended — show summary if we had an active call
+      if (sdkCallStatus === "idle" && dialedNumberRef.current && callStartRef.current) {
+        const finalDuration = Math.round((Date.now() - callStartRef.current) / 1000);
+        setLastCallNumber(dialedNumberRef.current);
+        setLastCallContact(activeCallContact);
+        setLastCallDuration(finalDuration);
+        setShowCallSummary(true);
+
+        // Log the call to the API
+        logCallToApi({
+          phoneNumber: dialedNumberRef.current,
+          direction: "outbound",
+          duration: finalDuration,
+          contactName: activeCallContact,
+        }).then(() => {
+          // Refresh call history
+          refetchCalls();
+        });
+
+        dialedNumberRef.current = "";
+        callStartRef.current = null;
+        setCallTimer(0);
+      }
+    }
+  }, [sdkCallStatus, activeCallContact, refetchCalls]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   // Derived from rawDigits
   const displayFormatted = formatPhoneNumber(rawDigits);
   const detectedCountry = detectCountry(rawDigits);
   const numberValid = isValidNumber(rawDigits);
+
+  // Is there an active call via Voice SDK?
+  const isCallActive =
+    sdkCallStatus === "connecting" ||
+    sdkCallStatus === "ringing" ||
+    sdkCallStatus === "open";
 
   // The actual list (API data, no mock fallback)
   const activeCalls = callsLoading ? [] : callRecords;
@@ -731,162 +877,91 @@ export default function CallsPage() {
     [activeCalls, selectedCallId],
   );
 
-  // Poll for call status updates from Twilio
-  const startStatusPolling = useCallback((callSid: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
+  // ── Handlers ──────────────────────────────────────────────────────────
 
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/webhooks/twilio/call-status/${callSid}`);
-        if (!res.ok) return;
-
-        const data = await res.json() as { status: string; duration: number };
-        const status = data.status;
-
-        if (status === "in-progress" || status === "answered") {
-          setCallStatus("connected");
-          if (!timerRef.current) {
-            timerRef.current = setInterval(() => {
-              setCallTimer((prev) => prev + 1);
-            }, 1000);
-          }
-        } else if (status === "ringing") {
-          setCallStatus("ringing");
-        } else if (status === "completed" || status === "busy" || status === "no-answer" || status === "canceled" || status === "failed") {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          if (status === "failed") {
-            setCallError("Call failed. The number may be unreachable.");
-          } else if (status === "busy") {
-            setCallError("Line is busy. Try again later.");
-          } else if (status === "no-answer") {
-            setCallError("No answer. Try again later.");
-          }
-          if (status === "completed" && callTimer > 0) {
-            setCallStatus("ended");
-          } else {
-            setCallStatus("idle");
-          }
-          setActiveCallSid(null);
-        }
-      } catch {
-        // Network error — keep polling
-      }
-    }, 2000);
-  }, [callTimer]);
-
-  // Real call via Twilio API
-  const startCall = useCallback(async (number: string, contactName: string | null) => {
-    setActiveCallNumber(number);
-    setActiveCallContact(contactName);
+  const startCall = useCallback(async () => {
+    if (!numberValid) return;
+    clearError();
     setCallError(null);
-    setCallStatus("ringing");
-    setCallTimer(0);
-    setIsMuted(false);
-    setIsOnHold(false);
-    setIsSpeaker(false);
-    setIsRecording(true);
+    setSetupError(null);
     setShowCallSummary(false);
 
-    const fromNumber = selectedFrom?.phoneNumber;
-
-    try {
-      const res = await fetch(`${API_BASE}/webhooks/twilio/outbound-call`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: number,
-          ...(fromNumber ? { from: fromNumber } : {}),
-        }),
-      });
-
-      const data = await res.json() as { success?: boolean; callSid?: string; error?: string };
-
-      if (!res.ok || !data.success) {
-        setCallError(data.error || "Call failed. Check your Twilio setup.");
-        setCallStatus("idle");
-        return;
-      }
-
-      if (data.callSid) {
-        setActiveCallSid(data.callSid);
-        startStatusPolling(data.callSid);
-      }
-    } catch {
-      setCallError("Cannot reach the server. Make sure the API is running.");
-      setCallStatus("idle");
+    // Check microphone permission first
+    if (micPermission !== "granted") {
+      const granted = await requestMicPermission();
+      if (!granted) return;
     }
-  }, [selectedFrom, startStatusPolling]);
+
+    const toNumber = toE164(rawDigits);
+    dialedNumberRef.current = toNumber;
+    setCallTimer(0);
+    callStartRef.current = null;
+
+    await makeCall(toNumber);
+  }, [numberValid, rawDigits, micPermission, requestMicPermission]);
 
   const endCall = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    setCallStatus("ended");
-
-    const endedCall: CallRecord = {
-      id: `call-new-${Date.now()}`,
-      contactName: activeCallContact,
-      phoneNumber: activeCallNumber,
-      direction: "outbound",
-      duration: callTimer,
-      timestamp: new Date(),
-      outcome: "qualified",
-      aiHandled: false,
-      summary: `Outbound call to ${activeCallContact ?? formatE164ForDisplay(activeCallNumber)}. Call lasted ${formatDuration(callTimer)}.`,
-      transcript: [],
-      actionsTaken: ["Call logged"],
-      recordingAvailable: false,
-    };
-
-    setLastCallData(endedCall);
-    setShowCallSummary(true);
-    setActiveCallSid(null);
-  }, [activeCallContact, activeCallNumber, callTimer]);
-
-  const resetDialer = useCallback(() => {
-    setCallStatus("idle");
-    setCallTimer(0);
-    setShowCallSummary(false);
-    setLastCallData(null);
-    setActiveCallNumber("");
-    setActiveCallContact(null);
-    setRawDigits("");
-    setCallError(null);
-    setActiveCallSid(null);
+    hangUp();
   }, []);
 
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+  const handleToggleMute = useCallback(() => {
+    toggleMute();
+  }, []);
+
+  const handleSendDigits = useCallback((digit: string) => {
+    sendDigits(digit);
+  }, []);
+
+  const handleSetup = useCallback(async () => {
+    setIsSettingUp(true);
+    setSetupError(null);
+
+    if (!numbersLoading && callerNumbers.length === 0) {
+      setSetupError("Connect your phone number first. Go to Phone Settings to add a Twilio number.");
+      setIsSettingUp(false);
+      return;
+    }
+
+    const result = await runVoiceSetup();
+    setIsSettingUp(false);
+
+    if (result.success) {
+      await initDevice();
+    } else {
+      setSetupError(result.error ?? "Setup failed. Check your Twilio configuration and try again.");
+    }
+  }, [numbersLoading, callerNumbers.length]);
+
+  const resetDialer = useCallback(() => {
+    setShowCallSummary(false);
+    setLastCallNumber("");
+    setLastCallContact(null);
+    setLastCallDuration(0);
+    setRawDigits("");
+    setCallError(null);
+    setActiveCallContact(null);
   }, []);
 
   // Handle keypad press
   const handleKeyPress = useCallback((digit: string) => {
+    clearError();
     setCallError(null);
+    setSetupError(null);
+
+    if (isCallActive) {
+      sendDigits(digit);
+      return;
+    }
+
     setRawDigits((prev) => {
       const max = maxDigitsForCountry(prev);
       if (prev.length >= max) return prev;
       return prev + digit;
     });
-  }, []);
+  }, [isCallActive]);
 
-  // Handle backspace
   const handleBackspace = useCallback(() => {
+    clearError();
     setCallError(null);
     setRawDigits((prev) => {
       if (prev.length === 0) return "";
@@ -894,8 +969,8 @@ export default function CallsPage() {
     });
   }, []);
 
-  // Handle clear all (long press)
   const handleClearAll = useCallback(() => {
+    clearError();
     setCallError(null);
     setRawDigits("");
   }, []);
@@ -917,8 +992,8 @@ export default function CallsPage() {
     }
   }, [handleBackspace]);
 
-  // Handle text input (paste support)
   const handleInputChange = useCallback((value: string) => {
+    clearError();
     setCallError(null);
     const digits = stripToDigits(value);
     const max = maxDigitsForCountry(digits);
@@ -928,19 +1003,16 @@ export default function CallsPage() {
   // Click a contact in call history -> fill dialer
   const handleSelectContact = useCallback((call: CallRecord) => {
     setSelectedCallId(call.id);
-    if (callStatus === "idle" && !showCallSummary) {
+    if (!isCallActive && !showCallSummary) {
       const digits = stripToDigits(call.phoneNumber);
       setRawDigits(digits);
       setActiveCallContact(call.contactName);
     }
-  }, [callStatus, showCallSummary]);
+  }, [isCallActive, showCallSummary]);
 
   const handleCallButton = useCallback(async () => {
-    if (!numberValid) return;
-    setCallError(null);
-    const e164 = toE164(rawDigits);
-    await startCall(e164, activeCallContact);
-  }, [rawDigits, numberValid, activeCallContact, startCall]);
+    await startCall();
+  }, [startCall]);
 
   const missedCount = activeCalls.filter((c) => c.outcome === "missed").length;
   const tabs: { key: CallTab; label: string; count?: number }[] = [
@@ -950,6 +1022,13 @@ export default function CallsPage() {
     { key: "ai", label: "AI Handled" },
     { key: "missed", label: "Missed", count: missedCount },
   ];
+
+  // The display number for active call
+  const displayCallNumber = remoteNumber
+    ? formatE164ForDisplay(remoteNumber)
+    : dialedNumberRef.current
+      ? formatE164ForDisplay(dialedNumberRef.current)
+      : "";
 
   // Loading state
   if (callsLoading) {
@@ -967,13 +1046,16 @@ export default function CallsPage() {
               : "Manage calls, view history, and make outbound calls"}
           </p>
         </div>
-        <Link
-          href="/dashboard/settings/phone"
-          className="flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Settings2 className="h-4 w-4" />
-          Phone Settings
-        </Link>
+        <div className="flex items-center gap-2">
+          <DeviceStatusBadge status={deviceStatus} error={deviceError} />
+          <Link
+            href="/dashboard/settings/phone"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Settings2 className="h-4 w-4" />
+            Phone Settings
+          </Link>
+        </div>
       </div>
 
       <div className="flex h-[calc(100vh-13rem)] rounded-xl border border-border bg-card overflow-hidden">
@@ -1056,44 +1138,86 @@ export default function CallsPage() {
         {/*  Right Panel: Dialer / Active Call / Summary (40%)               */}
         {/* ---------------------------------------------------------------- */}
         <div className="flex w-[40%] min-w-0 flex-col bg-card">
-          {/* Active call view */}
-          {(callStatus === "ringing" || callStatus === "connected" || callStatus === "on-hold") && (
+          {/* ── Setup required prompt ─────────────────────────────────── */}
+          {needsSetup && !isCallActive && !showCallSummary && (
+            <div className="flex flex-col items-center justify-center flex-1 px-6 py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 mb-3">
+                <Settings className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">
+                Browser Calling Setup
+              </p>
+              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                {callerNumbers.length === 0 && !numbersLoading
+                  ? "You need a phone number to make calls."
+                  : "One-time setup to enable calling through your browser."}
+              </p>
+
+              {callerNumbers.length === 0 && !numbersLoading ? (
+                <Link
+                  href="/dashboard/settings/phone"
+                  className="flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  Connect Phone Number
+                </Link>
+              ) : (
+                <button
+                  onClick={handleSetup}
+                  disabled={isSettingUp}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                    isSettingUp
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]",
+                  )}
+                >
+                  {isSettingUp && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isSettingUp ? "Setting up..." : "Enable Browser Calling"}
+                </button>
+              )}
+
+              {setupError && (
+                <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-[11px] text-red-600 text-left w-full">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{setupError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Active call view (Voice SDK) ─────────────────────────── */}
+          {isCallActive && (
             <ActiveCallView
-              phoneNumber={activeCallNumber}
+              phoneNumber={remoteNumber ?? dialedNumberRef.current}
               contactName={activeCallContact}
-              callStatus={callStatus}
+              callStatus={sdkCallStatus as "connecting" | "ringing" | "open"}
               callTimer={callTimer}
               onEnd={endCall}
-              onToggleMute={() => setIsMuted(!isMuted)}
-              onToggleHold={() => {
-                setIsOnHold(!isOnHold);
-                setCallStatus(isOnHold ? "connected" : "on-hold");
-              }}
-              onToggleSpeaker={() => setIsSpeaker(!isSpeaker)}
-              onToggleRecord={() => setIsRecording(!isRecording)}
+              onToggleMute={handleToggleMute}
+              onSendDigits={handleSendDigits}
               isMuted={isMuted}
-              isOnHold={isOnHold}
-              isSpeaker={isSpeaker}
-              isRecording={isRecording}
             />
           )}
 
-          {/* Call summary view */}
-          {showCallSummary && lastCallData && callStatus === "ended" && (
+          {/* ── Call summary view ─────────────────────────────────────── */}
+          {showCallSummary && !isCallActive && (
             <CallSummaryView
-              call={lastCallData}
+              phoneNumber={lastCallNumber}
+              contactName={lastCallContact}
+              duration={lastCallDuration}
               onClose={resetDialer}
               onCallAgain={() => {
-                const digits = stripToDigits(lastCallData.phoneNumber);
+                const digits = stripToDigits(lastCallNumber);
                 resetDialer();
                 setRawDigits(digits);
-                setActiveCallContact(lastCallData.contactName);
+                setActiveCallContact(lastCallContact);
               }}
             />
           )}
 
-          {/* Dialer view (when idle) */}
-          {callStatus === "idle" && !showCallSummary && (
+          {/* ── Dialer view (when idle and device is ready) ───────────── */}
+          {!isCallActive && !showCallSummary && !needsSetup && (
             <div className="flex flex-col h-full">
               {/* Calling from — prominent at top */}
               <div className="border-b border-border px-5 py-3">
@@ -1190,6 +1314,16 @@ export default function CallsPage() {
                 </div>
               </div>
 
+              {/* Mic blocked warning */}
+              {micPermission === "denied" && (
+                <div className="mx-5 mb-1 flex items-start gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-2 text-[10px] text-amber-700">
+                  <ShieldAlert className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>
+                    Microphone blocked. Go to your browser settings to allow microphone access for this site.
+                  </span>
+                </div>
+              )}
+
               {/* Keypad */}
               <div className="flex-1 flex items-center justify-center px-5">
                 <DialerKeypad onKeyPress={handleKeyPress} />
@@ -1199,10 +1333,14 @@ export default function CallsPage() {
               <div className="px-5 pb-3">
                 <button
                   onClick={handleCallButton}
-                  disabled={!numberValid || (callerNumbers.length === 0 && !numbersLoading)}
+                  disabled={
+                    !numberValid ||
+                    deviceStatus !== "registered" ||
+                    (callerNumbers.length === 0 && !numbersLoading)
+                  }
                   className={cn(
                     "flex h-14 w-14 mx-auto items-center justify-center rounded-full text-white transition-all shadow-lg",
-                    numberValid && callerNumbers.length > 0
+                    numberValid && deviceStatus === "registered" && callerNumbers.length > 0
                       ? "bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-emerald-600/30"
                       : "bg-muted text-muted-foreground cursor-not-allowed shadow-none",
                   )}
@@ -1212,10 +1350,10 @@ export default function CallsPage() {
               </div>
 
               {/* Inline error message */}
-              {callError && (
+              {(callError || deviceError) && (
                 <div className="mx-5 mb-3 flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-600">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>{callError}</span>
+                  <span>{callError || deviceError}</span>
                 </div>
               )}
             </div>

@@ -9,6 +9,7 @@ import {
 import { eq, and, gte, lte, or, desc, asc, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
+import { sequenceTriggerService } from './sequence-trigger-service.js';
 
 export interface AvailabilitySlot {
   date: string;
@@ -173,6 +174,14 @@ export const schedulingService = {
     }
 
     logger.info('Appointment updated', { orgId, appointmentId, status: updated.status });
+
+    // Fire sequence trigger when appointment is marked completed
+    if (data.status === 'completed' && updated.contactId) {
+      sequenceTriggerService.onAppointmentCompleted(orgId, updated.contactId).catch(() => {
+        // Errors already logged inside the trigger service
+      });
+    }
+
     return updated;
   },
 

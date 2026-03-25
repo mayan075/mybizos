@@ -7,6 +7,7 @@ import {
 import { eq, and, or, ilike, sql, desc, asc, arrayContains, count } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
+import { sequenceTriggerService } from './sequence-trigger-service.js';
 
 export interface ContactFilters {
   search?: string;
@@ -141,6 +142,12 @@ export const contactService = {
     }
 
     logger.info('Contact created', { orgId, contactId: created.id });
+
+    // Fire sequence trigger (async, non-blocking)
+    sequenceTriggerService.onContactCreated(orgId, created.id).catch(() => {
+      // Errors already logged inside the trigger service
+    });
+
     return created;
   },
 

@@ -8,8 +8,12 @@ import {
   Sparkles,
   AlertTriangle,
   CheckCircle2,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getUser } from "@/lib/auth";
 import {
   findBestAnswer,
   getPageContext,
@@ -38,23 +42,45 @@ interface LoggedIssue {
   userAgent: string;
 }
 
+interface ChatApiResponse {
+  response: string;
+  context?: {
+    orgName?: string;
+    totalContacts?: number;
+    openConversations?: number;
+  } | null;
+}
+
+interface SuggestionsApiResponse {
+  suggestions: Array<{
+    id: string;
+    text: string;
+    priority: "high" | "medium" | "low";
+    icon: string;
+  }>;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Constants                                                                 */
 /* -------------------------------------------------------------------------- */
 
 const DEFAULT_SUGGESTIONS = [
-  "How do I get started?",
-  "Set up my phone system",
-  "Create my first campaign",
-  "Help me understand analytics",
+  "How is my business doing?",
+  "Show my pipeline summary",
+  "Any upcoming appointments?",
+  "How many open conversations?",
 ];
 
 const STORAGE_KEY = "mybizos_issues";
-const CHAT_HISTORY_KEY = "mybizos_assistant_history";
 
 /* -------------------------------------------------------------------------- */
-/*  Issue Logger                                                              */
+/*  Helpers                                                                   */
 /* -------------------------------------------------------------------------- */
+
+function getOrgId(): string {
+  const user = getUser();
+  return user?.orgId ?? "org_01";
+}
 
 function logIssue(description: string, page: string): LoggedIssue {
   const issue: LoggedIssue = {
@@ -93,6 +119,8 @@ export function AIAssistant() {
     useState(false);
   const [pageContext, setPageContext] = useState<PageContext | null>(null);
   const [hasShownGreeting, setHasShownGreeting] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,12 +153,42 @@ export function AIAssistant() {
   }, []);
 
   /* ---------------------------------------- */
+  /*  Load suggestions from API on open        */
+  /* ---------------------------------------- */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const orgId = getOrgId();
+    const loadSuggestions = async () => {
+      try {
+        const result = await tryFetch(() =>
+          apiClient.get<SuggestionsApiResponse>(
+            `/orgs/${orgId}/assistant/suggestions`,
+          ),
+        );
+
+        if (result && result.suggestions.length > 0) {
+          setDynamicSuggestions(
+            result.suggestions.slice(0, 4).map((s) => s.text),
+          );
+          setIsOnline(true);
+        }
+      } catch {
+        // Suggestions loading is best-effort
+      }
+    };
+
+    loadSuggestions();
+  }, [isOpen]);
+
+  /* ---------------------------------------- */
   /*  Welcome / contextual greeting            */
   /* ---------------------------------------- */
   useEffect(() => {
     if (isOpen && messages.length === 0 && !hasShownGreeting) {
-      const greeting = pageContext?.greeting
-        ?? "Hey there! I'm the MyBizOS AI Assistant. I know everything about this platform — ask me anything about setup, features, troubleshooting, or best practices.";
+      const greeting =
+        pageContext?.greeting ??
+        "Hey there! I'm your AI office manager. I have access to all your business data — ask me about your pipeline, appointments, contacts, revenue, or anything else.";
 
       setMessages([
         {
@@ -161,9 +219,9 @@ export function AIAssistant() {
   }, [isOpen, isMinimized]);
 
   /* ---------------------------------------- */
-  /*  Generate response                        */
+  /*  OFFLINE fallback (keyword matching)      */
   /* ---------------------------------------- */
-  const generateResponse = useCallback(
+  const generateOfflineResponse = useCallback(
     (userText: string): string => {
       // If we're waiting for an issue description, log it
       if (awaitingIssueDescription) {
@@ -201,24 +259,24 @@ I'll make sure the MyBizOS team sees this.`;
       }
 
       // Fallback for unrecognized questions
-      return `That's a great question, but I don't have a specific answer for that yet. Here's what I'd suggest:
+      return `I'm currently in offline mode and can't access your business data. Here's what I'd suggest:
 
 1. **Check Settings** — Many configuration options are in Settings (gear icon in the sidebar)
 2. **Use the Command Palette** — Press Ctrl+K (or Cmd+K) to search for anything
-3. **Contact Support** — Email support@mybizos.com for personalized help
+3. **Try again** — The AI assistant should reconnect shortly
 
-I've noted your question so the MyBizOS team can add it to my knowledge base. Is there something else I can help with?`;
+Is there something else I can help with?`;
     },
     [awaitingIssueDescription],
   );
 
   /* ---------------------------------------- */
-  /*  Send message                             */
+  /*  Send message via API                     */
   /* ---------------------------------------- */
   const handleSend = useCallback(
-    (text?: string) => {
+    async (text?: string) => {
       const messageText = (text ?? input).trim();
-      if (!messageText) return;
+      if (!messageText || isTyping) return;
 
       const userMsg: AssistantMessage = {
         id: `user-${Date.now()}`,
@@ -231,11 +289,9 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
       setInput("");
       setIsTyping(true);
 
-      // Simulate brief "thinking" delay for natural feel
-      const delay = 400 + Math.random() * 600;
-
-      setTimeout(() => {
-        const response = generateResponse(messageText);
+      // Handle issue reporting locally (no API needed)
+      if (awaitingIssueDescription || isIssueReport(messageText)) {
+        const response = generateOfflineResponse(messageText);
         const assistantMsg: AssistantMessage = {
           id: `assistant-${Date.now()}`,
           role: "assistant",
@@ -245,9 +301,69 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
         };
         setMessages((prev) => [...prev, assistantMsg]);
         setIsTyping(false);
-      }, delay);
+        return;
+      }
+
+      // Build conversation history for the API
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const orgId = getOrgId();
+
+      try {
+        // Try real API first
+        const result = await tryFetch(() =>
+          apiClient.post<ChatApiResponse>(
+            `/orgs/${orgId}/assistant/chat`,
+            {
+              message: messageText,
+              history,
+            },
+          ),
+        );
+
+        if (result) {
+          // API response received
+          setIsOnline(true);
+          const assistantMsg: AssistantMessage = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: result.response,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+          setIsTyping(false);
+          return;
+        }
+
+        // API unreachable — fall back to offline keyword matching
+        setIsOnline(false);
+        const fallbackResponse = generateOfflineResponse(messageText);
+        const fallbackMsg: AssistantMessage = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: fallbackResponse,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, fallbackMsg]);
+        setIsTyping(false);
+      } catch {
+        // API error — fall back to offline
+        setIsOnline(false);
+        const fallbackResponse = generateOfflineResponse(messageText);
+        const fallbackMsg: AssistantMessage = {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: fallbackResponse,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, fallbackMsg]);
+        setIsTyping(false);
+      }
     },
-    [input, generateResponse, awaitingIssueDescription],
+    [input, isTyping, messages, awaitingIssueDescription, generateOfflineResponse],
   );
 
   /* ---------------------------------------- */
@@ -291,7 +407,10 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
   /* ---------------------------------------- */
   /*  Current suggestions                      */
   /* ---------------------------------------- */
-  const currentSuggestions = pageContext?.suggestions ?? DEFAULT_SUGGESTIONS;
+  const currentSuggestions =
+    dynamicSuggestions.length > 0
+      ? dynamicSuggestions
+      : pageContext?.suggestions ?? DEFAULT_SUGGESTIONS;
 
   /* ---------------------------------------- */
   /*  Render                                   */
@@ -304,7 +423,10 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
       {isOpen && !isMinimized && (
         <div
           className="flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-[slideUp_0.25s_ease-out] w-[calc(100vw-2.5rem)] sm:w-[400px]"
-          style={{ maxWidth: "400px", height: "min(550px, calc(100vh - 6rem))" }}
+          style={{
+            maxWidth: "400px",
+            height: "min(550px, calc(100vh - 6rem))",
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
@@ -314,11 +436,18 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
               </div>
               <div>
                 <p className="text-sm font-semibold leading-tight">
-                  MyBizOS AI Assistant
+                  AI Office Manager
                 </p>
-                <p className="text-[10px] opacity-80">
-                  I know everything about this platform
-                </p>
+                <div className="flex items-center gap-1">
+                  {isOnline ? (
+                    <Wifi className="h-2.5 w-2.5 text-green-300" />
+                  ) : (
+                    <WifiOff className="h-2.5 w-2.5 text-amber-300" />
+                  )}
+                  <p className="text-[10px] opacity-80">
+                    {isOnline ? "Connected to your data" : "Offline mode"}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -358,7 +487,7 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
                       <Sparkles className="h-3 w-3 text-violet-600 dark:text-violet-400" />
                     </div>
                     <span className="text-[10px] font-medium text-muted-foreground">
-                      AI Assistant
+                      AI Office Manager
                     </span>
                   </div>
                 )}
@@ -406,7 +535,7 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
                     <Sparkles className="h-3 w-3 text-violet-600 dark:text-violet-400" />
                   </div>
                   <span className="text-[10px] font-medium text-muted-foreground">
-                    AI Assistant
+                    AI Office Manager
                   </span>
                 </div>
                 <div className="rounded-2xl rounded-bl-md bg-card border border-border px-4 py-3 shadow-sm">
@@ -429,21 +558,23 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
             )}
 
             {/* Suggestion chips — show after welcome message if only 1 message */}
-            {messages.length === 1 && messages[0].role === "assistant" && !isTyping && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {currentSuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    className="inline-flex items-center gap-1.5 rounded-full border-2 border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-50 transition-colors cursor-pointer shadow-sm"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+            {messages.length === 1 &&
+              messages[0].role === "assistant" &&
+              !isTyping && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {currentSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="inline-flex items-center gap-1.5 rounded-full border-2 border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-50 transition-colors cursor-pointer shadow-sm"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
 
             <div ref={messagesEndRef} />
           </div>
@@ -470,17 +601,18 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
                 placeholder={
                   awaitingIssueDescription
                     ? "Describe what went wrong..."
-                    : "Ask me anything about MyBizOS..."
+                    : "Ask about your business..."
                 }
                 className="flex-1 rounded-full border border-border bg-muted/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 outline-none transition"
+                disabled={isTyping}
               />
               <button
                 type="button"
                 onClick={() => handleSend()}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isTyping}
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-full transition-all shrink-0",
-                  input.trim()
+                  input.trim() && !isTyping
                     ? "bg-violet-600 text-white hover:bg-violet-700 shadow-md shadow-violet-600/20"
                     : "bg-muted text-muted-foreground",
                 )}
@@ -492,7 +624,8 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
 
             <p className="text-center text-[9px] text-muted-foreground mt-2">
               Powered by{" "}
-              <span className="font-semibold">MyBizOS AI</span>
+              <span className="font-semibold">Claude AI</span>
+              {!isOnline && " (offline)"}
             </p>
           </div>
         </div>
@@ -508,7 +641,7 @@ I've noted your question so the MyBizOS team can add it to my knowledge base. Is
           className="flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-white text-sm font-medium shadow-lg transition-all hover:scale-105"
         >
           <Sparkles className="h-4 w-4" />
-          AI Assistant
+          AI Office Manager
         </button>
       )}
 

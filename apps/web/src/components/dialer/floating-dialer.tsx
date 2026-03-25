@@ -46,6 +46,7 @@ import {
   type DeviceStatus,
   type CallStatus,
 } from "@/lib/twilio-device";
+import { playCallRing, playCallEnd } from "@/lib/sounds";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
@@ -326,6 +327,41 @@ export function FloatingDialer() {
       }
     }
   }, [callStatus]);
+
+  // Play ring tone during "ringing" state, end tone on hangup
+  const stopRingRef = useRef<(() => void) | null>(null);
+  const prevCallStatusRef = useRef<CallStatus>(callStatus);
+
+  useEffect(() => {
+    const prev = prevCallStatusRef.current;
+    prevCallStatusRef.current = callStatus;
+
+    // Start ringing sound
+    if (callStatus === "ringing" && prev !== "ringing") {
+      stopRingRef.current = playCallRing();
+    }
+
+    // Stop ringing sound when no longer ringing
+    if (callStatus !== "ringing" && stopRingRef.current) {
+      stopRingRef.current();
+      stopRingRef.current = null;
+    }
+
+    // Play end tone when call finishes
+    if (callStatus === "idle" && (prev === "open" || prev === "ringing" || prev === "connecting")) {
+      playCallEnd();
+    }
+  }, [callStatus]);
+
+  // Cleanup ring on unmount
+  useEffect(() => {
+    return () => {
+      if (stopRingRef.current) {
+        stopRingRef.current();
+        stopRingRef.current = null;
+      }
+    };
+  }, []);
 
   // Derived
   const displayFormatted = formatPhoneNumber(rawDigits);

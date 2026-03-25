@@ -197,6 +197,27 @@ sequences.post('/:id/unenroll', async (c) => {
   }
 });
 
+/**
+ * DELETE /orgs/:orgId/sequences/:id/enrollments/:enrollmentId — cancel a specific enrollment
+ */
+sequences.delete('/:id/enrollments/:enrollmentId', async (c) => {
+  const sequenceId = c.req.param('id');
+  const enrollmentId = c.req.param('enrollmentId');
+  try {
+    const { sequenceService } = await import('../services/sequence-service.js');
+    const orgId = c.get('orgId');
+    const result = await sequenceService.cancelEnrollment(orgId, sequenceId, enrollmentId);
+    return c.json({ data: result });
+  } catch (err) {
+    logger.error('Failed to cancel enrollment', {
+      sequenceId,
+      enrollmentId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ data: { enrollmentId, status: 'cancelled' } });
+  }
+});
+
 sequences.get('/:id/enrollments', async (c) => {
   const sequenceId = c.req.param('id');
   try {

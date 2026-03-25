@@ -1,6 +1,9 @@
 import { logger } from '../middleware/logger.js';
 import { runAppointmentReminders } from './appointment-reminders.js';
 import { runReviewRequests } from './review-requests.js';
+import { runSequenceProcessor } from './sequence-processor.js';
+import { runDailySummary } from './daily-summary.js';
+import { runStaleDealAlerts } from './stale-deal-alerts.js';
 
 // ── Job Definitions ──
 
@@ -40,6 +43,13 @@ export const jobRegistry: Record<string, JobDefinition> = {
     handler: runReviewRequests,
   },
 
+  sequenceProcessor: {
+    name: 'sequenceProcessor',
+    description: 'Process drip sequence steps for active enrollments (send emails, SMS, AI decisions, tags)',
+    schedule: 'every 5 minutes',
+    handler: runSequenceProcessor,
+  },
+
   leadScoring: {
     name: 'leadScoring',
     description: 'Score new contacts using AI-based lead scoring',
@@ -55,13 +65,15 @@ export const jobRegistry: Record<string, JobDefinition> = {
   staleDealAlerts: {
     name: 'staleDealAlerts',
     description: 'Find deals stuck in the same stage for > 7 days and notify owner',
-    schedule: 'daily',
-    handler: async () => {
-      logger.info('Stale deal alerts job triggered (placeholder)');
-      // Will query deals where updatedAt < now - 7 days and stage is not won/lost
-      // Then send SMS/email alerts to the deal owner
-      return { staleDeals: 0, message: 'Stale deal alerts not yet implemented' };
-    },
+    schedule: 'daily at 7am AEST',
+    handler: runStaleDealAlerts,
+  },
+
+  dailySummary: {
+    name: 'dailySummary',
+    description: 'Send daily morning briefing to each org owner with business stats, schedule, and alerts',
+    schedule: 'daily at 7am AEST',
+    handler: runDailySummary,
   },
 };
 

@@ -31,6 +31,7 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: optionalInDev(z.string()),
   VAPI_API_KEY: optionalInDev(z.string()),
   VAPI_WEBHOOK_SECRET: optionalInDev(z.string()),
+  ENABLE_SCHEDULER: z.enum(['true', 'false', '']).default('').transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;

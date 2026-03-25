@@ -242,6 +242,41 @@ export const sequenceService = {
   },
 
   /**
+   * Cancel a specific enrollment by its ID.
+   */
+  async cancelEnrollment(orgId: string, sequenceId: string, enrollmentId: string) {
+    const [updated] = await db
+      .update(sequenceEnrollments)
+      .set({
+        status: 'cancelled',
+        completedAt: new Date(),
+      })
+      .where(and(
+        withOrgScope(sequenceEnrollments.orgId, orgId),
+        eq(sequenceEnrollments.sequenceId, sequenceId),
+        eq(sequenceEnrollments.id, enrollmentId),
+        eq(sequenceEnrollments.status, 'active'),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('Active enrollment');
+    }
+
+    // Decrement enrollment count
+    await db
+      .update(dripSequences)
+      .set({
+        enrollmentCount: sql`GREATEST(${dripSequences.enrollmentCount} - 1, 0)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(dripSequences.id, sequenceId));
+
+    logger.info('Enrollment cancelled', { orgId, sequenceId, enrollmentId });
+    return updated;
+  },
+
+  /**
    * Unenroll a contact from a sequence (cancel their enrollment).
    */
   async unenroll(orgId: string, sequenceId: string, contactId: string) {
