@@ -573,17 +573,18 @@ export default function ContactsPage() {
                       className="flex items-center gap-3"
                     >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                        {contact.name
+                        {(contact.name || "?")
                           .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                          .map((n: string) => n[0] || "")
+                          .join("")
+                          .slice(0, 2) || "?"}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                          {contact.name}
+                          {contact.name || contact.phone || "Unknown"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          via {contact.source}
+                          via {contact.source || "unknown"}
                         </p>
                       </div>
                     </Link>
@@ -591,31 +592,31 @@ export default function ContactsPage() {
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5 text-sm text-foreground">
                       <Phone className="h-3 w-3 text-muted-foreground" />
-                      {contact.phone}
+                      {contact.phone || "—"}
                     </div>
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5 text-sm text-foreground">
                       <Mail className="h-3 w-3 text-muted-foreground" />
-                      {contact.email}
+                      {contact.email || "—"}
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    <ScoreBadge score={contact.score} />
+                    <ScoreBadge score={contact.score ?? 0} />
                   </td>
                   <td className="px-5 py-3 text-sm text-muted-foreground">
-                    {contact.lastActivity}
+                    {contact.lastActivity || "—"}
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {contact.tags.map((tag) => (
+                      {(contact.tags || []).map((tag: string) => (
                         <TagBadge key={tag} tag={tag} />
                       ))}
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button
-                      onClick={() => toast.info(`Actions for ${contact.name}`)}
+                      onClick={() => toast.info(`Actions for ${contact.name || "contact"}`)}
                       className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors ml-auto"
                     >
                       <MoreHorizontal className="h-4 w-4" />
