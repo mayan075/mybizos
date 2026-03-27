@@ -17,6 +17,7 @@ import { ClaudeClient } from '@mybizos/ai';
 import type { ClaudeMessage } from '@mybizos/ai';
 import { getPhoneAgentPrompt, getSmsAgentPrompt } from '@mybizos/ai';
 import { TwilioClient } from '@mybizos/integrations';
+import type { Vertical } from '@mybizos/shared';
 import { resolveOrgByPhoneNumber, type ResolvedOrg } from '../../services/phone-routing-service.js';
 import { resolveContact } from '../../services/contact-resolution-service.js';
 import { conversationService } from '../../services/conversation-service.js';
@@ -36,9 +37,14 @@ const SPEECH_TIMEOUT = 'auto';
  * Resolve business config from the org's settings in the database.
  * Falls back to defaults if org settings aren't configured.
  */
+const VALID_VERTICALS: Set<string> = new Set([
+  'rubbish_removals', 'moving_company', 'plumbing', 'hvac', 'electrical',
+  'roofing', 'landscaping', 'pest_control', 'cleaning', 'general_contractor',
+]);
+
 async function getBusinessConfig(calledNumber: string): Promise<{
   name: string;
-  vertical: string;
+  vertical: Vertical;
   agentName: string;
   orgId: string | null;
 }> {
@@ -54,9 +60,11 @@ async function getBusinessConfig(calledNumber: string): Promise<{
       if (org) {
         const settings = (org.settings ?? {}) as Record<string, unknown>;
         const onboarding = (settings['onboarding'] ?? {}) as Record<string, unknown>;
+        const rawVertical = (org as Record<string, unknown>).vertical as string || 'general_contractor';
+        const vertical = (VALID_VERTICALS.has(rawVertical) ? rawVertical : 'general_contractor') as Vertical;
         return {
           name: org.name || 'our business',
-          vertical: (org as Record<string, unknown>).vertical as string || 'general',
+          vertical,
           agentName: typeof onboarding['agentName'] === 'string' ? onboarding['agentName'] : 'the AI assistant',
           orgId: org.id,
         };
@@ -69,7 +77,7 @@ async function getBusinessConfig(calledNumber: string): Promise<{
     });
   }
   // Fallback defaults
-  return { name: 'our business', vertical: 'general', agentName: 'the AI assistant', orgId: null };
+  return { name: 'our business', vertical: 'general_contractor' as Vertical, agentName: 'the AI assistant', orgId: null };
 }
 
 /** @deprecated — use getBusinessConfig() for dynamic resolution */
@@ -764,7 +772,7 @@ Respond with ONLY valid JSON (no markdown, no code fences):
       summary: summaryText,
     });
 
-    // Store in call logs
+    // Store in call logs (in-memory for quick access)
     callLogs.push({
       callSid: CallSid,
       callerPhone: conversation.callerPhone,
@@ -780,6 +788,36 @@ Respond with ONLY valid JSON (no markdown, no code fences):
     if (callLogs.length > 100) {
       callLogs.splice(0, callLogs.length - 100);
     }
+
+    // Persist call as activity in database (fire-and-forget to not block TwiML response)
+    (async () => {
+      try {
+        const bizConfig = await getBusinessConfig(conversation.calledNumber);
+        if (bizConfig.orgId) {
+          // Resolve or create contact from caller phone
+          const contact = await resolveContact(bizConfig.orgId, conversation.callerPhone, 'phone');
+          if (contact) {
+            await activityService.logActivity(bizConfig.orgId, {
+              contactId: contact.id,
+              type: 'call',
+              title: `AI phone call (${conversation.turnCount} turns)`,
+              description: summaryText,
+              metadata: {
+                callSid: CallSid,
+                callerPhone: conversation.callerPhone,
+                durationEstimate: conversation.turnCount * 30,
+                transcript: conversation.messages,
+              },
+            });
+          }
+        }
+      } catch (dbErr) {
+        logger.warn('Failed to persist call activity to DB', {
+          callSid: CallSid,
+          error: dbErr instanceof Error ? dbErr.message : String(dbErr),
+        });
+      }
+    })();
 
     // ── Post-Call Auto-Actions (fire-and-forget) ─────────────────────────
     processPostCallActions(

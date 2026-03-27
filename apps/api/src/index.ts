@@ -92,12 +92,22 @@ app.get('/health', async (c) => {
     dbStatus = 'disconnected';
     dbError = err instanceof Error ? err.message : String(err);
   }
+  const services = {
+    database: dbStatus,
+    stripe: config.STRIPE_SECRET_KEY ? 'configured' : 'missing',
+    twilio: config.TWILIO_ACCOUNT_SID ? 'configured' : 'missing',
+    anthropic: config.ANTHROPIC_API_KEY ? 'configured' : 'missing',
+    resend: config.RESEND_API_KEY ? 'configured' : 'missing',
+  };
+
+  const allConfigured = Object.values(services).every((v) => v !== 'missing' && v !== 'disconnected');
+
   return c.json({
-    status: 'ok',
+    status: dbStatus === 'connected' ? (allConfigured ? 'ok' : 'degraded') : 'down',
     timestamp: new Date().toISOString(),
     version: '0.1.0',
     environment: config.NODE_ENV,
-    database: dbStatus,
+    services,
     ...(dbError ? { dbError } : {}),
   });
 });

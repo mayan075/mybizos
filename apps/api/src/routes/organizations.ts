@@ -280,12 +280,24 @@ organizations.post('/:orgId/onboarding', async (c) => {
       .where(withOrgScope(orgsTable.id, orgId));
 
     logger.info('Onboarding data saved to REAL DATABASE', { orgId, businessName: body.businessName });
+
+    // Process onboarding data into real system config (pipelines, availability, etc.)
+    try {
+      const { processOnboardingData } = await import('../services/onboarding-service.js');
+      await processOnboardingData(orgId, body);
+    } catch (processErr) {
+      // Don't fail the whole request if processing fails — data is already saved
+      logger.warn('Onboarding processing partially failed', {
+        orgId,
+        error: processErr instanceof Error ? processErr.message : String(processErr),
+      });
+    }
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
-  logger.info('Onboarding data saved', { orgId, businessName: body.businessName });
+  logger.info('Onboarding data saved and processed', { orgId, businessName: body.businessName });
   return c.json({ data: { onboarding: body } });
 });
 

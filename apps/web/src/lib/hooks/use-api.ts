@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { getUser } from "@/lib/auth";
 
+// In production, don't fall back to mock data — show empty/error states instead
+const IS_PRODUCTION = typeof window !== "undefined" &&
+  !window.location.hostname.includes("localhost");
+
 // --------------------------------------------------------
 // Types
 // --------------------------------------------------------
@@ -110,13 +114,17 @@ function useApiQuery<T>(
         setData(unwrapped);
         setIsLive(true);
       } else {
-        // API unavailable (network error) — use mock data as fallback
-        setData(mockRef.current);
+        // API unavailable — in dev use mock data, in prod show null (empty state)
+        if (!IS_PRODUCTION) {
+          setData(mockRef.current);
+        }
         setIsLive(false);
       }
     } catch {
-      // Any error (404, 500, timeout, etc.) — fall back to mock data
-      setData(mockRef.current);
+      // Any error — in dev use mock data, in prod show null (empty state)
+      if (!IS_PRODUCTION) {
+        setData(mockRef.current);
+      }
       setIsLive(false);
     }
 

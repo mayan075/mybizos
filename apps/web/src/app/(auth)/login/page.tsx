@@ -71,10 +71,10 @@ export default function LoginPage() {
         setError(err.message);
       } else if (err instanceof TypeError) {
         setError(
-          "The API server is starting up. Please wait a moment and try again.",
+          "Cannot reach the API server. Please check that the backend is running and try again.",
         );
       } else {
-        setError("Something unexpected happened. Check your internet connection and try again.");
+        setError(`Login failed: ${err instanceof Error ? err.message : "Unknown error"}. Check your connection and try again.`);
       }
     } finally {
       setIsLoading(false);

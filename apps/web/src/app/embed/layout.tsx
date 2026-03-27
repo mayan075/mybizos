@@ -1,4 +1,4 @@
-import "@mybizos/ui/globals.css";
+import "../globals.css";
 
 export default function EmbedLayout({
   children,

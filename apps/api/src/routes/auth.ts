@@ -10,8 +10,14 @@ import {
   AuthError,
 } from '../services/auth-service.js';
 import { config } from '../config.js';
+import { rateLimit } from '../middleware/rate-limit.js';
 
 const auth = new Hono();
+
+// Rate limiting: prevent brute force attacks
+const loginLimiter = rateLimit(5, 60 * 1000);    // 5 attempts per minute
+const registerLimiter = rateLimit(3, 60 * 1000);  // 3 attempts per minute
+const resetLimiter = rateLimit(3, 60 * 1000);     // 3 attempts per minute
 
 // Password reset tokens are stored in the database (password_reset_tokens table)
 // to survive Railway redeploys and scale across instances.
@@ -61,7 +67,7 @@ const resetPasswordSchema = z.object({
 /**
  * POST /auth/register — register a new user and create their org
  */
-auth.post('/register', async (c) => {
+auth.post('/register', registerLimiter, async (c) => {
   try {
     const body = await c.req.json();
     const parsed = registerSchema.safeParse(body);
@@ -100,7 +106,7 @@ auth.post('/register', async (c) => {
 /**
  * POST /auth/login — authenticate and return JWT
  */
-auth.post('/login', async (c) => {
+auth.post('/login', loginLimiter, async (c) => {
   try {
     const body = await c.req.json();
     const parsed = loginSchema.safeParse(body);
@@ -179,7 +185,7 @@ auth.get('/me', authMiddleware, async (c) => {
 /**
  * POST /auth/forgot-password — send a password reset email
  */
-auth.post('/forgot-password', async (c) => {
+auth.post('/forgot-password', resetLimiter, async (c) => {
   try {
     const body = await c.req.json();
     const parsed = forgotPasswordSchema.safeParse(body);
