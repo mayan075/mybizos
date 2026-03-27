@@ -142,6 +142,39 @@ scheduling.post('/public/book/:orgSlug', async (c) => {
   }
 });
 
+// ── Public org lookup (for booking page) ──
+
+scheduling.get('/public/org/:slug', async (c) => {
+  const slug = c.req.param('slug');
+
+  try {
+    const { db, organizations } = await import('@mybizos/db');
+    const { eq } = await import('drizzle-orm');
+
+    const [org] = await db
+      .select({
+        name: organizations.name,
+        slug: organizations.slug,
+        phone: organizations.phone,
+        email: organizations.email,
+        website: organizations.website,
+        vertical: organizations.vertical,
+        logoUrl: organizations.logoUrl,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, slug));
+
+    if (!org) {
+      return c.json({ error: 'Organization not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+
+    return c.json({ data: org });
+  } catch (err) {
+    logger.error('Failed to fetch public org', { slug, error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+});
+
 // Mount authenticated routes under /orgs/:orgId
 scheduling.route('/orgs/:orgId', authenticatedScheduling);
 

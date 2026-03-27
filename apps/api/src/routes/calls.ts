@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { authMiddleware } from '../middleware/auth.js';
+import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 
 const callsRoutes = new Hono();
+callsRoutes.use('*', authMiddleware, orgScopeMiddleware);
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,11 +52,7 @@ const logCallSchema = z.object({
 // ── GET / — List call history for an org ──────────────────────────────────
 
 callsRoutes.get('/', async (c) => {
-  const orgId = c.req.param('orgId');
-  if (!orgId) {
-    return c.json({ error: 'Missing orgId', code: 'VALIDATION_ERROR', status: 400 }, 400);
-  }
-
+  const orgId = c.get('orgId');
   const calls = getOrgCalls(orgId);
 
   // Return sorted by newest first, map to the shape the frontend expects
@@ -66,11 +65,21 @@ callsRoutes.get('/', async (c) => {
 
 // ── POST /log — Log a completed call ─────────────────────────────────────
 
-callsRoutes.post('/log', async (c) => {
-  const orgId = c.req.param('orgId');
-  if (!orgId) {
-    return c.json({ error: 'Missing orgId', code: 'VALIDATION_ERROR', status: 400 }, 400);
+callsRoutes.get('/:id', async (c) => {
+  const orgId = c.get('orgId');
+  const callId = c.req.param('id');
+  const calls = getOrgCalls(orgId);
+  const call = calls.find((entry) => entry.id === callId);
+
+  if (!call) {
+    return c.json({ error: 'Call not found', code: 'NOT_FOUND', status: 404 }, 404);
   }
+
+  return c.json({ data: call });
+});
+
+callsRoutes.post('/log', async (c) => {
+  const orgId = c.get('orgId');
 
   let body: unknown;
   try {

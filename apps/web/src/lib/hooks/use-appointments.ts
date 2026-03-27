@@ -26,12 +26,15 @@ function useAppointments(weekStart?: string, weekEnd?: string) {
 // --------------------------------------------------------
 
 interface CreateAppointmentInput {
+  contactId: string;
+  contactName: string;
   title: string;
-  customer: string;
-  dayIndex: number;
-  hourStart: number;
-  duration?: number;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  assignedTo?: string;
   location?: string;
+  bookedBy?: string;
 }
 
 function useCreateAppointment() {
@@ -64,7 +67,7 @@ function useAvailability(date?: string) {
   if (date) params.date = date;
 
   return useApiQuery<AvailableSlot[]>(
-    "/orgs/:orgId/appointments/availability",
+    "/orgs/:orgId/availability",
     mockSlots,
     Object.keys(params).length > 0 ? params : undefined,
     !!date,

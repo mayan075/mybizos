@@ -166,14 +166,27 @@ export default function SchedulingPage() {
     // Optimistic add
     setLocalAppointments((prev) => [...prev, newApt]);
 
+    // Build ISO dates for API
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset + weekOffset * 7);
+    const aptDate = new Date(monday);
+    aptDate.setDate(monday.getDate() + showBooking.dayIndex);
+    aptDate.setHours(showBooking.hour, 0, 0, 0);
+    const endDate = new Date(aptDate);
+    endDate.setHours(showBooking.hour + 1);
+
     // Try to persist via API
     await createAppointmentApi({
+      contactId: "",
+      contactName: newApt.customer,
       title: newApt.title,
-      customer: newApt.customer,
-      dayIndex: newApt.dayIndex,
-      hourStart: newApt.hourStart,
-      duration: newApt.duration,
+      startTime: aptDate.toISOString(),
+      endTime: endDate.toISOString(),
       location: newApt.location,
+      bookedBy: "manual",
     });
 
     setShowBooking(null);

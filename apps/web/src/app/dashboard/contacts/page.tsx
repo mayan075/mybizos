@@ -231,10 +231,12 @@ export default function ContactsPage() {
 
     try {
       // Persist via API
+      const nameParts = newContact.name.split(" ");
       const result = await createContact({
-        name: newContact.name,
-        phone: newContact.phone,
-        email: newContact.email,
+        firstName: nameParts[0] || newContact.name,
+        lastName: nameParts.slice(1).join(" ") || "Unknown",
+        phone: newContact.phone || undefined,
+        email: newContact.email || undefined,
         source: newContact.source,
       });
 

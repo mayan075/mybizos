@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { useApiQuery, useApiMutation, getOrgId } from "./use-api";
+import { useMemo } from "react";
+import { useApiQuery, useApiMutation } from "./use-api";
 import {
   type MockContact,
   type MockContactDetail,
@@ -75,10 +75,12 @@ function useContact(id: string) {
 // --------------------------------------------------------
 
 interface CreateContactInput {
-  name: string;
-  phone?: string;
+  firstName: string;
+  lastName: string;
   email?: string;
+  phone?: string;
   source?: string;
+  tags?: string[];
 }
 
 function useCreateContact() {
@@ -93,34 +95,19 @@ function useCreateContact() {
 // --------------------------------------------------------
 
 interface UpdateContactInput {
-  id: string;
-  name?: string;
-  phone?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
+  phone?: string;
   tags?: string[];
-  score?: number;
+  aiScore?: number;
 }
 
-function useUpdateContact() {
-  const orgId = getOrgId();
-
-  const mutation = useApiMutation<UpdateContactInput, MockContact>(
-    "/orgs/:orgId/contacts",
+function useUpdateContact(contactId: string) {
+  return useApiMutation<UpdateContactInput, MockContact>(
+    `/orgs/:orgId/contacts/${contactId}`,
     "patch",
   );
-
-  const mutate = useCallback(
-    async (input: UpdateContactInput) => {
-      // Override endpoint to include the contact id
-      const { mutate: baseMutate } = mutation;
-      // For now, we call the base mutate which uses the template endpoint.
-      // When the API is live, the route handler will parse the id from the body.
-      return baseMutate(input);
-    },
-    [mutation],
-  );
-
-  return { ...mutation, mutate };
 }
 
 export { useContacts, useContact, useCreateContact, useUpdateContact };

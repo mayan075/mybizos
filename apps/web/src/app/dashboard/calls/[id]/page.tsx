@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { useApiQuery } from "@/lib/hooks/use-api";
 import {
   ArrowLeft,
   Phone,
@@ -58,8 +59,7 @@ interface TimelineEvent {
   isCurrent: boolean;
 }
 
-// Real call data will come from the API; empty fallback
-const MOCK_CALLS: CallRecord[] = [];
+// CallRecord used as API response shape
 
 function createMockTimeline(call: CallRecord): TimelineEvent[] {
   const events: TimelineEvent[] = [];
@@ -192,8 +192,20 @@ export default function CallDetailPage() {
   const router = useRouter();
   const callId = params.id as string;
 
-  const call = useMemo(() => MOCK_CALLS.find((c) => c.id === callId), [callId]);
+  const { data: callData, isLoading } = useApiQuery<CallRecord | null>(
+    `/orgs/:orgId/calls/${callId}`,
+    null,
+  );
+  const call = callData;
   const timeline = useMemo(() => (call ? createMockTimeline(call) : []), [call]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!call) {
     return (
