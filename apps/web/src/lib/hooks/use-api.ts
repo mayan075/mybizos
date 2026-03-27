@@ -30,7 +30,14 @@ interface UseApiMutationResult<TInput, TOutput> {
 
 function getOrgId(): string {
   const user = getUser();
-  return user?.orgId ?? "org_01";
+  if (!user?.orgId) {
+    // No authenticated org — redirect to login instead of leaking data
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("No authenticated organization");
+  }
+  return user.orgId;
 }
 
 function buildPath(template: string): string {

@@ -2,7 +2,7 @@
 buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@mybizos/api"
 
 [deploy]
-startCommand = "cd apps/api && npx tsx src/index.ts"
+startCommand = "cd apps/api && node dist/apps/api/src/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"

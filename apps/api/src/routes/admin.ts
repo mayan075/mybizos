@@ -2,8 +2,12 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
+import { authMiddleware, requireRole } from '../middleware/auth.js';
 
 const admin = new Hono();
+
+// All admin routes require authentication + owner role
+admin.use('*', authMiddleware, requireRole('owner'));
 
 // ── In-memory settings store (platform-level) ─────────────────────────────
 
