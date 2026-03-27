@@ -68,16 +68,39 @@ export function getUserCountry(): string {
 }
 
 /**
- * Format a number as currency using the user's country setting.
- * Reads country from onboarding data to determine currency.
+ * Format a number as currency.
+ *
+ * Accepts either the legacy country-override string or an options object:
+ *   - `currency`  — use an explicit ISO 4217 code (AUD, USD, GBP …)
+ *   - `country`   — derive currency from country code (legacy behaviour)
+ *
+ * Falls back to the user's onboarding country → "USD".
  */
-export function formatCurrency(amount: number, countryOverride?: string): string {
-  const country = countryOverride ?? getUserCountry();
-  const currency = getCurrencyForCountry(country);
-  const locale = getLocaleForCountry(country);
+export function formatCurrency(
+  amount: number,
+  options?: string | { currency?: string; country?: string },
+): string {
+  let currencyCode: string;
+  let locale: string;
+
+  if (typeof options === "string") {
+    // Legacy usage: formatCurrency(amount, "AU")
+    currencyCode = getCurrencyForCountry(options);
+    locale = getLocaleForCountry(options);
+  } else if (options?.currency) {
+    // Direct currency code supplied — pick a sensible locale
+    currencyCode = options.currency;
+    const country = options.country ?? getUserCountry();
+    locale = getLocaleForCountry(country);
+  } else {
+    const country = options?.country ?? getUserCountry();
+    currencyCode = getCurrencyForCountry(country);
+    locale = getLocaleForCountry(country);
+  }
+
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency,
+    currency: currencyCode,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);

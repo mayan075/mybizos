@@ -408,6 +408,32 @@ export function invoiceSentHtml(
 /**
  * Welcome email template (sent when a new contact/user is created).
  */
+/**
+ * Password reset email template.
+ */
+export function passwordResetHtml(
+  resetUrl: string,
+): string {
+  const body = `
+    <h2>Reset Your Password</h2>
+    <p>We received a request to reset your password. Click the button below to choose a new password:</p>
+    <div class="cta-wrapper">
+      <a href="${resetUrl}" class="cta-button" style="color: #ffffff;">Reset Password</a>
+    </div>
+    <p style="text-align: center; color: #64748b; font-size: 13px;">This link will expire in 1 hour.</p>
+    <p>If you didn&rsquo;t request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+  `;
+
+  return emailLayout(
+    'MyBizOS',
+    'Reset your MyBizOS password',
+    body,
+  );
+}
+
+/**
+ * Welcome email template (sent when a new contact/user is created).
+ */
 export function welcomeHtml(
   businessName: string,
   userName: string,

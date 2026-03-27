@@ -78,11 +78,150 @@ export const pipelineService = {
     return { pipeline: { ...pipeline, stages }, deals: pipelineDeals };
   },
 
+  async createStage(
+    orgId: string,
+    pipelineId: string,
+    data: { name: string; slug: string; color: string; position: number },
+  ) {
+    // Verify pipeline exists and belongs to org
+    const [pipeline] = await db
+      .select()
+      .from(pipelines)
+      .where(and(
+        withOrgScope(pipelines.orgId, orgId),
+        eq(pipelines.id, pipelineId),
+      ));
+
+    if (!pipeline) {
+      throw Errors.notFound('Pipeline');
+    }
+
+    const [created] = await db
+      .insert(pipelineStages)
+      .values({
+        pipelineId,
+        orgId,
+        name: data.name,
+        slug: data.slug,
+        position: data.position,
+        color: data.color,
+      })
+      .returning();
+
+    if (!created) {
+      throw Errors.internal('Failed to create stage');
+    }
+
+    logger.info('Pipeline stage created', { orgId, pipelineId, stageId: created.id });
+    return created;
+  },
+
+  async updateStage(
+    orgId: string,
+    stageId: string,
+    data: { name?: string; color?: string; position?: number },
+  ) {
+    const [updated] = await db
+      .update(pipelineStages)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        withOrgScope(pipelineStages.orgId, orgId),
+        eq(pipelineStages.id, stageId),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('Pipeline stage');
+    }
+
+    logger.info('Pipeline stage updated', { orgId, stageId });
+    return updated;
+  },
+
+  async deleteStage(orgId: string, stageId: string) {
+    // Check if any deals are in this stage
+    const dealsInStage = await db
+      .select({ id: deals.id })
+      .from(deals)
+      .where(and(
+        withOrgScope(deals.orgId, orgId),
+        eq(deals.stageId, stageId),
+      ))
+      .limit(1);
+
+    if (dealsInStage.length > 0) {
+      throw Errors.conflict('Cannot delete stage: deals exist in this stage. Move or delete the deals first.');
+    }
+
+    const result = await db
+      .delete(pipelineStages)
+      .where(and(
+        withOrgScope(pipelineStages.orgId, orgId),
+        eq(pipelineStages.id, stageId),
+      ))
+      .returning({ id: pipelineStages.id });
+
+    if (result.length === 0) {
+      throw Errors.notFound('Pipeline stage');
+    }
+
+    logger.info('Pipeline stage deleted', { orgId, stageId });
+  },
+
+  async reorderStages(
+    orgId: string,
+    pipelineId: string,
+    stages: Array<{ id: string; position: number }>,
+  ) {
+    // Verify pipeline belongs to org
+    const [pipeline] = await db
+      .select()
+      .from(pipelines)
+      .where(and(
+        withOrgScope(pipelines.orgId, orgId),
+        eq(pipelines.id, pipelineId),
+      ));
+
+    if (!pipeline) {
+      throw Errors.notFound('Pipeline');
+    }
+
+    // Update all positions in a transaction
+    await db.transaction(async (tx) => {
+      for (const stage of stages) {
+        await tx
+          .update(pipelineStages)
+          .set({ position: stage.position, updatedAt: new Date() })
+          .where(and(
+            withOrgScope(pipelineStages.orgId, orgId),
+            eq(pipelineStages.id, stage.id),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ));
+      }
+    });
+
+    // Return updated stages
+    const updated = await db
+      .select()
+      .from(pipelineStages)
+      .where(and(
+        withOrgScope(pipelineStages.orgId, orgId),
+        eq(pipelineStages.pipelineId, pipelineId),
+      ))
+      .orderBy(asc(pipelineStages.position));
+
+    logger.info('Pipeline stages reordered', { orgId, pipelineId, count: stages.length });
+    return updated;
+  },
+
   async create(
     orgId: string,
     data: {
       name: string;
-      stages: Array<{ name: string; color: string; slug: typeof pipelineStages.slug.enumValues[number] }>;
+      stages: Array<{ name: string; color: string; slug: string }>;
     },
   ) {
     const [created] = await db

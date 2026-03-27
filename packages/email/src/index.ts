@@ -10,4 +10,5 @@ export {
   reviewRequestHtml,
   invoiceSentHtml,
   welcomeHtml,
+  passwordResetHtml,
 } from "./providers/resend.js";

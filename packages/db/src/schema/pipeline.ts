@@ -52,7 +52,7 @@ export const pipelineStages = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    slug: dealStageEnum("slug").notNull(),
+    slug: text("slug").notNull(),
     position: integer("position").notNull().default(0),
     color: text("color").notNull().default("#6366f1"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

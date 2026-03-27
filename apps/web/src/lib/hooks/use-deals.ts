@@ -42,6 +42,7 @@ interface CreateDealInput {
   contact: string;
   value: number;
   stageId: string;
+  currency?: string;
 }
 
 function useCreateDeal() {
@@ -67,4 +68,76 @@ function useMoveDeal() {
   );
 }
 
-export { usePipelines, useDeals, useCreateDeal, useMoveDeal };
+// --------------------------------------------------------
+// Stage CRUD hooks
+// --------------------------------------------------------
+
+interface CreateStageInput {
+  name: string;
+  slug: string;
+  color: string;
+  position: number;
+}
+
+interface StageResponse {
+  id: string;
+  pipelineId: string;
+  orgId: string;
+  name: string;
+  slug: string;
+  position: number;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function useCreateStage(pipelineId: string) {
+  return useApiMutation<CreateStageInput, StageResponse>(
+    `/orgs/:orgId/pipelines/${pipelineId}/stages`,
+    "post",
+  );
+}
+
+interface UpdateStageInput {
+  name?: string;
+  color?: string;
+  position?: number;
+}
+
+function useUpdateStage(pipelineId: string, stageId: string) {
+  return useApiMutation<UpdateStageInput, StageResponse>(
+    `/orgs/:orgId/pipelines/${pipelineId}/stages/${stageId}`,
+    "patch",
+  );
+}
+
+function useDeleteStage(pipelineId: string, stageId: string) {
+  return useApiMutation<Record<string, never>, { success: boolean }>(
+    `/orgs/:orgId/pipelines/${pipelineId}/stages/${stageId}`,
+    "delete",
+  );
+}
+
+interface ReorderStagesInput {
+  stages: Array<{ id: string; position: number }>;
+}
+
+function useReorderStages(pipelineId: string) {
+  return useApiMutation<ReorderStagesInput, StageResponse[]>(
+    `/orgs/:orgId/pipelines/${pipelineId}/stages/reorder`,
+    "patch",
+  );
+}
+
+export {
+  usePipelines,
+  useDeals,
+  useCreateDeal,
+  useMoveDeal,
+  useCreateStage,
+  useUpdateStage,
+  useDeleteStage,
+  useReorderStages,
+};
+
+export type { StageResponse, CreateStageInput, UpdateStageInput, ReorderStagesInput };

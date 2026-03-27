@@ -1,25 +1,56 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Zap, Mail, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  Zap,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") ?? "";
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
 
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!token) {
+      setError("Missing reset token. Please use the link from your email.");
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
-      await apiClient.post("/auth/forgot-password", { email });
-      setIsSubmitted(true);
+      await apiClient.post("/auth/reset-password", { token, password });
+      setIsSuccess(true);
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.message);
@@ -47,10 +78,10 @@ export default function ForgotPasswordPage() {
         </div>
         <div className="relative z-10 space-y-6">
           <h1 className="text-4xl font-bold text-primary-foreground leading-tight">
-            Reset your password
+            Set a new password
           </h1>
           <p className="text-primary-foreground/70 text-lg max-w-md">
-            No worries, we&apos;ll send you instructions to reset your password.
+            Choose a strong password to keep your account secure.
           </p>
         </div>
         <div className="relative z-10 text-primary-foreground/50 text-sm">
@@ -74,7 +105,7 @@ export default function ForgotPasswordPage() {
             <span className="text-xl font-bold text-foreground">MyBizOS</span>
           </div>
 
-          {isSubmitted ? (
+          {isSuccess ? (
             /* Success state */
             <div className="space-y-6">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
@@ -82,70 +113,108 @@ export default function ForgotPasswordPage() {
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                  Check your email
+                  Password reset!
                 </h2>
                 <p className="text-muted-foreground">
-                  If an account exists for <strong>{email}</strong>, we&apos;ve
-                  sent a password reset link. Please check your inbox and spam
-                  folder.
+                  Your password has been successfully reset. You can now sign in
+                  with your new password.
                 </p>
               </div>
-              <div className="space-y-3">
-                <Link
-                  href="/login"
-                  className={cn(
-                    "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
-                    "bg-primary text-primary-foreground font-medium text-sm",
-                    "hover:bg-primary/90 transition-colors",
-                  )}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to sign in
-                </Link>
-                <button
-                  onClick={() => {
-                    setIsSubmitted(false);
-                    setEmail("");
-                  }}
-                  className="flex h-11 w-full items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Didn&apos;t receive it? Try again
-                </button>
-              </div>
+              <Link
+                href="/login"
+                className={cn(
+                  "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
+                  "bg-primary text-primary-foreground font-medium text-sm",
+                  "hover:bg-primary/90 transition-colors",
+                )}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to sign in
+              </Link>
             </div>
           ) : (
             /* Form state */
             <div className="space-y-6">
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                  Forgot password?
+                  Reset your password
                 </h2>
                 <p className="text-muted-foreground">
-                  Enter your email address and we&apos;ll send you a link to
-                  reset your password.
+                  Enter your new password below. It must be at least 8
+                  characters.
                 </p>
               </div>
 
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <label
-                    htmlFor="email"
+                    htmlFor="password"
                     className="text-sm font-medium text-foreground"
                   >
-                    Email
+                    New password
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@company.com"
-                      className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
                       required
+                      minLength={8}
                       disabled={isLoading}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Confirm new password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat your new password"
+                      className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
+                      required
+                      minLength={8}
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -169,10 +238,10 @@ export default function ForgotPasswordPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending...
+                      Resetting...
                     </>
                   ) : (
-                    "Send Reset Link"
+                    "Reset Password"
                   )}
                 </button>
               </form>

@@ -78,6 +78,11 @@ export interface PipelineColumn {
   id: string;
   title: string;
   color: string;
+  /** The parent pipeline ID (from API); may be absent in mock data */
+  pipelineId?: string;
+  /** The actual stage UUID (from API); in mock data id=slug */
+  stageId?: string;
+  slug?: string;
 }
 
 export interface Deal {
@@ -85,6 +90,7 @@ export interface Deal {
   title: string;
   contact: string;
   value: number;
+  currency?: string;
   daysInStage: number;
   score: number;
   tags: string[];
