@@ -17,7 +17,6 @@ const createAgentSchema = z.object({
   vertical: z.enum([
     'rubbish_removals', 'moving_company', 'plumbing', 'hvac', 'electrical',
     'roofing', 'landscaping', 'pest_control', 'cleaning', 'general_contractor',
-    'salon_spa', 'dental', 'auto_repair', 'real_estate', 'other',
   ]),
   settings: z.record(z.unknown()).default({}),
   isActive: z.boolean().default(true),
@@ -169,7 +168,8 @@ ai.post('/ai/score-lead', async (c) => {
 
   try {
     const { contactService } = await import('../services/contact-service.js');
-    const contact = await contactService.getById(orgId, parsed.data.contactId);
+    const result = await contactService.getById(orgId, parsed.data.contactId);
+    const contact = result.contact;
 
     // Simple rule-based lead scoring (Claude API scoring can be added later)
     let score = 50; // base
@@ -181,7 +181,7 @@ ai.post('/ai/score-lead', async (c) => {
     score = Math.min(score, 100);
 
     // Update the contact's lead score
-    await contactService.update(orgId, parsed.data.contactId, { leadScore: score });
+    await contactService.update(orgId, parsed.data.contactId, { aiScore: score });
 
     return c.json({ data: { contactId: parsed.data.contactId, score, method: 'rule-based' } });
   } catch (err) {
