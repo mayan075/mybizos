@@ -15,9 +15,11 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ArrowDownRight,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useAnalytics } from "@/lib/hooks/use-analytics";
 
 type DateRange = "today" | "week" | "month" | "quarter" | "custom";
 
@@ -29,64 +31,31 @@ const dateRangeLabels: Record<DateRange, string> = {
   custom: "Custom",
 };
 
-// --- Analytics Data (zeros until real data flows in) ---
-// Analytics will populate as you use the platform.
+/** Map our UI date range to the API period param */
+const dateRangeToPeriod: Record<DateRange, string> = {
+  today: "1d",
+  week: "7d",
+  month: "30d",
+  quarter: "90d",
+  custom: "30d",
+};
 
-const kpiCards = [
-  {
-    label: "Total Revenue",
-    value: "$0",
-    change: "--",
-    changeDirection: "up" as const,
-    subtitle: "vs last month",
-    icon: DollarSign,
-    bg: "bg-emerald-500/10",
-    color: "text-emerald-500",
-    ringColor: "ring-emerald-500/20",
-  },
-  {
-    label: "New Leads",
-    value: "0",
-    change: "--",
-    changeDirection: "up" as const,
-    subtitle: "vs last month",
-    icon: Users,
-    bg: "bg-blue-500/10",
-    color: "text-blue-500",
-    ringColor: "ring-blue-500/20",
-  },
-  {
-    label: "Conversion Rate",
-    value: "0%",
-    change: "--",
-    changeDirection: "up" as const,
-    subtitle: "vs last month",
-    icon: TrendingUp,
-    bg: "bg-purple-500/10",
-    color: "text-purple-500",
-    ringColor: "ring-purple-500/20",
-  },
-  {
-    label: "Avg Response Time",
-    value: "--",
-    change: "Analytics will populate as you use the platform",
-    changeDirection: "up" as const,
-    subtitle: "AI-powered",
-    icon: Zap,
-    bg: "bg-orange-500/10",
-    color: "text-orange-500",
-    ringColor: "ring-orange-500/20",
-  },
-];
+function formatCurrencyVal(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
-const aiStats = [
-  { label: "Calls Answered", value: "0", icon: Phone },
-  { label: "Appointments Booked by AI", value: "0", icon: CalendarCheck },
-  { label: "Revenue from AI-Booked Jobs", value: "$0", icon: DollarSign },
-  { label: "Leads Qualified", value: "0", icon: UserCheck },
-  { label: "Reviews Collected", value: "0", icon: Star },
-  { label: "Hours Saved", value: "0 hrs", icon: Clock },
-];
+function formatChangePercent(change: number | undefined): string {
+  if (change === undefined || change === null) return "--";
+  const sign = change >= 0 ? "+" : "";
+  return `${sign}${change.toFixed(1)}%`;
+}
+
+// --- Static UI data that doesn't come from the analytics API ---
 
 const aiVsHuman = [
   { label: "Calls Handled", ai: 0, human: 0 },
@@ -101,14 +70,6 @@ const revenueMonths = [
   { month: "Apr", value: 0, display: "$0" },
   { month: "May", value: 0, display: "$0" },
   { month: "Jun", value: 0, display: "$0" },
-];
-
-const revenueSources = [
-  { source: "Google Ads", pct: 0, color: "bg-blue-500" },
-  { source: "Referrals", pct: 0, color: "bg-emerald-500" },
-  { source: "Website", pct: 0, color: "bg-purple-500" },
-  { source: "Phone", pct: 0, color: "bg-orange-500" },
-  { source: "Yelp", pct: 0, color: "bg-rose-500" },
 ];
 
 const funnelStages = [
@@ -138,7 +99,98 @@ export default function AnalyticsPage() {
   usePageTitle("Analytics");
   const [dateRange, setDateRange] = useState<DateRange>("month");
 
+  const period = dateRangeToPeriod[dateRange];
+  const { data: analytics, isLoading } = useAnalytics(period);
+
   const maxRevenue = Math.max(...revenueMonths.map((m) => m.value));
+
+  // Build KPI cards from live analytics data
+  const kpis = analytics?.kpis;
+
+  const kpiCards = [
+    {
+      label: "Total Revenue",
+      value: kpis ? formatCurrencyVal(kpis.revenue.value) : "$0",
+      change: kpis?.revenue.change,
+      changeDirection: (kpis?.revenue.change ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+      subtitle: "vs last period",
+      icon: DollarSign,
+      bg: "bg-emerald-500/10",
+      color: "text-emerald-500",
+      ringColor: "ring-emerald-500/20",
+    },
+    {
+      label: "New Leads",
+      value: kpis ? kpis.leads.value.toLocaleString() : "0",
+      change: kpis?.leads.change,
+      changeDirection: (kpis?.leads.change ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+      subtitle: "vs last period",
+      icon: Users,
+      bg: "bg-blue-500/10",
+      color: "text-blue-500",
+      ringColor: "ring-blue-500/20",
+    },
+    {
+      label: "Deals Won",
+      value: kpis ? kpis.dealsWon.value.toLocaleString() : "0",
+      change: kpis?.dealsWon.change,
+      changeDirection: (kpis?.dealsWon.change ?? 0) >= 0 ? ("up" as const) : ("down" as const),
+      subtitle: "vs last period",
+      icon: TrendingUp,
+      bg: "bg-purple-500/10",
+      color: "text-purple-500",
+      ringColor: "ring-purple-500/20",
+    },
+    {
+      label: "Avg Response Time",
+      value: "--",
+      change: undefined,
+      changeDirection: "up" as const,
+      subtitle: "AI-powered",
+      icon: Zap,
+      bg: "bg-orange-500/10",
+      color: "text-orange-500",
+      ringColor: "ring-orange-500/20",
+    },
+  ];
+
+  // Build AI stats from live data
+  const aiStats = [
+    { label: "Calls Answered", value: kpis ? kpis.calls.value.toLocaleString() : "0", icon: Phone },
+    { label: "Appointments Booked", value: kpis ? kpis.appointments.value.toLocaleString() : "0", icon: CalendarCheck },
+    { label: "Revenue from AI-Booked Jobs", value: "$0", icon: DollarSign },
+    { label: "Leads Qualified", value: kpis ? kpis.leads.value.toLocaleString() : "0", icon: UserCheck },
+    { label: "Reviews Collected", value: "0", icon: Star },
+    { label: "Form Submissions", value: kpis ? kpis.formSubmissions.value.toLocaleString() : "0", icon: Clock },
+  ];
+
+  // Build lead sources from live data
+  const leadSources = analytics?.leadSources ?? [];
+  const totalLeadCount = leadSources.reduce((s, ls) => s + ls.count, 0);
+  const revenueSources = leadSources.length > 0
+    ? leadSources.map((ls, i) => {
+        const colors = ["bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-orange-500", "bg-rose-500"];
+        return {
+          source: ls.source,
+          pct: totalLeadCount > 0 ? Math.round((ls.count / totalLeadCount) * 100) : 0,
+          color: colors[i % colors.length],
+        };
+      })
+    : [
+        { source: "Google Ads", pct: 0, color: "bg-blue-500" },
+        { source: "Referrals", pct: 0, color: "bg-emerald-500" },
+        { source: "Website", pct: 0, color: "bg-purple-500" },
+        { source: "Phone", pct: 0, color: "bg-orange-500" },
+        { source: "Yelp", pct: 0, color: "bg-rose-500" },
+      ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -182,14 +234,23 @@ export default function AnalyticsPage() {
               <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", card.bg)}>
                 <card.icon className={cn("h-5 w-5", card.color)} />
               </div>
-              {card.label !== "Avg Response Time" ? (
-                <div className="flex items-center gap-1 text-xs font-semibold text-emerald-500">
-                  <ArrowUpRight className="h-3 w-3" />
-                  {card.change}
+              {card.change !== undefined ? (
+                <div
+                  className={cn(
+                    "flex items-center gap-1 text-xs font-semibold",
+                    card.changeDirection === "up" ? "text-emerald-500" : "text-red-500",
+                  )}
+                >
+                  {card.changeDirection === "up" ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  {formatChangePercent(card.change)}
                 </div>
               ) : (
                 <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-semibold text-orange-500">
-                  {card.change}
+                  Analytics will populate as you use the platform
                 </span>
               )}
             </div>
@@ -272,7 +333,7 @@ export default function AnalyticsPage() {
           <div className="p-5">
             <div className="flex items-end justify-between gap-3" style={{ height: "220px" }}>
               {revenueMonths.map((month) => {
-                const heightPct = (month.value / maxRevenue) * 100;
+                const heightPct = maxRevenue > 0 ? (month.value / maxRevenue) * 100 : 0;
                 return (
                   <div key={month.month} className="flex flex-1 flex-col items-center gap-2">
                     <span className="text-xs font-semibold text-foreground">{month.display}</span>
@@ -298,7 +359,7 @@ export default function AnalyticsPage() {
         {/* Revenue by Source */}
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold text-foreground">Revenue by Source</h2>
+            <h2 className="text-sm font-semibold text-foreground">Lead Sources</h2>
           </div>
           <div className="p-5 space-y-4">
             {revenueSources.map((source) => (

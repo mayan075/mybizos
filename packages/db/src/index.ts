@@ -15,6 +15,7 @@ export * from "./schema/reviews.js";
 export * from "./schema/sequences.js";
 export * from "./schema/forms.js";
 export * from "./schema/call-history.js";
+export * from "./schema/invoices.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";

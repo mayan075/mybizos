@@ -31,6 +31,11 @@ import { assistantRoutes } from './routes/assistant.js';
 import { aiContentRoutes } from './routes/ai-content.js';
 import { billingRoutes } from './routes/billing.js';
 import { formRoutes, publicFormRoutes } from './routes/forms.js';
+import { activityRoutes } from './routes/activities.js';
+import { teamRoutes } from './routes/team.js';
+import { analyticsRoutes } from './routes/analytics.js';
+import { invoiceRoutes } from './routes/invoices.js';
+import { estimateRoutes } from './routes/estimates.js';
 import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
@@ -120,6 +125,11 @@ app.route('/orgs/:orgId/assistant', assistantRoutes);
 app.route('/orgs/:orgId/ai', aiContentRoutes);
 app.route('/orgs/:orgId/billing', billingRoutes);
 app.route('/orgs/:orgId/forms', formRoutes);
+app.route('/orgs/:orgId/activities', activityRoutes);
+app.route('/orgs/:orgId/team', teamRoutes);
+app.route('/orgs/:orgId/analytics', analyticsRoutes);
+app.route('/orgs/:orgId/invoices', invoiceRoutes);
+app.route('/orgs/:orgId/estimates', estimateRoutes);
 
 // Scheduling and forms have both authenticated and public routes
 app.route('/', schedulingRoutes);

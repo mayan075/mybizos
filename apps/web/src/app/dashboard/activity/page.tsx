@@ -12,23 +12,17 @@ import {
   Receipt,
   Bot,
   UserPlus,
-  FileText,
   Star,
-  Send,
   Wrench,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  CreditCard,
-  TrendingUp,
-  AlertTriangle,
   Filter,
   ChevronDown,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useApiQuery } from "@/lib/hooks/use-api";
 
 // ── Types ──
 
@@ -52,6 +46,132 @@ interface ActivityEntry {
   time: string;
   timeGroup: string;
   href?: string;
+}
+
+// ── API response type ──
+
+interface ApiActivity {
+  id: string;
+  orgId: string;
+  contactId: string | null;
+  type: string;
+  title: string;
+  description: string | null;
+  performedBy: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  contactName: string | null;
+}
+
+// ── Mapping helpers ──
+
+const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
+  call: "call",
+  email: "email",
+  sms: "sms",
+  deal: "deal",
+  appointment: "appointment",
+  invoice: "invoice",
+  review: "review",
+  lead: "lead",
+  system: "system",
+};
+
+const ICON_MAP: Record<ActivityType, { icon: React.ElementType; bg: string; color: string }> = {
+  call: { icon: Phone, bg: "bg-blue-500/10", color: "text-blue-600" },
+  email: { icon: Mail, bg: "bg-indigo-500/10", color: "text-indigo-600" },
+  sms: { icon: MessageSquare, bg: "bg-green-500/10", color: "text-green-600" },
+  deal: { icon: DollarSign, bg: "bg-amber-500/10", color: "text-amber-600" },
+  appointment: { icon: CalendarCheck, bg: "bg-purple-500/10", color: "text-purple-600" },
+  invoice: { icon: Receipt, bg: "bg-emerald-500/10", color: "text-emerald-600" },
+  review: { icon: Star, bg: "bg-yellow-500/10", color: "text-yellow-600" },
+  lead: { icon: UserPlus, bg: "bg-pink-500/10", color: "text-pink-600" },
+  system: { icon: Wrench, bg: "bg-gray-500/10", color: "text-gray-600" },
+};
+
+const ACTOR_COLORS = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-indigo-500",
+  "bg-pink-500",
+  "bg-teal-500",
+];
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function getActorColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ACTOR_COLORS[Math.abs(hash) % ACTOR_COLORS.length];
+}
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}
+
+function getTimeGroup(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const activityDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  if (activityDate.getTime() === today.getTime()) return "Today";
+  if (activityDate.getTime() === yesterday.getTime()) return "Yesterday";
+  const diffDays = Math.floor((today.getTime() - activityDate.getTime()) / 86400000);
+  if (diffDays < 7) return "This Week";
+  if (diffDays < 30) return "This Month";
+  return "Older";
+}
+
+function mapApiActivity(api: ApiActivity): ActivityEntry {
+  const type = ACTIVITY_TYPE_MAP[api.type] ?? "system";
+  const iconConfig = ICON_MAP[type];
+  const isAI = api.performedBy?.toLowerCase().includes("ai") ?? false;
+  const actorName = api.performedBy ?? "System";
+
+  return {
+    id: api.id,
+    type,
+    actor: {
+      name: actorName,
+      initials: isAI ? "AI" : getInitials(actorName),
+      type: isAI ? "ai" : "human",
+      color: isAI ? "bg-purple-500" : getActorColor(actorName),
+    },
+    icon: iconConfig.icon,
+    iconBg: iconConfig.bg,
+    iconColor: iconConfig.color,
+    action: api.title,
+    detail: api.description ?? (api.contactName ? `Contact: ${api.contactName}` : ""),
+    time: formatTime(api.createdAt),
+    timeGroup: getTimeGroup(api.createdAt),
+    href: api.contactId ? `/dashboard/contacts/${api.contactId}` : undefined,
+  };
 }
 
 // ── Filter Config ──
@@ -81,8 +201,14 @@ export default function ActivityPage() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
-  // Real activity data will come from the API; start with empty array
-  const activities: ActivityEntry[] = [];
+  // Fetch activities from the API
+  const { data: activitiesData, isLoading } = useApiQuery<ApiActivity[]>("/orgs/:orgId/activities", []);
+
+  // Map API data to the UI format
+  const activities: ActivityEntry[] = useMemo(() => {
+    const raw = Array.isArray(activitiesData) ? activitiesData : [];
+    return raw.map(mapApiActivity);
+  }, [activitiesData]);
 
   const filteredActivities = useMemo(() => {
     return activities.filter((a) => {
@@ -225,7 +351,11 @@ export default function ActivityPage() {
 
       {/* Activity List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredActivities.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredActivities.length === 0 ? (
           <EmptyState
             icon={Activity}
             title="No activity yet"

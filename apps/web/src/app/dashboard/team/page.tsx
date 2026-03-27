@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   UserPlus,
-  MoreHorizontal,
   X,
   Trophy,
   DollarSign,
@@ -18,9 +17,11 @@ import {
   Crown,
   Briefcase,
   Wrench,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useApiQuery } from "@/lib/hooks/use-api";
 
 type Role = "Owner" | "Manager" | "Technician" | "AI";
 
@@ -46,9 +47,21 @@ interface PerformanceStat {
   aiLabel?: string;
 }
 
-// Real team members will come from the API.
-// Only show AI agents as system-level entries; human members will be loaded from the org.
-const teamMembers: TeamMember[] = [
+// ── API response type ──
+
+interface ApiTeamMember {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  joinedAt: string;
+}
+
+// ── Static AI agents (always shown) ──
+
+const AI_AGENTS: TeamMember[] = [
   {
     id: "ai-phone",
     name: "AI Phone Agent",
@@ -72,6 +85,53 @@ const teamMembers: TeamMember[] = [
     aiInteractions: 0,
   },
 ];
+
+// ── Mapping helper ──
+
+function mapRoleToUI(role: string): Role {
+  const lower = role.toLowerCase();
+  if (lower === "owner") return "Owner";
+  if (lower === "manager" || lower === "admin") return "Manager";
+  return "Technician";
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function formatJoinedAt(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffDays < 1) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
+}
+
+function mapApiMember(api: ApiTeamMember): TeamMember {
+  return {
+    id: api.id,
+    name: api.name,
+    email: api.email,
+    role: mapRoleToUI(api.role),
+    status: api.isActive ? "active" : "inactive",
+    lastLogin: formatJoinedAt(api.joinedAt),
+    avatar: getInitials(api.name),
+    isAI: false,
+  };
+}
 
 // Real performance stats will come from the API; start empty
 const performanceStats: PerformanceStat[] = [];
@@ -161,6 +221,16 @@ export default function TeamPage() {
   );
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  // Fetch team members from the API
+  const { data: teamData, isLoading } = useApiQuery<ApiTeamMember[]>("/orgs/:orgId/team", []);
+
+  // Combine API team members with static AI agents
+  const teamMembers: TeamMember[] = useMemo(() => {
+    const raw = Array.isArray(teamData) ? teamData : [];
+    const apiMembers = raw.map(mapApiMember);
+    return [...apiMembers, ...AI_AGENTS];
+  }, [teamData]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -376,133 +446,143 @@ export default function TeamPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredMembers.map((member) => {
-                const RoleIcon = roleIcon(member.role);
-                return (
-                  <tr
-                    key={member.id}
-                    className="hover:bg-muted/20 transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <Link
-                        href={
-                          member.isAI
-                            ? "/dashboard/settings"
-                            : `/dashboard/team/${member.id}`
-                        }
-                        className="flex items-center gap-3"
-                      >
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                            avatarBgClasses(member.role),
-                          )}
-                        >
-                          {member.isAI ? (
-                            <Bot className="h-4 w-4" />
-                          ) : (
-                            member.avatar
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                            {member.name}
-                          </p>
-                          {member.isAI && member.aiInteractions && (
-                            <p className="text-xs text-muted-foreground">
-                              {member.aiInteractions.toLocaleString()}{" "}
-                              interactions
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                          roleBadgeClasses(member.role),
-                        )}
-                      >
-                        <RoleIcon className="h-3 w-3" />
-                        {member.role}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-foreground">
-                      {member.isAI ? (
-                        <span className="text-muted-foreground italic">
-                          System
-                        </span>
-                      ) : (
-                        member.email
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 text-xs font-medium",
-                          member.status === "active"
-                            ? "text-success"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "h-1.5 w-1.5 rounded-full",
-                            member.status === "active"
-                              ? "bg-success"
-                              : "bg-muted-foreground",
-                          )}
-                        />
-                        {member.status === "active" ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground">
-                      {member.lastLogin}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      {!member.isAI ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            href={`/dashboard/team/${member.id}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                          <button
-                            onClick={() =>
-                              showToast(
-                                `Remove ${member.name}? This action requires confirmation.`,
-                              )
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <Link
-                          href="/dashboard/settings"
-                          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                        >
-                          Configure
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredMembers.length === 0 && (
+              {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-12 text-center text-sm text-muted-foreground"
-                  >
-                    No team members found matching &ldquo;{search}&rdquo;
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </td>
                 </tr>
+              ) : (
+                <>
+                  {filteredMembers.map((member) => {
+                    const RoleIcon = roleIcon(member.role);
+                    return (
+                      <tr
+                        key={member.id}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="px-5 py-3">
+                          <Link
+                            href={
+                              member.isAI
+                                ? "/dashboard/settings"
+                                : `/dashboard/team/${member.id}`
+                            }
+                            className="flex items-center gap-3"
+                          >
+                            <div
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                                avatarBgClasses(member.role),
+                              )}
+                            >
+                              {member.isAI ? (
+                                <Bot className="h-4 w-4" />
+                              ) : (
+                                member.avatar
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+                                {member.name}
+                              </p>
+                              {member.isAI && member.aiInteractions && (
+                                <p className="text-xs text-muted-foreground">
+                                  {member.aiInteractions.toLocaleString()}{" "}
+                                  interactions
+                                </p>
+                              )}
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                              roleBadgeClasses(member.role),
+                            )}
+                          >
+                            <RoleIcon className="h-3 w-3" />
+                            {member.role}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-sm text-foreground">
+                          {member.isAI ? (
+                            <span className="text-muted-foreground italic">
+                              System
+                            </span>
+                          ) : (
+                            member.email
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 text-xs font-medium",
+                              member.status === "active"
+                                ? "text-success"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                member.status === "active"
+                                  ? "bg-success"
+                                  : "bg-muted-foreground",
+                              )}
+                            />
+                            {member.status === "active" ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">
+                          {member.lastLogin}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          {!member.isAI ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Link
+                                href={`/dashboard/team/${member.id}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                              <button
+                                onClick={() =>
+                                  showToast(
+                                    `Remove ${member.name}? This action requires confirmation.`,
+                                  )
+                                }
+                                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                title="Remove"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <Link
+                              href="/dashboard/settings"
+                              className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                            >
+                              Configure
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredMembers.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-5 py-12 text-center text-sm text-muted-foreground"
+                      >
+                        No team members found matching &ldquo;{search}&rdquo;
+                      </td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>

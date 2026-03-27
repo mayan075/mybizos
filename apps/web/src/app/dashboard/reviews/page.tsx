@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   Star,
   MessageSquare,
   TrendingUp,
   TrendingDown,
-  Send,
   Sparkles,
-  Filter,
-  ChevronDown,
   ExternalLink,
   Smartphone,
   Mail,
@@ -18,40 +15,25 @@ import {
   Plus,
   X,
   Check,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import {
+  useReviews,
+  useReviewStats,
+  useReviewCampaigns,
+  type Review as ApiReview,
+  type ReviewCampaign as ApiReviewCampaign,
+} from "@/lib/hooks/use-reviews";
+import { buildPath } from "@/lib/hooks/use-api";
+import { apiClient, tryFetch } from "@/lib/api-client";
 
 // ── Types ──
 
-interface Review {
-  id: string;
-  platform: "google" | "facebook" | "yelp" | "internal";
-  rating: number;
-  reviewText: string | null;
-  reviewerName: string;
-  aiResponse: string | null;
-  responsePosted: boolean;
-  reviewUrl: string | null;
-  sentiment: "positive" | "neutral" | "negative";
-  createdAt: Date;
-}
-
-interface ReviewCampaign {
-  id: string;
-  name: string;
-  triggerType: "after_appointment" | "after_deal_won" | "manual";
-  delayHours: number;
-  channel: "sms" | "email" | "both";
-  isActive: boolean;
-  sentCount: number;
-  reviewCount: number;
-}
-
-// Real reviews will come from the API; start with empty arrays
-const MOCK_REVIEWS: Review[] = [];
-
-const MOCK_CAMPAIGNS: ReviewCampaign[] = [];
+// Use the API types directly; createdAt comes as string from the API
+type Review = ApiReview;
+type ReviewCampaign = ApiReviewCampaign;
 
 // ── Helper Components ──
 
@@ -147,90 +129,114 @@ export default function ReviewsPage() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
 
-  // Compute stats
+  // API hooks
+  const { data: reviewsData, isLoading: reviewsLoading } = useReviews();
+  const { data: statsData } = useReviewStats();
+  const { data: campaignsData, isLoading: campaignsLoading } = useReviewCampaigns();
+
+  const reviews: Review[] = Array.isArray(reviewsData) ? reviewsData : [];
+  const campaigns: ReviewCampaign[] = Array.isArray(campaignsData) ? campaignsData : [];
+
+  // Compute stats — prefer API stats endpoint, fall back to computing from reviews list
   const stats = useMemo(() => {
-    const total = MOCK_REVIEWS.length;
-    const avgRating =
-      total > 0
-        ? MOCK_REVIEWS.reduce((sum, r) => sum + r.rating, 0) / total
-        : 0;
-    const responded = MOCK_REVIEWS.filter((r) => r.responsePosted).length;
+    const total = statsData?.totalReviews ?? reviews.length;
+    const avgRating = statsData?.averageRating ?? (reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0);
+    const responded = reviews.filter((r) => r.responsePosted).length;
     const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
 
-    const distribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    for (const r of MOCK_REVIEWS) {
-      distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
+    const distribution: Record<number, number> = statsData?.ratingDistribution
+      ? { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, ...statsData.ratingDistribution }
+      : { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    if (!statsData?.ratingDistribution) {
+      for (const r of reviews) {
+        distribution[r.rating] = (distribution[r.rating] ?? 0) + 1;
+      }
     }
 
     const now = new Date();
-    const thisMonth = MOCK_REVIEWS.filter(
-      (r) =>
-        r.createdAt.getMonth() === now.getMonth() &&
-        r.createdAt.getFullYear() === now.getFullYear(),
-    ).length;
+    const thisMonth = reviews.filter((r) => {
+      const d = new Date(r.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
 
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonth = MOCK_REVIEWS.filter(
-      (r) =>
-        r.createdAt.getMonth() === lastMonthDate.getMonth() &&
-        r.createdAt.getFullYear() === lastMonthDate.getFullYear(),
-    ).length;
+    const lastMonth = reviews.filter((r) => {
+      const d = new Date(r.createdAt);
+      return d.getMonth() === lastMonthDate.getMonth() && d.getFullYear() === lastMonthDate.getFullYear();
+    }).length;
 
     return { total, avgRating, responseRate, distribution, thisMonth, lastMonth };
-  }, []);
+  }, [reviews, statsData]);
 
   // Filter reviews
   const filteredReviews = useMemo(() => {
     switch (activeTab) {
       case "needs_response":
-        return MOCK_REVIEWS.filter((r) => !r.responsePosted);
+        return reviews.filter((r) => !r.responsePosted);
       case "positive":
-        return MOCK_REVIEWS.filter((r) => r.rating >= 4);
+        return reviews.filter((r) => r.rating >= 4);
       case "negative":
-        return MOCK_REVIEWS.filter((r) => r.rating <= 3);
+        return reviews.filter((r) => r.rating <= 3);
       default:
-        return MOCK_REVIEWS;
+        return reviews;
     }
-  }, [activeTab]);
+  }, [activeTab, reviews]);
 
-  const handleGenerateResponse = (reviewId: string) => {
+  // AI response generation via API (can't use hook inside callback, so call apiClient directly)
+  const handleGenerateResponse = useCallback(async (reviewId: string) => {
     setGeneratingId(reviewId);
-    const review = MOCK_REVIEWS.find((r) => r.id === reviewId);
-    if (!review) return;
-
-    // Simulate AI generation delay
-    setTimeout(() => {
-      let response: string;
-      if (review.rating >= 4) {
-        response = `Thank you so much for the wonderful ${review.rating}-star review, ${review.reviewerName}! We're thrilled to hear about your positive experience. Your feedback means the world to our team. We look forward to serving you again!`;
-      } else if (review.rating === 3) {
-        response = `Thank you for your feedback, ${review.reviewerName}. We appreciate you taking the time to share your experience. We're always looking to improve and would love to hear more about how we can better serve you. Please don't hesitate to reach out to us directly.`;
-      } else {
-        response = `${review.reviewerName}, thank you for bringing this to our attention. We sincerely apologize for the experience you had. This is not the level of service we strive for. Please contact us directly so we can make this right. Your satisfaction is our top priority.`;
+    try {
+      const path = buildPath(`/orgs/:orgId/reviews/${reviewId}/generate-response`);
+      const result = await tryFetch(() =>
+        apiClient.post<{ response: string }>(path, {}),
+      );
+      if (result?.response) {
+        setAiDraft((prev) => ({ ...prev, [reviewId]: result.response }));
       }
-      setAiDraft((prev) => ({ ...prev, [reviewId]: response }));
-      setGeneratingId(null);
-    }, 1500);
-  };
+    } catch {
+      // Fallback: generate a client-side response if API fails
+      const review = reviews.find((r) => r.id === reviewId);
+      if (review) {
+        let response: string;
+        if (review.rating >= 4) {
+          response = `Thank you so much for the wonderful ${review.rating}-star review, ${review.reviewerName}! We're thrilled to hear about your positive experience. Your feedback means the world to our team. We look forward to serving you again!`;
+        } else if (review.rating === 3) {
+          response = `Thank you for your feedback, ${review.reviewerName}. We appreciate you taking the time to share your experience. We're always looking to improve and would love to hear more about how we can better serve you. Please don't hesitate to reach out to us directly.`;
+        } else {
+          response = `${review.reviewerName}, thank you for bringing this to our attention. We sincerely apologize for the experience you had. This is not the level of service we strive for. Please contact us directly so we can make this right. Your satisfaction is our top priority.`;
+        }
+        setAiDraft((prev) => ({ ...prev, [reviewId]: response }));
+      }
+    }
+    setGeneratingId(null);
+  }, [reviews]);
 
   const tabs: { key: FilterTab; label: string; count: number }[] = [
-    { key: "all", label: "All", count: MOCK_REVIEWS.length },
+    { key: "all", label: "All", count: reviews.length },
     {
       key: "needs_response",
       label: "Needs Response",
-      count: MOCK_REVIEWS.filter((r) => !r.responsePosted).length,
+      count: reviews.filter((r) => !r.responsePosted).length,
     },
     {
       key: "positive",
       label: "Positive (4-5\u2605)",
-      count: MOCK_REVIEWS.filter((r) => r.rating >= 4).length,
+      count: reviews.filter((r) => r.rating >= 4).length,
     },
     {
       key: "negative",
       label: "Negative (1-3\u2605)",
-      count: MOCK_REVIEWS.filter((r) => r.rating <= 3).length,
+      count: reviews.filter((r) => r.rating <= 3).length,
     },
   ];
+
+  if (reviewsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -565,75 +571,85 @@ export default function ReviewsPage() {
 
         {/* Campaign Cards */}
         <div className="grid gap-4 p-5 sm:grid-cols-2">
-          {MOCK_CAMPAIGNS.map((campaign) => (
-            <div
-              key={campaign.id}
-              className="rounded-xl border border-border bg-background p-4"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {campaign.name}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {campaign.triggerType === "after_appointment"
-                      ? "Triggers after appointment"
-                      : campaign.triggerType === "after_deal_won"
-                        ? "Triggers after deal won"
-                        : "Manual trigger"}
-                    {" \u00b7 "}
-                    {campaign.delayHours}h delay
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    campaign.isActive
-                      ? "bg-success/10 text-success"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {campaign.isActive ? "Active" : "Paused"}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-center gap-4">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  {campaign.channel === "sms" ? (
-                    <Smartphone className="h-3.5 w-3.5" />
-                  ) : campaign.channel === "email" ? (
-                    <Mail className="h-3.5 w-3.5" />
-                  ) : (
-                    <Zap className="h-3.5 w-3.5" />
-                  )}
-                  <span className="capitalize">{campaign.channel}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {campaign.sentCount}
-                  </span>{" "}
-                  sent
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {campaign.reviewCount}
-                  </span>{" "}
-                  reviews
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="font-medium text-success">
-                    {campaign.sentCount > 0
-                      ? Math.round(
-                          (campaign.reviewCount / campaign.sentCount) * 100,
-                        )
-                      : 0}
-                    %
-                  </span>{" "}
-                  conversion
-                </div>
-              </div>
+          {campaignsLoading ? (
+            <div className="col-span-2 flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ))}
+          ) : campaigns.length === 0 ? (
+            <div className="col-span-2 py-8 text-center text-sm text-muted-foreground">
+              No campaigns yet. Create one to start collecting reviews automatically.
+            </div>
+          ) : (
+            campaigns.map((campaign) => (
+              <div
+                key={campaign.id}
+                className="rounded-xl border border-border bg-background p-4"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {campaign.name}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {campaign.triggerType === "after_appointment"
+                        ? "Triggers after appointment"
+                        : campaign.triggerType === "after_deal_won"
+                          ? "Triggers after deal won"
+                          : "Manual trigger"}
+                      {" \u00b7 "}
+                      {campaign.delayHours}h delay
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+                      campaign.isActive
+                        ? "bg-success/10 text-success"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {campaign.isActive ? "Active" : "Paused"}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {campaign.channel === "sms" ? (
+                      <Smartphone className="h-3.5 w-3.5" />
+                    ) : campaign.channel === "email" ? (
+                      <Mail className="h-3.5 w-3.5" />
+                    ) : (
+                      <Zap className="h-3.5 w-3.5" />
+                    )}
+                    <span className="capitalize">{campaign.channel}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {campaign.sentCount}
+                    </span>{" "}
+                    sent
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {campaign.reviewCount}
+                    </span>{" "}
+                    reviews
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium text-success">
+                      {campaign.sentCount > 0
+                        ? Math.round(
+                            (campaign.reviewCount / campaign.sentCount) * 100,
+                          )
+                        : 0}
+                      %
+                    </span>{" "}
+                    conversion
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -642,9 +658,10 @@ export default function ReviewsPage() {
 
 // ── Date formatting ──
 
-function formatRelative(date: Date): string {
+function formatRelative(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  const diffMs = now.getTime() - d.getTime();
   const diffDays = Math.floor(diffMs / 86400000);
 
   if (diffDays === 0) return "Today";
@@ -653,5 +670,5 @@ function formatRelative(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-  }).format(date);
+  }).format(d);
 }

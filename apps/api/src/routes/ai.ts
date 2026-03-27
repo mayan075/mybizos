@@ -12,49 +12,22 @@ ai.use('*', authMiddleware, orgScopeMiddleware);
 
 const createAgentSchema = z.object({
   name: z.string().min(1, 'Agent name is required'),
-  type: z.enum(['phone', 'sms', 'email']),
-  greeting: z.string().min(1, 'Greeting message is required'),
-  businessContext: z.string().min(1, 'Business context is required'),
-  escalationRules: z.object({
-    maxMisunderstandings: z.number().int().positive().default(2),
-    emergencyKeywords: z.array(z.string()).default(['flooding', 'gas leak', 'fire', 'emergency']),
-    escalationPhone: z.string().optional(),
-    escalationEmail: z.string().email().optional(),
-  }),
-  priceRanges: z
-    .array(
-      z.object({
-        service: z.string(),
-        minPrice: z.number().nonnegative(),
-        maxPrice: z.number().nonnegative(),
-      }),
-    )
-    .default([]),
-  enabled: z.boolean().default(true),
+  type: z.enum(['phone', 'sms', 'chat', 'review']),
+  systemPrompt: z.string().min(1, 'System prompt is required'),
+  vertical: z.enum([
+    'rubbish_removals', 'moving_company', 'plumbing', 'hvac', 'electrical',
+    'roofing', 'landscaping', 'pest_control', 'cleaning', 'general_contractor',
+    'salon_spa', 'dental', 'auto_repair', 'real_estate', 'other',
+  ]),
+  settings: z.record(z.unknown()).default({}),
+  isActive: z.boolean().default(true),
 });
 
 const updateAgentSchema = z.object({
   name: z.string().min(1).optional(),
-  greeting: z.string().min(1).optional(),
-  businessContext: z.string().min(1).optional(),
-  escalationRules: z
-    .object({
-      maxMisunderstandings: z.number().int().positive().optional(),
-      emergencyKeywords: z.array(z.string()).optional(),
-      escalationPhone: z.string().optional(),
-      escalationEmail: z.string().email().optional(),
-    })
-    .optional(),
-  priceRanges: z
-    .array(
-      z.object({
-        service: z.string(),
-        minPrice: z.number().nonnegative(),
-        maxPrice: z.number().nonnegative(),
-      }),
-    )
-    .optional(),
-  enabled: z.boolean().optional(),
+  systemPrompt: z.string().min(1).optional(),
+  settings: z.record(z.unknown()).optional(),
+  isActive: z.boolean().optional(),
 });
 
 const scoreLeadSchema = z.object({
@@ -69,41 +42,66 @@ const scoreLeadSchema = z.object({
 ai.get('/ai-agents', async (c) => {
   const orgId = c.get('orgId');
   try {
-    const { db } = await import('@mybizos/db');
-    // TODO: implement real DB query for ai_agents table with orgId scope
-    throw new Error('AI agents database table not yet implemented');
+    const { aiService } = await import('../services/ai-service.js');
+    const agents = await aiService.listAgents(orgId);
+    return c.json({ data: agents });
   } catch (err) {
-    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('Failed to list AI agents', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
 /**
- * POST /orgs/:orgId/ai-agents — create/configure a new AI agent
+ * GET /orgs/:orgId/ai-agents/:id — get single AI agent
+ */
+ai.get('/ai-agents/:id', async (c) => {
+  const orgId = c.get('orgId');
+  const agentId = c.req.param('id');
+  try {
+    const { aiService } = await import('../services/ai-service.js');
+    const agent = await aiService.getAgentById(orgId, agentId);
+    return c.json({ data: agent });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to get AI agent', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+});
+
+/**
+ * POST /orgs/:orgId/ai-agents — create a new AI agent
  */
 ai.post('/ai-agents', async (c) => {
   const orgId = c.get('orgId');
   const body = await c.req.json();
-  const parsed = createAgentSchema.parse(body);
+  const parsed = createAgentSchema.safeParse(body);
 
-  // Validate AI compliance: greeting must include disclosure
-  if (parsed.type === 'phone' && !parsed.greeting.toLowerCase().includes('ai assistant')) {
-    return c.json(
-      {
-        error: 'Phone agent greeting must include AI disclosure (e.g., "AI assistant")',
-        code: 'VALIDATION_ERROR',
-        status: 400,
-      },
-      400,
-    );
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((issue) => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: errors }, 422);
+  }
+
+  // AI compliance: phone agent greeting must include AI disclosure
+  if (parsed.data.type === 'phone' && !parsed.data.systemPrompt.toLowerCase().includes('ai assistant')) {
+    return c.json({
+      error: 'Phone agent system prompt must include AI disclosure (e.g., "AI assistant")',
+      code: 'VALIDATION_ERROR',
+      status: 400,
+    }, 400);
   }
 
   try {
-    const { db } = await import('@mybizos/db');
-    // TODO: implement real DB insert for ai_agents table with orgId scope
-    throw new Error('AI agents database table not yet implemented');
+    const { aiService } = await import('../services/ai-service.js');
+    const agent = await aiService.createAgent(orgId, parsed.data);
+    logger.info('AI Agent created', { orgId, agentId: agent.id, type: parsed.data.type });
+    return c.json({ data: agent }, 201);
   } catch (err) {
-    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    logger.error('Failed to create AI agent', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
@@ -115,14 +113,44 @@ ai.patch('/ai-agents/:id', async (c) => {
   const orgId = c.get('orgId');
   const agentId = c.req.param('id');
   const body = await c.req.json();
-  const parsed = updateAgentSchema.parse(body);
+  const parsed = updateAgentSchema.safeParse(body);
+
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((issue) => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: errors }, 422);
+  }
 
   try {
-    const { db } = await import('@mybizos/db');
-    // TODO: implement real DB update for ai_agents table with orgId scope
-    throw new Error('AI agents database table not yet implemented');
+    const { aiService } = await import('../services/ai-service.js');
+    const agent = await aiService.updateAgent(orgId, agentId, parsed.data);
+    return c.json({ data: agent });
   } catch (err) {
-    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to update AI agent', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+});
+
+/**
+ * DELETE /orgs/:orgId/ai-agents/:id — delete an AI agent
+ */
+ai.delete('/ai-agents/:id', async (c) => {
+  const orgId = c.get('orgId');
+  const agentId = c.req.param('id');
+  try {
+    const { aiService } = await import('../services/ai-service.js');
+    await aiService.deleteAgent(orgId, agentId);
+    return c.json({ data: { message: 'Agent deleted' } });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to delete AI agent', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
@@ -133,14 +161,34 @@ ai.patch('/ai-agents/:id', async (c) => {
 ai.post('/ai/score-lead', async (c) => {
   const orgId = c.get('orgId');
   const body = await c.req.json();
-  const parsed = scoreLeadSchema.parse(body);
+  const parsed = scoreLeadSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ error: 'Contact ID is required', code: 'VALIDATION_ERROR', status: 422 }, 422);
+  }
 
   try {
-    const { db } = await import('@mybizos/db');
-    // TODO: implement real lead scoring via Claude API with orgId-scoped contact data
-    throw new Error('Lead scoring service not yet implemented');
+    const { contactService } = await import('../services/contact-service.js');
+    const contact = await contactService.getById(orgId, parsed.data.contactId);
+
+    // Simple rule-based lead scoring (Claude API scoring can be added later)
+    let score = 50; // base
+    if (contact.email) score += 10;
+    if (contact.phone) score += 10;
+    if (contact.source === 'referral') score += 15;
+    if (contact.source === 'phone') score += 10;
+    if (contact.tags && contact.tags.length > 0) score += 5;
+    score = Math.min(score, 100);
+
+    // Update the contact's lead score
+    await contactService.update(orgId, parsed.data.contactId, { leadScore: score });
+
+    return c.json({ data: { contactId: parsed.data.contactId, score, method: 'rule-based' } });
   } catch (err) {
-    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to score lead', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });

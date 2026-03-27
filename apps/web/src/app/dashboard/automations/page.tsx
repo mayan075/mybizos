@@ -18,13 +18,16 @@ import {
   AlertTriangle,
   ChevronRight,
   Activity,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useSequences, type Sequence } from "@/lib/hooks/use-sequences";
 
 // ── Types ──
 
-interface AutomationTemplate {
+/** Shape used by the UI cards — derived from Sequence API data */
+interface AutomationView {
   id: string;
   name: string;
   description: string;
@@ -38,20 +41,73 @@ interface AutomationTemplate {
   steps: string[];
 }
 
-// Real automations will come from the API; start with empty array
-const mockAutomations: AutomationTemplate[] = [];
-
 // ── Helpers ──
 
 type TabFilter = "all" | "active" | "inactive";
 
-const categoryColors: Record<AutomationTemplate["category"], string> = {
+const categoryColors: Record<AutomationView["category"], string> = {
   lead: "bg-emerald-500/10 text-emerald-600",
   "follow-up": "bg-purple-500/10 text-purple-600",
   review: "bg-amber-500/10 text-amber-600",
   outreach: "bg-pink-500/10 text-pink-600",
   alert: "bg-red-500/10 text-red-600",
 };
+
+const triggerTypeLabels: Record<string, string> = {
+  manual: "Triggered manually",
+  tag_added: "When a tag is added",
+  deal_stage_changed: "When deal stage changes",
+  form_submitted: "When a form is submitted",
+  appointment_completed: "When an appointment completes",
+  contact_created: "When a new contact is created",
+};
+
+const stepTypeLabels: Record<string, string> = {
+  send_email: "Send Email",
+  send_sms: "Send SMS",
+  wait: "Wait",
+  add_tag: "Add Tag",
+  remove_tag: "Remove Tag",
+  ai_decision: "AI Decision",
+};
+
+/** Infer a UI category from the sequence trigger type */
+function inferCategory(seq: Sequence): AutomationView["category"] {
+  if (seq.triggerType === "contact_created" || seq.triggerType === "form_submitted") return "lead";
+  if (seq.triggerType === "deal_stage_changed") return "follow-up";
+  if (seq.triggerType === "appointment_completed") return "review";
+  if (seq.triggerType === "tag_added") return "outreach";
+  return "lead";
+}
+
+/** Infer an icon from the category */
+function inferIcon(category: AutomationView["category"]): React.ElementType {
+  switch (category) {
+    case "lead": return UserPlus;
+    case "follow-up": return Mail;
+    case "review": return Star;
+    case "outreach": return MessageSquare;
+    case "alert": return AlertTriangle;
+  }
+}
+
+/** Convert a Sequence from the API into our UI view model */
+function toAutomationView(seq: Sequence): AutomationView {
+  const category = inferCategory(seq);
+  return {
+    id: seq.id,
+    name: seq.name,
+    description: seq.description ?? "",
+    triggerDescription: triggerTypeLabels[seq.triggerType] ?? seq.triggerType,
+    stepCount: seq.steps.length,
+    active: seq.isActive,
+    runCount: seq.enrolledCount,
+    lastRun: seq.updatedAt,
+    category,
+    icon: inferIcon(category),
+    steps: seq.steps.map((s) => stepTypeLabels[s.type] ?? s.type),
+  };
+}
 
 function formatRelativeDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -77,10 +133,30 @@ export default function AutomationsPage() {
   usePageTitle("Automations");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
-  const [automations, setAutomations] = useState(mockAutomations);
+
+  const { data: sequencesData, isLoading } = useSequences();
+  const sequences = Array.isArray(sequencesData) ? sequencesData : [];
+
+  const automations = useMemo(
+    () => sequences.map(toAutomationView),
+    [sequences],
+  );
+
+  // Local toggle state for optimistic UI (real toggle would call activate/deactivate mutation)
+  const [toggleOverrides, setToggleOverrides] = useState<Record<string, boolean>>({});
+
+  const automationsWithOverrides = useMemo(
+    () =>
+      automations.map((a) =>
+        toggleOverrides[a.id] !== undefined
+          ? { ...a, active: toggleOverrides[a.id] }
+          : a,
+      ),
+    [automations, toggleOverrides],
+  );
 
   const filtered = useMemo(() => {
-    let result = automations;
+    let result = automationsWithOverrides;
 
     if (activeTab === "active") {
       result = result.filter((a) => a.active);
@@ -99,15 +175,15 @@ export default function AutomationsPage() {
     }
 
     return result;
-  }, [search, activeTab, automations]);
+  }, [search, activeTab, automationsWithOverrides]);
 
   const tabCounts = useMemo(() => {
     return {
-      all: automations.length,
-      active: automations.filter((a) => a.active).length,
-      inactive: automations.filter((a) => !a.active).length,
+      all: automationsWithOverrides.length,
+      active: automationsWithOverrides.filter((a) => a.active).length,
+      inactive: automationsWithOverrides.filter((a) => !a.active).length,
     };
-  }, [automations]);
+  }, [automationsWithOverrides]);
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: tabCounts.all },
@@ -118,8 +194,17 @@ export default function AutomationsPage() {
   function handleToggle(id: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    setAutomations((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, active: !a.active } : a)),
+    setToggleOverrides((prev) => {
+      const current = prev[id] ?? automations.find((a) => a.id === id)?.active ?? false;
+      return { ...prev, [id]: !current };
+    });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
@@ -154,9 +239,9 @@ export default function AutomationsPage() {
               <Activity className="h-4.5 w-4.5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Runs</p>
+              <p className="text-xs text-muted-foreground">Total Enrolled</p>
               <p className="text-lg font-bold text-foreground">
-                {automations
+                {automationsWithOverrides
                   .reduce((sum, a) => sum + a.runCount, 0)
                   .toLocaleString()}
               </p>
@@ -186,9 +271,9 @@ export default function AutomationsPage() {
             <div>
               <p className="text-xs text-muted-foreground">Last Triggered</p>
               <p className="text-lg font-bold text-foreground">
-                {automations.some((a) => a.lastRun)
+                {automationsWithOverrides.some((a) => a.lastRun)
                   ? formatRelativeDate(
-                      automations
+                      automationsWithOverrides
                         .filter((a) => a.lastRun)
                         .sort(
                           (a, b) =>
@@ -340,7 +425,7 @@ export default function AutomationsPage() {
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground">Runs</p>
+                          <p className="text-xs text-muted-foreground">Enrolled</p>
                           <p className="text-sm font-semibold text-foreground mt-0.5">
                             {automation.runCount.toLocaleString()}
                           </p>

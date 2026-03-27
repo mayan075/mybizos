@@ -17,40 +17,22 @@ import {
   RotateCcw,
   CalendarCheck,
   UserPlus,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useSequences, type Sequence, type SequenceStep } from "@/lib/hooks/use-sequences";
 
 // ── Types ──
 
-type TriggerType = "contact_created" | "deal_stage_changed" | "appointment_completed" | "manual";
+type TriggerType = Sequence["triggerType"];
 
-type StepType = "send_email" | "send_sms" | "wait" | "add_tag" | "ai_decision";
-
-interface SequenceStep {
-  id: string;
-  type: StepType;
-  label: string;
-  config: string;
-}
-
-interface MockSequence {
-  id: string;
-  name: string;
-  description: string;
-  trigger: TriggerType;
-  triggerDetail: string | null;
-  steps: SequenceStep[];
-  enrolledCount: number;
-  active: boolean;
-}
-
-// Real sequences will come from the API; start with empty array
-const mockSequences: MockSequence[] = [];
+type StepType = SequenceStep["type"];
 
 // ── Helpers ──
 
-const triggerConfig: Record<TriggerType, { label: string; icon: React.ElementType; className: string }> = {
+const triggerConfigMap: Record<TriggerType, { label: string; icon: React.ElementType; className: string }> = {
   contact_created: {
     label: "Contact Created",
     icon: UserPlus,
@@ -71,6 +53,16 @@ const triggerConfig: Record<TriggerType, { label: string; icon: React.ElementTyp
     icon: RotateCcw,
     className: "bg-muted text-muted-foreground",
   },
+  tag_added: {
+    label: "Tag Added",
+    icon: Tag,
+    className: "bg-accent text-accent-foreground",
+  },
+  form_submitted: {
+    label: "Form Submitted",
+    icon: FileText,
+    className: "bg-warning/10 text-warning",
+  },
 };
 
 const stepTypeConfig: Record<StepType, { label: string; icon: React.ElementType; className: string }> = {
@@ -78,11 +70,12 @@ const stepTypeConfig: Record<StepType, { label: string; icon: React.ElementType;
   send_sms: { label: "Send SMS", icon: MessageSquare, className: "bg-success/10 text-success" },
   wait: { label: "Wait", icon: Clock, className: "bg-warning/10 text-warning" },
   add_tag: { label: "Add Tag", icon: Tag, className: "bg-accent text-accent-foreground" },
+  remove_tag: { label: "Remove Tag", icon: Tag, className: "bg-destructive/10 text-destructive" },
   ai_decision: { label: "AI Decision", icon: Brain, className: "bg-info/10 text-info" },
 };
 
-function TriggerBadge({ trigger, detail }: { trigger: TriggerType; detail: string | null }) {
-  const cfg = triggerConfig[trigger];
+function TriggerBadge({ trigger }: { trigger: TriggerType }) {
+  const cfg = triggerConfigMap[trigger];
   const Icon = cfg.icon;
   return (
     <span
@@ -93,7 +86,6 @@ function TriggerBadge({ trigger, detail }: { trigger: TriggerType; detail: strin
     >
       <Icon className="h-3 w-3" />
       {cfg.label}
-      {detail && <span className="opacity-70">&middot; {detail}</span>}
     </span>
   );
 }
@@ -117,15 +109,14 @@ function StepIcon({ type }: { type: StepType }) {
 
 export default function SequencesPage() {
   usePageTitle("Sequences");
-  const [sequences, setSequences] = useState(mockSequences);
+  const { data: sequencesData, isLoading } = useSequences();
+  const sequences = Array.isArray(sequencesData) ? sequencesData : [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function toggleActive(id: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    setSequences((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s)),
-    );
+    // TODO: wire to useActivateSequence / useDeactivateSequence mutations
   }
 
   function toggleExpanded(id: string) {
@@ -155,8 +146,15 @@ export default function SequencesPage() {
         </Link>
       </div>
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
       {/* Sequence cards */}
-      <div className="grid gap-4">
+      {!isLoading && <div className="grid gap-4">
         {sequences.map((sequence) => {
           const isExpanded = expandedId === sequence.id;
 
@@ -193,11 +191,13 @@ export default function SequencesPage() {
                     <h3 className="text-sm font-semibold text-foreground truncate">
                       {sequence.name}
                     </h3>
-                    <TriggerBadge trigger={sequence.trigger} detail={sequence.triggerDetail} />
+                    <TriggerBadge trigger={sequence.triggerType} />
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {sequence.description}
-                  </p>
+                  {sequence.description && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {sequence.description}
+                    </p>
+                  )}
                   <div className="flex items-center gap-4 mt-3">
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <GitBranch className="h-3 w-3" />
@@ -216,24 +216,24 @@ export default function SequencesPage() {
                     onClick={(e) => toggleActive(sequence.id, e)}
                     className={cn(
                       "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                      sequence.active ? "bg-primary" : "bg-muted",
+                      sequence.isActive ? "bg-primary" : "bg-muted",
                     )}
                     role="switch"
-                    aria-checked={sequence.active}
-                    aria-label={`${sequence.active ? "Deactivate" : "Activate"} ${sequence.name}`}
+                    aria-checked={sequence.isActive}
+                    aria-label={`${sequence.isActive ? "Deactivate" : "Activate"} ${sequence.name}`}
                   >
                     <span
                       className={cn(
                         "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                        sequence.active ? "translate-x-5" : "translate-x-0",
+                        sequence.isActive ? "translate-x-5" : "translate-x-0",
                       )}
                     />
                   </button>
                   <span className={cn(
                     "text-xs font-medium",
-                    sequence.active ? "text-success" : "text-muted-foreground",
+                    sequence.isActive ? "text-success" : "text-muted-foreground",
                   )}>
-                    {sequence.active ? "Active" : "Inactive"}
+                    {sequence.isActive ? "Active" : "Inactive"}
                   </span>
                   <Link
                     href={`/dashboard/sequences/${sequence.id}`}
@@ -253,7 +253,7 @@ export default function SequencesPage() {
                   </p>
                   <div className="space-y-0">
                     {sequence.steps.map((step, index) => (
-                      <div key={step.id} className="flex items-start gap-3">
+                      <div key={index} className="flex items-start gap-3">
                         {/* Timeline line */}
                         <div className="flex flex-col items-center">
                           <StepIcon type={step.type} />
@@ -265,11 +265,13 @@ export default function SequencesPage() {
                         {/* Step content */}
                         <div className="pb-4 min-w-0">
                           <p className="text-sm font-medium text-foreground">
-                            {step.label}
+                            {stepTypeConfig[step.type]?.label ?? step.type}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {step.config}
-                          </p>
+                          {step.config && Object.keys(step.config).length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {Object.values(step.config).filter(v => typeof v === "string").join(" — ") || JSON.stringify(step.config)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -298,7 +300,7 @@ export default function SequencesPage() {
             </Link>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

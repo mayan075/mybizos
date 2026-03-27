@@ -14,33 +14,20 @@ import {
   ArrowUpRight,
   ArrowRightLeft,
   XCircle,
+  Loader2,
+  Eye,
+  ThumbsDown,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-
-// ── Types ──
-
-interface MockEstimate {
-  id: string;
-  number: string;
-  customerName: string;
-  customerEmail: string;
-  service: string;
-  amount: number;
-  status: "draft" | "sent" | "approved" | "expired";
-  issueDate: string;
-  validUntil: string;
-}
-
-// Real estimates will come from the API; start with empty array
-const mockEstimates: MockEstimate[] = [];
+import { useEstimates, type Estimate } from "@/lib/hooks/use-estimates";
 
 // ── Helpers ──
 
-type TabFilter = "all" | "draft" | "sent" | "approved" | "expired";
+type TabFilter = "all" | "draft" | "sent" | "accepted" | "expired";
 
 const statusConfig: Record<
-  MockEstimate["status"],
+  string,
   { label: string; icon: React.ElementType; className: string }
 > = {
   draft: {
@@ -53,10 +40,20 @@ const statusConfig: Record<
     icon: Send,
     className: "bg-info/10 text-info",
   },
-  approved: {
-    label: "Approved",
+  viewed: {
+    label: "Viewed",
+    icon: Eye,
+    className: "bg-info/10 text-info",
+  },
+  accepted: {
+    label: "Accepted",
     icon: CheckCircle2,
     className: "bg-success/10 text-success",
+  },
+  declined: {
+    label: "Declined",
+    icon: ThumbsDown,
+    className: "bg-destructive/10 text-destructive",
   },
   expired: {
     label: "Expired",
@@ -65,8 +62,17 @@ const statusConfig: Record<
   },
 };
 
-function StatusBadge({ status }: { status: MockEstimate["status"] }) {
-  const cfg = statusConfig[status];
+/** Map API status to tab filter buckets */
+function toTabBucket(status: Estimate["status"]): TabFilter | null {
+  if (status === "draft") return "draft";
+  if (status === "sent" || status === "viewed") return "sent";
+  if (status === "accepted") return "accepted";
+  if (status === "expired" || status === "declined") return "expired";
+  return null;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = statusConfig[status] ?? statusConfig.draft;
   const Icon = cfg.icon;
   return (
     <span
@@ -97,57 +103,68 @@ export default function EstimatesPage() {
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [toast, setToast] = useState<string | null>(null);
 
+  const { data: estimatesData, isLoading } = useEstimates();
+  const estimates = Array.isArray(estimatesData) ? estimatesData : [];
+
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
 
   const filtered = useMemo(() => {
-    let result = mockEstimates;
+    let result = estimates;
 
     if (activeTab !== "all") {
-      result = result.filter((est) => est.status === activeTab);
+      result = result.filter((est) => toTabBucket(est.status) === activeTab);
     }
 
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (est) =>
-          est.customerName.toLowerCase().includes(q) ||
-          est.number.toLowerCase().includes(q) ||
-          est.service.toLowerCase().includes(q),
+          (est.contactName ?? "").toLowerCase().includes(q) ||
+          est.estimateNumber.toLowerCase().includes(q) ||
+          est.lineItems.some((li) => li.description.toLowerCase().includes(q)),
       );
     }
 
     return result;
-  }, [search, activeTab]);
+  }, [search, activeTab, estimates]);
 
   const tabCounts = useMemo(() => {
     return {
-      all: mockEstimates.length,
-      draft: mockEstimates.filter((e) => e.status === "draft").length,
-      sent: mockEstimates.filter((e) => e.status === "sent").length,
-      approved: mockEstimates.filter((e) => e.status === "approved").length,
-      expired: mockEstimates.filter((e) => e.status === "expired").length,
+      all: estimates.length,
+      draft: estimates.filter((e) => toTabBucket(e.status) === "draft").length,
+      sent: estimates.filter((e) => toTabBucket(e.status) === "sent").length,
+      accepted: estimates.filter((e) => toTabBucket(e.status) === "accepted").length,
+      expired: estimates.filter((e) => toTabBucket(e.status) === "expired").length,
     };
-  }, []);
+  }, [estimates]);
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: tabCounts.all },
     { key: "draft", label: "Draft", count: tabCounts.draft },
     { key: "sent", label: "Sent", count: tabCounts.sent },
-    { key: "approved", label: "Approved", count: tabCounts.approved },
+    { key: "accepted", label: "Accepted", count: tabCounts.accepted },
     { key: "expired", label: "Expired", count: tabCounts.expired },
   ];
 
   // Summary stats
-  const totalPending = mockEstimates
-    .filter((e) => e.status === "sent")
-    .reduce((sum, e) => sum + e.amount, 0);
+  const totalPending = estimates
+    .filter((e) => e.status === "sent" || e.status === "viewed")
+    .reduce((sum, e) => sum + parseFloat(e.total), 0);
 
-  const totalApproved = mockEstimates
-    .filter((e) => e.status === "approved")
-    .reduce((sum, e) => sum + e.amount, 0);
+  const totalAccepted = estimates
+    .filter((e) => e.status === "accepted")
+    .reduce((sum, e) => sum + parseFloat(e.total), 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -198,8 +215,8 @@ export default function EstimatesPage() {
               <CheckCircle2 className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Approved</p>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(totalApproved)}</p>
+              <p className="text-xs text-muted-foreground font-medium">Accepted</p>
+              <p className="text-xl font-bold text-foreground">{formatCurrency(totalAccepted)}</p>
             </div>
           </div>
         </div>
@@ -276,74 +293,81 @@ export default function EstimatesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((estimate) => (
-                <tr
-                  key={estimate.id}
-                  className="hover:bg-muted/20 transition-colors"
-                >
-                  <td className="px-5 py-3">
-                    <p className="text-sm font-semibold text-primary">
-                      {estimate.number}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                        {estimate.customerName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+              {filtered.map((estimate) => {
+                const customerName = estimate.contactName ?? "Unknown";
+                const customerEmail = estimate.contactEmail ?? "";
+                const serviceDesc = estimate.lineItems[0]?.description ?? "—";
+                const amount = parseFloat(estimate.total);
+
+                return (
+                  <tr
+                    key={estimate.id}
+                    className="hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="px-5 py-3">
+                      <p className="text-sm font-semibold text-primary">
+                        {estimate.estimateNumber}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                          {customerName
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {customerName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {customerEmail}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {estimate.customerName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {estimate.customerEmail}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-sm text-foreground">{estimate.service}</p>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <p className="text-sm font-semibold text-foreground">
-                      {formatCurrency(estimate.amount)}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusBadge status={estimate.status} />
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-sm text-foreground">
-                      {formatDate(estimate.issueDate)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Valid until {formatDate(estimate.validUntil)}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {estimate.status === "approved" && (
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-sm text-foreground">{serviceDesc}</p>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatCurrency(amount)}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={estimate.status} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-sm text-foreground">
+                        {formatDate(estimate.issueDate)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Valid until {formatDate(estimate.validUntil)}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {estimate.status === "accepted" && (
+                          <button
+                            onClick={() => showToast(`Converting ${estimate.estimateNumber} to invoice...`)}
+                            className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors"
+                            title="Convert to Invoice"
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                            Convert
+                          </button>
+                        )}
                         <button
-                          onClick={() => showToast(`Converting ${estimate.number} to invoice...`)}
-                          className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors"
-                          title="Convert to Invoice"
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         >
-                          <ArrowRightLeft className="h-3.5 w-3.5" />
-                          Convert
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
-                      )}
-                      <button
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center">

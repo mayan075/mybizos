@@ -15,38 +15,19 @@ import {
   Receipt,
   ArrowUpRight,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-
-// ── Types ──
-
-interface MockInvoice {
-  id: string;
-  number: string;
-  customerName: string;
-  customerEmail: string;
-  service: string;
-  amount: number;
-  isRecurring: boolean;
-  recurringInterval: string | null;
-  status: "draft" | "sent" | "paid" | "overdue";
-  issueDate: string;
-  dueDate: string;
-  paidDate: string | null;
-  sentDaysAgo: number | null;
-  overdueDays: number | null;
-}
-
-// Real invoices will come from the API; start with empty array
-const mockInvoices: MockInvoice[] = [];
+import { useInvoices, type Invoice } from "@/lib/hooks/use-invoices";
 
 // ── Helpers ──
 
+type InvoiceStatus = Invoice["status"];
 type TabFilter = "all" | "draft" | "sent" | "paid" | "overdue";
 
 const statusConfig: Record<
-  MockInvoice["status"],
+  string,
   { label: string; icon: React.ElementType; className: string }
 > = {
   draft: {
@@ -56,6 +37,11 @@ const statusConfig: Record<
   },
   sent: {
     label: "Sent",
+    icon: Send,
+    className: "bg-info/10 text-info",
+  },
+  viewed: {
+    label: "Viewed",
     icon: Send,
     className: "bg-info/10 text-info",
   },
@@ -69,10 +55,15 @@ const statusConfig: Record<
     icon: AlertTriangle,
     className: "bg-destructive/10 text-destructive",
   },
+  cancelled: {
+    label: "Cancelled",
+    icon: AlertTriangle,
+    className: "bg-muted text-muted-foreground",
+  },
 };
 
-function StatusBadge({ status }: { status: MockInvoice["status"] }) {
-  const cfg = statusConfig[status];
+function StatusBadge({ status }: { status: string }) {
+  const cfg = statusConfig[status] ?? statusConfig.draft;
   const Icon = cfg.icon;
   return (
     <span
@@ -95,6 +86,15 @@ function formatDate(dateStr: string): string {
   });
 }
 
+/** Map API status to tab filter buckets */
+function toTabBucket(status: InvoiceStatus): TabFilter | null {
+  if (status === "draft") return "draft";
+  if (status === "sent" || status === "viewed") return "sent";
+  if (status === "paid") return "paid";
+  if (status === "overdue") return "overdue";
+  return null;
+}
+
 // ── Page ──
 
 export default function InvoicesPage() {
@@ -102,35 +102,38 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
+  const { data: invoicesData, isLoading } = useInvoices();
+  const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+
   const filtered = useMemo(() => {
-    let result = mockInvoices;
+    let result = invoices;
 
     if (activeTab !== "all") {
-      result = result.filter((inv) => inv.status === activeTab);
+      result = result.filter((inv) => toTabBucket(inv.status) === activeTab);
     }
 
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (inv) =>
-          inv.customerName.toLowerCase().includes(q) ||
-          inv.number.toLowerCase().includes(q) ||
-          inv.service.toLowerCase().includes(q),
+          (inv.contactName ?? "").toLowerCase().includes(q) ||
+          inv.invoiceNumber.toLowerCase().includes(q) ||
+          inv.lineItems.some((li) => li.description.toLowerCase().includes(q)),
       );
     }
 
     return result;
-  }, [search, activeTab]);
+  }, [search, activeTab, invoices]);
 
   const tabCounts = useMemo(() => {
     return {
-      all: mockInvoices.length,
-      draft: mockInvoices.filter((i) => i.status === "draft").length,
-      sent: mockInvoices.filter((i) => i.status === "sent").length,
-      paid: mockInvoices.filter((i) => i.status === "paid").length,
-      overdue: mockInvoices.filter((i) => i.status === "overdue").length,
+      all: invoices.length,
+      draft: invoices.filter((i) => toTabBucket(i.status) === "draft").length,
+      sent: invoices.filter((i) => toTabBucket(i.status) === "sent").length,
+      paid: invoices.filter((i) => toTabBucket(i.status) === "paid").length,
+      overdue: invoices.filter((i) => toTabBucket(i.status) === "overdue").length,
     };
-  }, []);
+  }, [invoices]);
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: tabCounts.all },
@@ -141,17 +144,25 @@ export default function InvoicesPage() {
   ];
 
   // Summary stats
-  const totalOutstanding = mockInvoices
-    .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((sum, i) => sum + i.amount, 0);
+  const totalOutstanding = invoices
+    .filter((i) => i.status === "sent" || i.status === "viewed" || i.status === "overdue")
+    .reduce((sum, i) => sum + parseFloat(i.total), 0);
 
-  const totalPaidThisMonth = mockInvoices
+  const totalPaidThisMonth = invoices
     .filter((i) => i.status === "paid")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + parseFloat(i.total), 0);
 
-  const totalOverdue = mockInvoices
+  const totalOverdue = invoices
     .filter((i) => i.status === "overdue")
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + parseFloat(i.total), 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -284,95 +295,81 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((invoice) => (
-                <tr
-                  key={invoice.id}
-                  className="hover:bg-muted/20 transition-colors"
-                >
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/dashboard/invoices/${invoice.id}`}
-                      className="text-sm font-semibold text-primary hover:underline"
-                    >
-                      {invoice.number}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                        {invoice.customerName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {invoice.customerName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {invoice.customerEmail}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm text-foreground">{invoice.service}</p>
-                      {invoice.isRecurring && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-info/10 px-1.5 py-0.5 text-[10px] font-medium text-info">
-                          <RefreshCw className="h-2.5 w-2.5" />
-                          {invoice.recurringInterval}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <p className="text-sm font-semibold text-foreground">
-                      {formatCurrency(invoice.amount)}
-                      {invoice.isRecurring && (
-                        <span className="text-xs font-normal text-muted-foreground">/mo</span>
-                      )}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusBadge status={invoice.status} />
-                    {invoice.sentDaysAgo !== null && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {invoice.sentDaysAgo} days ago
-                      </p>
-                    )}
-                    {invoice.overdueDays !== null && (
-                      <p className="text-[10px] text-destructive mt-0.5">
-                        {invoice.overdueDays} days overdue
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-sm text-foreground">
-                      {formatDate(invoice.issueDate)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Due {formatDate(invoice.dueDate)}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
+              {filtered.map((invoice) => {
+                const customerName = invoice.contactName ?? "Unknown";
+                const customerEmail = invoice.contactEmail ?? "";
+                const serviceDesc = invoice.lineItems[0]?.description ?? "—";
+                const amount = parseFloat(invoice.total);
+
+                return (
+                  <tr
+                    key={invoice.id}
+                    className="hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="px-5 py-3">
                       <Link
                         href={`/dashboard/invoices/${invoice.id}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                        title="View invoice"
+                        className="text-sm font-semibold text-primary hover:underline"
                       >
-                        <ArrowUpRight className="h-4 w-4" />
+                        {invoice.invoiceNumber}
                       </Link>
-                      <button
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                          {customerName
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {customerName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {customerEmail}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-sm text-foreground">{serviceDesc}</p>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatCurrency(amount)}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={invoice.status} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-sm text-foreground">
+                        {formatDate(invoice.issueDate)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Due {formatDate(invoice.dueDate)}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/dashboard/invoices/${invoice.id}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          title="View invoice"
+                        >
+                          <ArrowUpRight className="h-4 w-4" />
+                        </Link>
+                        <button
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center">

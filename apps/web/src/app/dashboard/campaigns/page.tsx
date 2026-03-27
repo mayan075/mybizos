@@ -16,36 +16,18 @@ import {
   MousePointerClick,
   AlertTriangle,
   Megaphone,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-
-// ── Mock Data ──
-
-interface MockCampaign {
-  id: string;
-  name: string;
-  type: "email" | "sms";
-  status: "draft" | "scheduled" | "sending" | "sent" | "cancelled";
-  subject: string | null;
-  sentCount: number;
-  openRate: number;
-  clickRate: number;
-  bounceRate: number;
-  scheduledAt: string | null;
-  sentAt: string | null;
-  createdAt: string;
-}
-
-// Real campaigns will come from the API; start with empty array
-const mockCampaigns: MockCampaign[] = [];
+import { useCampaigns, type Campaign } from "@/lib/hooks/use-campaigns";
 
 // ── Helpers ──
 
 type TabFilter = "all" | "draft" | "sent" | "scheduled";
 
 const statusConfig: Record<
-  MockCampaign["status"],
+  Campaign["status"],
   { label: string; icon: React.ElementType; className: string }
 > = {
   draft: {
@@ -75,7 +57,7 @@ const statusConfig: Record<
   },
 };
 
-function StatusBadge({ status }: { status: MockCampaign["status"] }) {
+function StatusBadge({ status }: { status: Campaign["status"] }) {
   const cfg = statusConfig[status];
   const Icon = cfg.icon;
   return (
@@ -126,35 +108,29 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
 
+  const { data: campaignsData, isLoading } = useCampaigns({ search });
+  const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+
   const filtered = useMemo(() => {
-    let result = mockCampaigns;
+    let result = campaigns;
 
     // Tab filter
     if (activeTab !== "all") {
       result = result.filter((c) => c.status === activeTab);
     }
 
-    // Search
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          (c.subject && c.subject.toLowerCase().includes(q)),
-      );
-    }
-
+    // Search is handled server-side via the hook, but filter locally for tab
     return result;
-  }, [search, activeTab]);
+  }, [campaigns, activeTab]);
 
   const tabCounts = useMemo(() => {
     return {
-      all: mockCampaigns.length,
-      draft: mockCampaigns.filter((c) => c.status === "draft").length,
-      sent: mockCampaigns.filter((c) => c.status === "sent").length,
-      scheduled: mockCampaigns.filter((c) => c.status === "scheduled").length,
+      all: campaigns.length,
+      draft: campaigns.filter((c) => c.status === "draft").length,
+      sent: campaigns.filter((c) => c.status === "sent").length,
+      scheduled: campaigns.filter((c) => c.status === "scheduled").length,
     };
-  }, []);
+  }, [campaigns]);
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: tabCounts.all },
@@ -227,8 +203,15 @@ export default function CampaignsPage() {
         </div>
       </div>
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
       {/* Campaign cards */}
-      <div className="grid gap-4">
+      {!isLoading && <div className="grid gap-4">
         {filtered.map((campaign) => (
           <Link
             key={campaign.id}
@@ -259,7 +242,7 @@ export default function CampaignsPage() {
               </div>
 
               {/* Stats — only show for sent campaigns */}
-              {campaign.status === "sent" && (
+              {campaign.status === "sent" && campaign.stats && (
                 <div className="flex items-center gap-6 ml-6 shrink-0">
                   <div className="text-center">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
@@ -267,7 +250,7 @@ export default function CampaignsPage() {
                       Sent
                     </div>
                     <p className="text-sm font-semibold text-foreground">
-                      {campaign.sentCount.toLocaleString()}
+                      {campaign.stats.sent.toLocaleString()}
                     </p>
                   </div>
                   {campaign.type === "email" && (
@@ -277,7 +260,9 @@ export default function CampaignsPage() {
                         Opens
                       </div>
                       <p className="text-sm font-semibold text-foreground">
-                        {campaign.openRate}%
+                        {campaign.stats.sent > 0
+                          ? ((campaign.stats.opened / campaign.stats.sent) * 100).toFixed(1)
+                          : "0.0"}%
                       </p>
                     </div>
                   )}
@@ -287,7 +272,9 @@ export default function CampaignsPage() {
                       Clicks
                     </div>
                     <p className="text-sm font-semibold text-foreground">
-                      {campaign.clickRate}%
+                      {campaign.stats.sent > 0
+                        ? ((campaign.stats.clicked / campaign.stats.sent) * 100).toFixed(1)
+                        : "0.0"}%
                     </p>
                   </div>
                   <div className="text-center">
@@ -296,7 +283,9 @@ export default function CampaignsPage() {
                       Bounced
                     </div>
                     <p className="text-sm font-semibold text-foreground">
-                      {campaign.bounceRate}%
+                      {campaign.stats.sent > 0
+                        ? ((campaign.stats.bounced / campaign.stats.sent) * 100).toFixed(1)
+                        : "0.0"}%
                     </p>
                   </div>
                 </div>
@@ -341,7 +330,7 @@ export default function CampaignsPage() {
             </Link>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
