@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useApiQuery } from "@/lib/hooks/use-api";
+import { useApiQuery, buildPath } from "@/lib/hooks/use-api";
+import { apiClient } from "@/lib/api-client";
 
 type Role = "Owner" | "Manager" | "Technician" | "AI";
 
@@ -222,8 +223,10 @@ export default function TeamPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
+  const [inviteLoading, setInviteLoading] = useState(false);
+
   // Fetch team members from the API
-  const { data: teamData, isLoading } = useApiQuery<ApiTeamMember[]>("/orgs/:orgId/team", []);
+  const { data: teamData, isLoading, refetch } = useApiQuery<ApiTeamMember[]>("/orgs/:orgId/team", []);
 
   // Combine API team members with static AI agents
   const teamMembers: TeamMember[] = useMemo(() => {
@@ -256,13 +259,28 @@ export default function TeamPage() {
     });
   }
 
-  function handleSendInvite() {
-    if (!inviteEmail.trim()) return;
-    showToast(`Invitation sent to ${inviteEmail}`);
-    setShowInviteModal(false);
-    setInviteEmail("");
-    setInviteRole("Technician");
-    setInvitePermissions(new Set(technicianDefaults));
+  async function handleSendInvite() {
+    if (!inviteEmail.trim() || inviteLoading) return;
+
+    setInviteLoading(true);
+    try {
+      const path = buildPath("/orgs/:orgId/invite");
+      await apiClient.post(path, {
+        email: inviteEmail.trim(),
+        role: inviteRole.toLowerCase(),
+      });
+      showToast(`Invitation sent to ${inviteEmail}`);
+      setShowInviteModal(false);
+      setInviteEmail("");
+      setInviteRole("Technician");
+      setInvitePermissions(new Set(technicianDefaults));
+      refetch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send invitation";
+      showToast(`Error: ${message}`);
+    } finally {
+      setInviteLoading(false);
+    }
   }
 
   const filteredMembers = teamMembers.filter(
@@ -370,16 +388,20 @@ export default function TeamPage() {
               </button>
               <button
                 onClick={handleSendInvite}
-                disabled={!inviteEmail.trim()}
+                disabled={!inviteEmail.trim() || inviteLoading}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-                  inviteEmail.trim()
+                  inviteEmail.trim() && !inviteLoading
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-muted text-muted-foreground cursor-not-allowed",
                 )}
               >
-                <UserPlus className="h-4 w-4" />
-                Send Invite
+                {inviteLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                {inviteLoading ? "Sending..." : "Send Invite"}
               </button>
             </div>
           </div>

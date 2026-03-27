@@ -16,6 +16,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  BarChart3,
+  Target,
+  Megaphone,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -55,43 +59,22 @@ function formatChangePercent(change: number | undefined): string {
   return `${sign}${change.toFixed(1)}%`;
 }
 
-// --- Static UI data that doesn't come from the analytics API ---
+// ── Empty state component for sections without API data ──
 
-const aiVsHuman = [
-  { label: "Calls Handled", ai: 0, human: 0 },
-  { label: "Response Time", ai: 0, human: 0 },
-  { label: "Booking Rate", ai: 0, human: 0 },
-];
-
-const revenueMonths = [
-  { month: "Jan", value: 0, display: "$0" },
-  { month: "Feb", value: 0, display: "$0" },
-  { month: "Mar", value: 0, display: "$0" },
-  { month: "Apr", value: 0, display: "$0" },
-  { month: "May", value: 0, display: "$0" },
-  { month: "Jun", value: 0, display: "$0" },
-];
-
-const funnelStages = [
-  { stage: "New Lead", count: 0, color: "bg-blue-500", width: "0%" },
-  { stage: "Contacted", count: 0, color: "bg-cyan-500", width: "0%" },
-  { stage: "Quoted", count: 0, color: "bg-purple-500", width: "0%" },
-  { stage: "Scheduled", count: 0, color: "bg-orange-500", width: "0%" },
-  { stage: "Won", count: 0, color: "bg-emerald-500", width: "0%" },
-];
-
-const campaigns: { name: string; sent: number; opened: number; clicked: number; converted: number; revenue: string }[] = [];
-
-const channelCPL = [
-  { channel: "Google Ads", cpl: "$0", color: "bg-blue-500", width: "0%" },
-  { channel: "Facebook", cpl: "$0", color: "bg-indigo-500", width: "0%" },
-  { channel: "Direct", cpl: "$0", color: "bg-emerald-500", width: "0%" },
-  { channel: "Referral", cpl: "$0", color: "bg-teal-500", width: "0%" },
-];
-
-const topCustomers: { name: string; spent: string; visits: number; lastVisit: string }[] = [];
-
-const teamLeaderboard: { name: string; deals: number; revenue: string; responseTime: string }[] = [];
+function ComingSoonCard({ title, description, icon: Icon }: { title: string; description: string; icon: React.ElementType }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 px-5 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-3">
+        <Icon className="h-6 w-6 text-muted-foreground/50" />
+      </div>
+      <p className="text-sm font-semibold text-muted-foreground">{title}</p>
+      <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">{description}</p>
+      <span className="mt-3 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-semibold text-primary">
+        Coming Soon
+      </span>
+    </div>
+  );
+}
 
 // --- Component ---
 
@@ -101,8 +84,6 @@ export default function AnalyticsPage() {
 
   const period = dateRangeToPeriod[dateRange];
   const { data: analytics, isLoading } = useAnalytics(period);
-
-  const maxRevenue = Math.max(...revenueMonths.map((m) => m.value));
 
   // Build KPI cards from live analytics data
   const kpis = analytics?.kpis;
@@ -176,13 +157,21 @@ export default function AnalyticsPage() {
           color: colors[i % colors.length],
         };
       })
-    : [
-        { source: "Google Ads", pct: 0, color: "bg-blue-500" },
-        { source: "Referrals", pct: 0, color: "bg-emerald-500" },
-        { source: "Website", pct: 0, color: "bg-purple-500" },
-        { source: "Phone", pct: 0, color: "bg-orange-500" },
-        { source: "Yelp", pct: 0, color: "bg-rose-500" },
-      ];
+    : [];
+
+  // Build conversion funnel from live KPI data
+  // Uses: leads -> appointments -> deals won (best we can derive from analytics API)
+  const funnelLeads = kpis?.leads.value ?? 0;
+  const funnelAppointments = kpis?.appointments.value ?? 0;
+  const funnelDealsWon = kpis?.dealsWon.value ?? 0;
+  const funnelMax = Math.max(funnelLeads, 1); // avoid division by zero
+
+  const funnelStages = [
+    { stage: "New Leads", count: funnelLeads, color: "bg-blue-500", widthPct: (funnelLeads / funnelMax) * 100 },
+    { stage: "Appointments", count: funnelAppointments, color: "bg-orange-500", widthPct: (funnelAppointments / funnelMax) * 100 },
+    { stage: "Deals Won", count: funnelDealsWon, color: "bg-emerald-500", widthPct: (funnelDealsWon / funnelMax) * 100 },
+  ];
+  const hasFunnelData = funnelLeads > 0 || funnelAppointments > 0 || funnelDealsWon > 0;
 
   if (isLoading) {
     return (
@@ -288,128 +277,123 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* AI vs Human Comparison */}
+        {/* AI vs Human Comparison — Coming Soon */}
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center gap-2 border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">AI vs Human Performance</h2>
           </div>
-          <div className="p-5 space-y-5">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-                <span>AI Agent</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30" />
-                <span>Human</span>
-              </div>
-            </div>
-            {aiVsHuman.map((item) => (
-              <div key={item.label} className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground">{item.label}</span>
-                  <span className="text-muted-foreground">
-                    AI: {item.ai}% | Human: {item.human}%
-                  </span>
-                </div>
-                <div className="flex gap-1.5">
-                  <div className="h-3 rounded-full bg-primary transition-all duration-500" style={{ width: `${item.ai}%` }} />
-                  <div className="h-3 rounded-full bg-muted-foreground/20 transition-all duration-500" style={{ width: `${item.human}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <ComingSoonCard
+            icon={Bot}
+            title="No data yet"
+            description="AI vs Human performance comparison will appear here once your AI agent starts handling calls alongside your team."
+          />
         </div>
       </div>
 
       {/* Revenue Section */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Revenue Chart */}
+        {/* Revenue Chart — Coming Soon (no monthly breakdown API) */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Monthly Revenue</h2>
             <span className="text-xs text-muted-foreground">Last 6 months</span>
           </div>
-          <div className="p-5">
-            <div className="flex items-end justify-between gap-3" style={{ height: "220px" }}>
-              {revenueMonths.map((month) => {
-                const heightPct = maxRevenue > 0 ? (month.value / maxRevenue) * 100 : 0;
-                return (
-                  <div key={month.month} className="flex flex-1 flex-col items-center gap-2">
-                    <span className="text-xs font-semibold text-foreground">{month.display}</span>
-                    <div className="w-full flex items-end" style={{ height: "180px" }}>
-                      <div
-                        className={cn(
-                          "w-full rounded-t-lg transition-all duration-500",
-                          month.month === "Jun"
-                            ? "bg-primary"
-                            : "bg-primary/30 hover:bg-primary/50",
-                        )}
-                        style={{ height: `${heightPct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground font-medium">{month.month}</span>
+          {kpis && kpis.revenue.value > 0 ? (
+            <div className="p-5">
+              <div className="flex flex-col items-center justify-center py-6">
+                <p className="text-3xl font-bold text-foreground">{formatCurrencyVal(kpis.revenue.value)}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total revenue this period</p>
+                {kpis.revenue.change !== undefined && (
+                  <div className={cn(
+                    "flex items-center gap-1 mt-2 text-sm font-semibold",
+                    kpis.revenue.change >= 0 ? "text-emerald-500" : "text-red-500",
+                  )}>
+                    {kpis.revenue.change >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                    {formatChangePercent(kpis.revenue.change)} vs previous period
                   </div>
-                );
-              })}
+                )}
+                <p className="text-xs text-muted-foreground mt-4">Monthly bar chart will appear once historical revenue data is available.</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <ComingSoonCard
+              icon={BarChart3}
+              title="No revenue data yet"
+              description="Monthly revenue trends will appear here as you close deals in your pipeline."
+            />
+          )}
         </div>
 
-        {/* Revenue by Source */}
+        {/* Lead Sources (live from API) */}
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Lead Sources</h2>
           </div>
-          <div className="p-5 space-y-4">
-            {revenueSources.map((source) => (
-              <div key={source.source} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground">{source.source}</span>
-                  <span className="font-semibold text-foreground">{source.pct}%</span>
+          {revenueSources.length > 0 ? (
+            <div className="p-5 space-y-4">
+              {revenueSources.map((source) => (
+                <div key={source.source} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground">{source.source}</span>
+                    <span className="font-semibold text-foreground">{source.pct}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted">
+                    <div
+                      className={cn("h-2 rounded-full transition-all duration-500", source.color)}
+                      style={{ width: `${source.pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 w-full rounded-full bg-muted">
-                  <div
-                    className={cn("h-2 rounded-full transition-all duration-500", source.color)}
-                    style={{ width: `${source.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <ComingSoonCard
+              icon={Target}
+              title="No lead sources yet"
+              description="Lead source breakdown will appear as contacts are added with source information."
+            />
+          )}
         </div>
       </div>
 
       {/* Pipeline Analytics */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Conversion Funnel */}
+        {/* Conversion Funnel (derived from live KPI data) */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Conversion Funnel</h2>
             <span className="text-xs text-muted-foreground">Lead to Close</span>
           </div>
-          <div className="p-5 space-y-3">
-            {funnelStages.map((stage, idx) => (
-              <div key={stage.stage} className="flex items-center gap-4">
-                <span className="w-24 text-xs font-medium text-foreground shrink-0">{stage.stage}</span>
-                <div className="flex-1 flex items-center gap-3">
-                  <div className="flex-1 relative">
-                    <div
-                      className={cn("h-8 rounded-lg transition-all duration-500 flex items-center", stage.color)}
-                      style={{ width: stage.width }}
-                    >
-                      <span className="absolute left-3 text-xs font-bold text-white">{stage.count}</span>
+          {hasFunnelData ? (
+            <div className="p-5 space-y-3">
+              {funnelStages.map((stage, idx) => (
+                <div key={stage.stage} className="flex items-center gap-4">
+                  <span className="w-24 text-xs font-medium text-foreground shrink-0">{stage.stage}</span>
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="flex-1 relative">
+                      <div
+                        className={cn("h-8 rounded-lg transition-all duration-500 flex items-center", stage.color)}
+                        style={{ width: `${Math.max(stage.widthPct, 4)}%` }}
+                      >
+                        <span className="absolute left-3 text-xs font-bold text-white">{stage.count}</span>
+                      </div>
                     </div>
+                    {idx > 0 && (
+                      <span className="text-[10px] text-muted-foreground shrink-0 w-10 text-right">
+                        {funnelStages[idx - 1].count > 0 ? Math.round((stage.count / funnelStages[idx - 1].count) * 100) : 0}%
+                      </span>
+                    )}
                   </div>
-                  {idx > 0 && (
-                    <span className="text-[10px] text-muted-foreground shrink-0 w-10 text-right">
-                      {funnelStages[idx - 1].count > 0 ? Math.round((stage.count / funnelStages[idx - 1].count) * 100) : 0}%
-                    </span>
-                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <ComingSoonCard
+              icon={TrendingUp}
+              title="No funnel data yet"
+              description="Conversion funnel will populate as leads move through your pipeline stages."
+            />
+          )}
         </div>
 
         {/* Pipeline Stats */}
@@ -440,109 +424,44 @@ export default function AnalyticsPage() {
 
       {/* Marketing Analytics */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Campaign Performance Table */}
+        {/* Campaign Performance — Coming Soon */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Campaign Performance</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Campaign</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Sent</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Opened</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Clicked</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Converted</th>
-                  <th className="px-5 py-3 text-right font-semibold text-muted-foreground">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {campaigns.map((c, idx) => (
-                  <tr key={c.name} className={cn("hover:bg-muted/30 transition-colors", idx === 0 && "bg-emerald-500/5")}>
-                    <td className="px-5 py-3 font-medium text-foreground">
-                      <div className="flex items-center gap-2">
-                        {idx === 0 && (
-                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-500">
-                            TOP
-                          </span>
-                        )}
-                        {c.name}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-right text-muted-foreground">{c.sent.toLocaleString()}</td>
-                    <td className="px-3 py-3 text-right text-muted-foreground">{c.opened.toLocaleString()}</td>
-                    <td className="px-3 py-3 text-right text-muted-foreground">{c.clicked}</td>
-                    <td className="px-3 py-3 text-right font-medium text-foreground">{c.converted}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-emerald-500">{c.revenue}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ComingSoonCard
+            icon={Megaphone}
+            title="No campaigns yet"
+            description="Campaign metrics (sent, opened, clicked, converted) will appear here once you launch email or SMS campaigns."
+          />
         </div>
 
-        {/* Cost Per Lead by Channel */}
+        {/* Cost Per Lead — Coming Soon */}
         <div className="rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Cost Per Lead</h2>
             <p className="text-[10px] text-muted-foreground mt-0.5">By acquisition channel</p>
           </div>
-          <div className="p-5 space-y-4">
-            {channelCPL.map((ch) => (
-              <div key={ch.channel} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-foreground">{ch.channel}</span>
-                  <span className={cn("font-bold", ch.cpl === "$0" ? "text-emerald-500" : "text-foreground")}>
-                    {ch.cpl}
-                  </span>
-                </div>
-                {ch.cpl !== "$0" && (
-                  <div className="h-2 w-full rounded-full bg-muted">
-                    <div
-                      className={cn("h-2 rounded-full transition-all duration-500", ch.color)}
-                      style={{ width: ch.width }}
-                    />
-                  </div>
-                )}
-                {ch.cpl === "$0" && (
-                  <p className="text-[10px] text-emerald-500 font-medium">Free channel</p>
-                )}
-              </div>
-            ))}
-          </div>
+          <ComingSoonCard
+            icon={DollarSign}
+            title="No cost data yet"
+            description="Cost per lead by channel will appear once ad spend tracking is connected."
+          />
         </div>
       </div>
 
       {/* Customer Analytics */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Top Customers */}
+        {/* Top Customers — Coming Soon */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">Top Customers by Revenue</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Customer</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Total Spent</th>
-                  <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Visits</th>
-                  <th className="px-5 py-3 text-right font-semibold text-muted-foreground">Last Visit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {topCustomers.map((c) => (
-                  <tr key={c.name} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-5 py-3 font-medium text-foreground">{c.name}</td>
-                    <td className="px-3 py-3 text-right font-semibold text-emerald-500">{c.spent}</td>
-                    <td className="px-3 py-3 text-right text-muted-foreground">{c.visits}</td>
-                    <td className="px-5 py-3 text-right text-muted-foreground">{c.lastVisit}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ComingSoonCard
+            icon={Users}
+            title="No customer revenue data yet"
+            description="Top customers ranked by lifetime spend will appear as deals are closed."
+          />
         </div>
 
         {/* Customer Stats + At-Risk */}
@@ -579,70 +498,17 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Team Performance */}
+      {/* Team Performance — Coming Soon */}
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold text-foreground">Team Leaderboard</h2>
           <span className="text-xs text-muted-foreground">{dateRangeLabels[dateRange]}</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-5 py-3 text-left font-semibold text-muted-foreground w-8">#</th>
-                <th className="px-3 py-3 text-left font-semibold text-muted-foreground">Team Member</th>
-                <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Deals Closed</th>
-                <th className="px-3 py-3 text-right font-semibold text-muted-foreground">Revenue</th>
-                <th className="px-5 py-3 text-right font-semibold text-muted-foreground">Avg Response</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {teamLeaderboard
-                .sort((a, b) => b.deals - a.deals)
-                .map((member, idx) => (
-                  <tr
-                    key={member.name}
-                    className={cn(
-                      "hover:bg-muted/30 transition-colors",
-                      member.name === "AI Agent" && "bg-primary/5",
-                    )}
-                  >
-                    <td className="px-5 py-3 font-bold text-muted-foreground">
-                      {idx === 0 && <span className="text-amber-500">1</span>}
-                      {idx === 1 && <span className="text-gray-400">2</span>}
-                      {idx === 2 && <span className="text-amber-700">3</span>}
-                      {idx > 2 && <span>{idx + 1}</span>}
-                    </td>
-                    <td className="px-3 py-3 font-medium text-foreground">
-                      <div className="flex items-center gap-2">
-                        {member.name === "AI Agent" && (
-                          <Bot className="h-3.5 w-3.5 text-primary" />
-                        )}
-                        {member.name}
-                        {idx === 0 && (
-                          <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-500">
-                            MVP
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold text-foreground">{member.deals}</td>
-                    <td className="px-3 py-3 text-right font-semibold text-emerald-500">{member.revenue}</td>
-                    <td className="px-5 py-3 text-right">
-                      <span
-                        className={cn(
-                          "font-medium",
-                          member.name === "AI Agent" ? "text-primary" : "text-muted-foreground",
-                        )}
-                      >
-                        {member.responseTime}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+        <ComingSoonCard
+          icon={Trophy}
+          title="No team data yet"
+          description="Team leaderboard will show deals closed, revenue, and response times once team members start using the platform."
+        />
       </div>
     </div>
   );

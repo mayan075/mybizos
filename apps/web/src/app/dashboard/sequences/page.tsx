@@ -23,6 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useSequences, type Sequence, type SequenceStep } from "@/lib/hooks/use-sequences";
+import { apiClient } from "@/lib/api-client";
+import { buildPath } from "@/lib/hooks/use-api";
 
 // ── Types ──
 
@@ -109,14 +111,38 @@ function StepIcon({ type }: { type: StepType }) {
 
 export default function SequencesPage() {
   usePageTitle("Sequences");
-  const { data: sequencesData, isLoading } = useSequences();
+  const { data: sequencesData, isLoading, refetch } = useSequences();
   const sequences = Array.isArray(sequencesData) ? sequencesData : [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  function toggleActive(id: string, e: React.MouseEvent) {
+  function showToast(message: string, type: "success" | "error" = "success") {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function toggleActive(id: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    // TODO: wire to useActivateSequence / useDeactivateSequence mutations
+
+    const sequence = sequences.find((s) => s.id === id);
+    if (!sequence || togglingId) return;
+
+    const newStatus = sequence.isActive ? "paused" : "active";
+    setTogglingId(id);
+
+    try {
+      const path = buildPath(`/orgs/:orgId/sequences/${id}`);
+      await apiClient.patch(path, { status: newStatus });
+      showToast(`Sequence ${newStatus === "active" ? "activated" : "paused"} successfully`);
+      refetch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update sequence";
+      showToast(message, "error");
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   function toggleExpanded(id: string) {
@@ -125,6 +151,16 @@ export default function SequencesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2",
+          toast.type === "success" ? "bg-success" : "bg-destructive",
+        )}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -214,9 +250,11 @@ export default function SequencesPage() {
                 <div className="flex items-center gap-3 shrink-0">
                   <button
                     onClick={(e) => toggleActive(sequence.id, e)}
+                    disabled={togglingId === sequence.id}
                     className={cn(
                       "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
                       sequence.isActive ? "bg-primary" : "bg-muted",
+                      togglingId === sequence.id && "opacity-50 cursor-wait",
                     )}
                     role="switch"
                     aria-checked={sequence.isActive}

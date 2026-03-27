@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "MyBizOS",
-      "runtimeExecutable": "node_modules/.bin/next",
-      "runtimeArgs": ["dev", "--turbopack", "--port", "3000"],
-      "port": 3000
+      "runtimeExecutable": "apps/web/node_modules/.bin/next",
+      "runtimeArgs": ["dev", "--turbopack", "--port", "3002"],
+      "port": 3002
     }
   ]
 }
