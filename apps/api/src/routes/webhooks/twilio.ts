@@ -33,9 +33,46 @@ const GATHER_TIMEOUT_SECONDS = 5;
 const SPEECH_TIMEOUT = 'auto';
 
 /**
- * Default business config — in production this would come from the org's
- * settings in the database. For now we hard-code for Northern Removals.
+ * Resolve business config from the org's settings in the database.
+ * Falls back to defaults if org settings aren't configured.
  */
+async function getBusinessConfig(calledNumber: string): Promise<{
+  name: string;
+  vertical: string;
+  agentName: string;
+  orgId: string | null;
+}> {
+  try {
+    const resolved = await resolveOrgByPhoneNumber(calledNumber);
+    if (resolved) {
+      const { db, organizations } = await import('@mybizos/db');
+      const { eq: eqOp } = await import('drizzle-orm');
+      const [org] = await db
+        .select()
+        .from(organizations)
+        .where(eqOp(organizations.id, resolved.orgId));
+      if (org) {
+        const settings = (org.settings ?? {}) as Record<string, unknown>;
+        const onboarding = (settings['onboarding'] ?? {}) as Record<string, unknown>;
+        return {
+          name: org.name || 'our business',
+          vertical: (org as Record<string, unknown>).vertical as string || 'general',
+          agentName: typeof onboarding['agentName'] === 'string' ? onboarding['agentName'] : 'the AI assistant',
+          orgId: org.id,
+        };
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to resolve business config from DB', {
+      calledNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  // Fallback defaults
+  return { name: 'our business', vertical: 'general', agentName: 'the AI assistant', orgId: null };
+}
+
+/** @deprecated — use getBusinessConfig() for dynamic resolution */
 const DEFAULT_BUSINESS = {
   name: 'Northern Removals',
   vertical: 'rubbish_removals' as const,
@@ -262,12 +299,15 @@ twilioWebhooks.post('/voice', async (c) => {
     turnCount: 0,
   });
 
+  // Resolve business config dynamically from DB
+  const bizConfig = await getBusinessConfig(To);
+
   // Build the webhook URL for processing caller's speech
   const baseUrl = config.APP_URL;
   const respondUrl = `${baseUrl}/webhooks/twilio/voice/respond`;
 
   // AI disclosure greeting
-  const greeting = `Hi, this is ${DEFAULT_BUSINESS.name}'s AI assistant. This call may be recorded. How can I help you today?`;
+  const greeting = `Hi, this is ${bizConfig.name}'s AI assistant. This call may be recorded. How can I help you today?`;
 
   const twiml = buildSayAndGatherTwiml(greeting, respondUrl);
 
@@ -338,7 +378,8 @@ twilioWebhooks.post('/voice/respond', async (c) => {
   conversation.turnCount++;
   if (conversation.turnCount > MAX_CONVERSATION_TURNS) {
     logger.info('Max conversation turns reached', { callSid: CallSid, turns: conversation.turnCount });
-    const farewell = "Thank you for calling Northern Removals. We've been chatting for a while, so let me have a team member follow up with you. Have a great day!";
+    const bizConfig = await getBusinessConfig(conversation.calledNumber);
+    const farewell = `Thank you for calling ${bizConfig.name}. We've been chatting for a while, so let me have a team member follow up with you. Have a great day!`;
     conversation.messages.push({ role: 'user', content: callerText });
     conversation.messages.push({ role: 'assistant', content: farewell });
     return c.text(buildGoodbyeTwiml(farewell), 200, { 'Content-Type': 'text/xml' });
@@ -347,15 +388,18 @@ twilioWebhooks.post('/voice/respond', async (c) => {
   // Add the caller's message to history
   conversation.messages.push({ role: 'user', content: callerText });
 
+  // Resolve business config dynamically
+  const bizConfig = await getBusinessConfig(conversation.calledNumber);
+
   // Call Claude to get the AI response
   let aiResponseText: string;
 
   try {
     const claude = getClaudeClient();
     const systemPrompt = getPhoneAgentPrompt({
-      businessName: DEFAULT_BUSINESS.name,
-      vertical: DEFAULT_BUSINESS.vertical,
-      agentName: DEFAULT_BUSINESS.agentName,
+      businessName: bizConfig.name,
+      vertical: bizConfig.vertical,
+      agentName: bizConfig.agentName,
     });
 
     // Add phone-specific instructions for TTS-friendly output

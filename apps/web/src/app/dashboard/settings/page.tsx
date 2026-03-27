@@ -25,6 +25,8 @@ import {
   AlertCircle,
   Lock,
   Loader2,
+  Check,
+  Zap,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -487,6 +489,7 @@ function SettingsContent() {
   const [billingData, setBillingData] = useState<BillingData | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
 
   // Load from API on mount, fall back to localStorage
   useEffect(() => {
@@ -1793,6 +1796,97 @@ function SettingsContent() {
                       </p>
                     )}
                   </div>
+
+                  {/* Upgrade cards — shown when on free plan */}
+                  {(!billingData?.plan || billingData?.plan === "free") && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-foreground">
+                        Upgrade Your Plan
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Unlock AI phone agents, more contacts, and advanced features. 14-day free trial included.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Starter */}
+                        <div className="rounded-xl border border-border p-5 space-y-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Starter</p>
+                            <p className="text-2xl font-bold text-foreground mt-1">$49<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                          </div>
+                          <ul className="space-y-1.5 text-xs text-muted-foreground">
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> 2,000 contacts</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Unified inbox</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Deal pipeline</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Online booking</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Email campaigns</li>
+                          </ul>
+                          <button
+                            onClick={async () => {
+                              setUpgradeLoading("starter");
+                              try {
+                                const orgId = getOrgId();
+                                const result = await apiClient.post<{ data: { url: string } }>(`/orgs/${orgId}/billing/subscribe`, { priceId: "starter" });
+                                if (result?.data?.url) {
+                                  window.location.href = result.data.url;
+                                }
+                              } catch {
+                                showToast("Failed to start checkout. Please try again.");
+                              }
+                              setUpgradeLoading(null);
+                            }}
+                            disabled={upgradeLoading !== null}
+                            className="w-full rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                          >
+                            {upgradeLoading === "starter" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto" />
+                            ) : (
+                              "Start Free Trial"
+                            )}
+                          </button>
+                        </div>
+                        {/* Pro — highlighted */}
+                        <div className="rounded-xl border-2 border-primary bg-primary/5 p-5 space-y-3 relative">
+                          <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                            Most Popular
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Pro</p>
+                            <p className="text-2xl font-bold text-foreground mt-1">$99<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+                          </div>
+                          <ul className="space-y-1.5 text-xs text-muted-foreground">
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Everything in Starter</li>
+                            <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-primary shrink-0" /> AI Phone Agent (24/7)</li>
+                            <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-primary shrink-0" /> AI SMS follow-ups</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> 10,000 contacts, 5 users</li>
+                            <li className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-500 shrink-0" /> Advanced automations</li>
+                          </ul>
+                          <button
+                            onClick={async () => {
+                              setUpgradeLoading("pro");
+                              try {
+                                const orgId = getOrgId();
+                                const result = await apiClient.post<{ data: { url: string } }>(`/orgs/${orgId}/billing/subscribe`, { priceId: "pro" });
+                                if (result?.data?.url) {
+                                  window.location.href = result.data.url;
+                                }
+                              } catch {
+                                showToast("Failed to start checkout. Please try again.");
+                              }
+                              setUpgradeLoading(null);
+                            }}
+                            disabled={upgradeLoading !== null}
+                            className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            {upgradeLoading === "pro" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto" />
+                            ) : (
+                              "Start Free Trial"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     <h3 className="text-sm font-medium text-foreground">

@@ -29,6 +29,8 @@ const envSchema = z.object({
   RESEND_DEFAULT_FROM: z.string().default('MyBizOS <notifications@resend.dev>'),
   STRIPE_SECRET_KEY: optionalInDev(z.string()),
   STRIPE_WEBHOOK_SECRET: optionalInDev(z.string()),
+  STRIPE_PRICE_STARTER: optionalInDev(z.string()),
+  STRIPE_PRICE_PRO: optionalInDev(z.string()),
   VAPI_API_KEY: optionalInDev(z.string()),
   VAPI_WEBHOOK_SECRET: optionalInDev(z.string()),
   ENABLE_SCHEDULER: z.enum(['true', 'false', '']).default('').transform((v) => v === 'true'),

@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
+import { useSocialPosts, useCreatePost, useAiSuggestions, type SocialPost, type AiSuggestion as ApiAiSuggestion } from "@/lib/hooks/use-social";
 
 // ── Types ──
 
@@ -143,10 +144,7 @@ function getWeekStart(date: Date): Date {
 
 const weekStart = getWeekStart(today);
 
-// Real posts will come from the API; start empty
-const SCHEDULED_POSTS: ScheduledPost[] = [];
-const RECENT_POSTS: RecentPost[] = [];
-const AI_SUGGESTIONS: AiSuggestion[] = [];
+// Posts and suggestions now come from API hooks inside the component.
 
 // ── Helpers ──
 
@@ -205,6 +203,14 @@ export default function SocialPage() {
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
   const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, IntegrationConnectionStatus>>({});
   const [statusLoading, setStatusLoading] = useState(true);
+  const [aiSuggestions, setAiSuggestions] = useState<ApiAiSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [postSubmitting, setPostSubmitting] = useState(false);
+
+  // ── API hooks ──
+  const { data: postsData, isLoading: postsLoading, refetch: refetchPosts } = useSocialPosts();
+  const { mutate: createPost } = useCreatePost();
+  const { mutate: fetchSuggestionsApi } = useAiSuggestions();
 
   // Fetch real integration statuses from API
   const fetchIntegrationStatuses = useCallback(async () => {
@@ -253,6 +259,38 @@ export default function SocialPage() {
     });
   }, [integrationStatuses]);
 
+  // Derive scheduled and recent posts from API data
+  const scheduledPosts: ScheduledPost[] = useMemo(() => {
+    if (!postsData || !Array.isArray(postsData)) return [];
+    return postsData
+      .filter((p) => p.status === "scheduled")
+      .map((p) => ({
+        id: p.id,
+        platforms: p.platforms as Platform[],
+        text: p.text,
+        scheduledAt: new Date(p.scheduledAt ?? p.createdAt),
+        status: p.status as ScheduledPost["status"],
+        imageUrl: p.imageUrl,
+      }));
+  }, [postsData]);
+
+  const recentPosts: RecentPost[] = useMemo(() => {
+    if (!postsData || !Array.isArray(postsData)) return [];
+    return postsData
+      .filter((p) => p.status === "published" || p.status === "failed")
+      .map((p) => ({
+        id: p.id,
+        platforms: p.platforms as Platform[],
+        text: p.text,
+        postedAt: new Date(p.publishedAt ?? p.createdAt),
+        status: p.status as RecentPost["status"],
+        likes: p.metrics?.likes ?? 0,
+        comments: p.metrics?.comments ?? 0,
+        shares: p.metrics?.shares ?? 0,
+        reach: p.metrics?.reach ?? 0,
+      }));
+  }, [postsData]);
+
   // Current week calculation
   const currentWeekStart = useMemo(() => {
     const ws = getWeekStart(today);
@@ -274,7 +312,7 @@ export default function SocialPage() {
     for (let i = 0; i < 7; i++) {
       map.set(i, []);
     }
-    for (const post of SCHEDULED_POSTS) {
+    for (const post of scheduledPosts) {
       const postDate = new Date(post.scheduledAt);
       const dayDiff = Math.floor((postDate.getTime() - currentWeekStart.getTime()) / 86400000);
       if (dayDiff >= 0 && dayDiff < 7) {
@@ -282,7 +320,7 @@ export default function SocialPage() {
       }
     }
     return map;
-  }, [currentWeekStart]);
+  }, [currentWeekStart, scheduledPosts]);
 
   const togglePlatform = (platform: Platform) => {
     setSelectedPlatforms((prev) =>
@@ -292,13 +330,23 @@ export default function SocialPage() {
     );
   };
 
-  const handleAiWrite = () => {
-    setPostText(
-      "Is your garage overflowing? The average household accumulates over 300kg of unused items. That's space you could be using!\n\nHere are 3 tips for a quick declutter:\n1. Start with one room at a time\n2. If you haven't used it in 12 months, it goes\n3. Call us for the heavy lifting\n\nNeed a hand? Call Northern Removals for fast, affordable pickups. Same-day service available! #DeclutterTips #RubbishRemoval #CleanSpace",
-    );
+  const handleAiWrite = async () => {
+    setSuggestionsLoading(true);
+    try {
+      const result = await fetchSuggestionsApi(undefined as unknown as void);
+      if (result && Array.isArray(result) && result.length > 0) {
+        setAiSuggestions(result);
+        // Use the first suggestion as immediate post text
+        setPostText(result[0].text);
+      }
+    } catch {
+      // Silently fail — the user can try again
+    } finally {
+      setSuggestionsLoading(false);
+    }
   };
 
-  const handleUseSuggestion = (suggestion: AiSuggestion) => {
+  const handleUseSuggestion = (suggestion: ApiAiSuggestion) => {
     setPostText(suggestion.text);
     // Auto-select connected platforms
     setSelectedPlatforms(
@@ -320,6 +368,53 @@ export default function SocialPage() {
     }
     document.getElementById("create-post")?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const handleSubmitPost = async () => {
+    if (!postText || selectedPlatforms.length === 0 || isOverLimit) return;
+    setPostSubmitting(true);
+    try {
+      const input: { text: string; platforms: string[]; status: "draft" | "scheduled"; scheduledAt?: string } = {
+        text: postText,
+        platforms: selectedPlatforms,
+        status: scheduleMode === "schedule" ? "scheduled" : "draft",
+      };
+      if (scheduleMode === "schedule" && scheduleDate) {
+        input.scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+      }
+      await createPost(input);
+      // Clear form on success
+      setPostText("");
+      setSelectedCalendarDay(null);
+      setScheduleDate("");
+      setScheduleTime("09:00");
+      // Refresh posts list
+      refetchPosts();
+    } catch {
+      // Error is surfaced by the hook
+    } finally {
+      setPostSubmitting(false);
+    }
+  };
+
+  // Fetch AI suggestions on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSuggestionsLoading(true);
+      try {
+        const result = await fetchSuggestionsApi(undefined as unknown as void);
+        if (!cancelled && result && Array.isArray(result)) {
+          setAiSuggestions(result);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Character limit for smallest selected platform
   const charLimit = useMemo(() => {
@@ -422,6 +517,7 @@ export default function SocialPage() {
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             Content Calendar
+            {postsLoading && <Loader2 className="inline-block h-3 w-3 animate-spin ml-2" />}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -573,10 +669,15 @@ export default function SocialPage() {
               <label className="text-xs font-medium text-foreground">Post Content</label>
               <button
                 onClick={handleAiWrite}
-                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm"
+                disabled={suggestionsLoading}
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                AI Write
+                {suggestionsLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {suggestionsLoading ? "Generating..." : "AI Write"}
               </button>
             </div>
             <textarea
@@ -725,15 +826,21 @@ export default function SocialPage() {
           {/* Submit button */}
           <div className="flex items-center gap-3">
             <button
-              disabled={!postText || selectedPlatforms.length === 0 || isOverLimit}
+              onClick={handleSubmitPost}
+              disabled={!postText || selectedPlatforms.length === 0 || isOverLimit || postSubmitting}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition-all",
-                !postText || selectedPlatforms.length === 0 || isOverLimit
+                !postText || selectedPlatforms.length === 0 || isOverLimit || postSubmitting
                   ? "bg-muted text-muted-foreground cursor-not-allowed"
                   : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
               )}
             >
-              {scheduleMode === "now" ? (
+              {postSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {scheduleMode === "now" ? "Posting..." : "Scheduling..."}
+                </>
+              ) : scheduleMode === "now" ? (
                 <>
                   <Send className="h-4 w-4" />
                   Post Now
@@ -764,10 +871,18 @@ export default function SocialPage() {
       {/* Recent Posts */}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold text-foreground">Recent Posts</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Recent Posts
+            {postsLoading && <Loader2 className="inline-block h-3 w-3 animate-spin ml-2" />}
+          </h2>
         </div>
         <div className="divide-y divide-border">
-          {RECENT_POSTS.map((post) => {
+          {recentPosts.length === 0 && !postsLoading && (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No posts yet. Create your first post above!
+            </div>
+          )}
+          {recentPosts.map((post) => {
             const badge = getStatusBadge(post.status);
             const BadgeIcon = badge.icon;
             return (
@@ -842,15 +957,26 @@ export default function SocialPage() {
           </p>
         </div>
         <div className="divide-y divide-border">
-          {AI_SUGGESTIONS.map((suggestion) => {
-            const catBadge = getCategoryBadge(suggestion.category);
+          {suggestionsLoading && aiSuggestions.length === 0 && (
+            <div className="px-5 py-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating suggestions...
+            </div>
+          )}
+          {!suggestionsLoading && aiSuggestions.length === 0 && (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No suggestions yet. Click &quot;AI Write&quot; above to generate ideas.
+            </div>
+          )}
+          {aiSuggestions.map((suggestion, idx) => {
+            const catBadge = getCategoryBadge((suggestion.category || "educational") as AiSuggestion["category"]);
             return (
-              <div key={suggestion.id} className="px-5 py-4 hover:bg-muted/30 transition-colors">
+              <div key={idx} className="px-5 py-4 hover:bg-muted/30 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <h3 className="text-sm font-semibold text-foreground">
-                        {suggestion.title}
+                        {suggestion.text.substring(0, 50)}{suggestion.text.length > 50 ? "..." : ""}
                       </h3>
                       <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", catBadge.className)}>
                         {catBadge.label}

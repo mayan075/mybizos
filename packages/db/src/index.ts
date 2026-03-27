@@ -16,6 +16,8 @@ export * from "./schema/sequences.js";
 export * from "./schema/forms.js";
 export * from "./schema/call-history.js";
 export * from "./schema/invoices.js";
+export * from "./schema/notifications.js";
+export * from "./schema/social.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";

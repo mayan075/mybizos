@@ -109,6 +109,20 @@ export interface BillingPortalResult {
   url: string;
 }
 
+export interface CreateCheckoutSessionOptions {
+  customerId: string;
+  priceId: string;
+  successUrl: string;
+  cancelUrl: string;
+  trialDays?: number;
+  metadata?: Record<string, string>;
+}
+
+export interface CheckoutSessionResult {
+  sessionId: string;
+  url: string;
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 /**
@@ -413,6 +427,40 @@ export class StripeClient {
       cancel_at_period_end: true,
     });
     return this.formatSubscription(sub);
+  }
+
+  /**
+   * Create a Stripe Checkout session for subscription purchases.
+   * Redirects the customer to Stripe-hosted checkout page.
+   */
+  async createCheckoutSession(
+    options: CreateCheckoutSessionOptions,
+  ): Promise<CheckoutSessionResult> {
+    const session = await this.stripe.checkout.sessions.create({
+      customer: options.customerId,
+      mode: "subscription",
+      line_items: [{ price: options.priceId, quantity: 1 }],
+      success_url: options.successUrl,
+      cancel_url: options.cancelUrl,
+      allow_promotion_codes: true,
+      ...(options.trialDays
+        ? {
+            subscription_data: {
+              trial_period_days: options.trialDays,
+              metadata: options.metadata,
+            },
+          }
+        : { subscription_data: { metadata: options.metadata } }),
+    });
+
+    if (!session.url) {
+      throw new Error("Stripe did not return a checkout URL");
+    }
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
   }
 
   /**

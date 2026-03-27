@@ -13,12 +13,8 @@ import { config } from '../config.js';
 
 const auth = new Hono();
 
-// ── In-memory password reset token store ──
-// Key: token (UUID), Value: { userId, email, expiresAt }
-const passwordResetTokens = new Map<
-  string,
-  { userId: string; email: string; expiresAt: Date }
->();
+// Password reset tokens are stored in the database (password_reset_tokens table)
+// to survive Railway redeploys and scale across instances.
 
 // ── Validation Schemas ──
 
@@ -217,10 +213,15 @@ auth.post('/forgot-password', async (c) => {
         return c.json(successResponse);
       }
 
-      // Generate token and store it
+      // Generate token and store in database
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      passwordResetTokens.set(token, { userId: user.id, email: user.email, expiresAt });
+      const { passwordResetTokens: resetTokensTable } = await import('@mybizos/db');
+      await db.insert(resetTokensTable).values({
+        userId: user.id,
+        token,
+        expiresAt,
+      });
 
       // Send email
       const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
@@ -279,38 +280,44 @@ auth.post('/reset-password', async (c) => {
       );
     }
 
-    // Look up the token
-    const tokenData = passwordResetTokens.get(parsed.data.token);
+    // Look up the token in the database
+    const { db, users, passwordResetTokens: resetTokensTable } = await import('@mybizos/db');
+    const { eq, and, isNull, gte } = await import('drizzle-orm');
 
-    if (!tokenData) {
+    const [tokenRow] = await db
+      .select()
+      .from(resetTokensTable)
+      .where(
+        and(
+          eq(resetTokensTable.token, parsed.data.token),
+          isNull(resetTokensTable.usedAt),
+          gte(resetTokensTable.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    if (!tokenRow) {
       return c.json(
         { error: 'Invalid or expired reset token', code: 'INVALID_TOKEN', status: 400 },
         400,
       );
     }
 
-    if (tokenData.expiresAt < new Date()) {
-      passwordResetTokens.delete(parsed.data.token);
-      return c.json(
-        { error: 'Reset token has expired. Please request a new one.', code: 'TOKEN_EXPIRED', status: 400 },
-        400,
-      );
-    }
-
     // Hash the new password and update the user
-    const { db, users } = await import('@mybizos/db');
     const bcrypt = await import('bcryptjs');
-    const { eq } = await import('drizzle-orm');
 
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
     await db
       .update(users)
       .set({ passwordHash, updatedAt: new Date() })
-      .where(eq(users.id, tokenData.userId));
+      .where(eq(users.id, tokenRow.userId));
 
-    // Delete the used token
-    passwordResetTokens.delete(parsed.data.token);
+    // Mark the token as used (not deleted, for audit trail)
+    await db
+      .update(resetTokensTable)
+      .set({ usedAt: new Date() })
+      .where(eq(resetTokensTable.id, tokenRow.id));
 
     return c.json({ data: { message: 'Password has been reset successfully.' } });
   } catch (err) {

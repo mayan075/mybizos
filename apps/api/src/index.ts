@@ -36,6 +36,8 @@ import { teamRoutes } from './routes/team.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { invoiceRoutes } from './routes/invoices.js';
 import { estimateRoutes } from './routes/estimates.js';
+import { notificationRoutes } from './routes/notifications.js';
+import { socialRoutes } from './routes/social.js';
 import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
@@ -130,6 +132,8 @@ app.route('/orgs/:orgId/team', teamRoutes);
 app.route('/orgs/:orgId/analytics', analyticsRoutes);
 app.route('/orgs/:orgId/invoices', invoiceRoutes);
 app.route('/orgs/:orgId/estimates', estimateRoutes);
+app.route('/orgs/:orgId/notifications', notificationRoutes);
+app.route('/orgs/:orgId/social', socialRoutes);
 
 // Scheduling and forms have both authenticated and public routes
 app.route('/', schedulingRoutes);

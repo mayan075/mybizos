@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell,
   BellOff,
-  Phone,
   CalendarCheck,
   Star,
   Settings,
@@ -13,10 +12,18 @@ import {
   Check,
   ChevronRight,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  useNotifications,
+  useMarkAllRead,
+  type Notification as ApiNotification,
+} from "@/lib/hooks/use-notifications";
+import { apiClient } from "@/lib/api-client";
+import { buildPath } from "@/lib/hooks/use-api";
 
 // ── Types ──
 
@@ -34,6 +41,73 @@ interface Notification {
   read: boolean;
   href: string;
   actions?: { label: string; variant: "primary" | "secondary"; href?: string }[];
+}
+
+// ── Helpers ──
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+const TYPE_MAP: Record<string, NotificationType> = {
+  lead: "lead",
+  appointment: "appointment",
+  review: "review",
+  system: "system",
+  ai: "ai",
+};
+
+function iconForType(type: NotificationType): {
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+} {
+  switch (type) {
+    case "lead":
+      return { icon: UserPlus, iconBg: "bg-blue-500/10", iconColor: "text-blue-500" };
+    case "appointment":
+      return { icon: CalendarCheck, iconBg: "bg-green-500/10", iconColor: "text-green-500" };
+    case "review":
+      return { icon: Star, iconBg: "bg-amber-500/10", iconColor: "text-amber-500" };
+    case "ai":
+      return { icon: Settings, iconBg: "bg-purple-500/10", iconColor: "text-purple-500" };
+    case "system":
+    default:
+      return { icon: Bell, iconBg: "bg-gray-500/10", iconColor: "text-gray-500" };
+  }
+}
+
+function mapApiNotification(n: ApiNotification): Notification {
+  const type: NotificationType = TYPE_MAP[n.type] ?? "system";
+  const { icon, iconBg, iconColor } = iconForType(type);
+  const actions: Notification["actions"] = [];
+  if (n.actionUrl) {
+    actions.push({ label: "View", variant: "primary", href: n.actionUrl });
+  }
+  return {
+    id: n.id,
+    type,
+    icon,
+    iconBg,
+    iconColor,
+    title: n.title,
+    description: n.description ?? "",
+    time: relativeTime(n.createdAt),
+    read: n.read,
+    href: n.actionUrl ?? "/dashboard/notifications",
+    actions: actions.length > 0 ? actions : undefined,
+  };
 }
 
 // ── Tab Config ──
@@ -54,15 +128,19 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 export default function NotificationsPage() {
   usePageTitle("Notifications");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
-  // Real notifications will come from the API; start with empty array
-  const [notifications] = useState<Notification[]>([]);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+
+  // Fetch notifications from the real API
+  const { data: apiNotifications, isLoading, refetch } = useNotifications();
+  const { mutate: markAllReadMutate } = useMarkAllRead();
+
+  // Map API data to UI shape
+  const notifications = useMemo(
+    () => (apiNotifications ?? []).map(mapApiNotification),
+    [apiNotifications],
+  );
 
   const filteredNotifications = useMemo(() => {
-    let items = notifications.map((n) => ({
-      ...n,
-      read: readIds.has(n.id),
-    }));
+    let items = notifications;
     if (activeTab === "unread") {
       items = items.filter((n) => !n.read);
     } else if (activeTab === "leads") {
@@ -75,29 +153,42 @@ export default function NotificationsPage() {
       items = items.filter((n) => n.type === "system" || n.type === "ai");
     }
     return items;
-  }, [activeTab, readIds, notifications]);
+  }, [activeTab, notifications]);
 
-  const totalUnread = notifications.filter((n) => !readIds.has(n.id)).length;
+  const totalUnread = notifications.filter((n) => !n.read).length;
 
-  function markAsRead(id: string) {
-    setReadIds((prev) => new Set([...prev, id]));
-  }
-
-  function markAllRead() {
-    setReadIds(new Set(notifications.map((n) => n.id)));
-  }
-
-  function toggleRead(id: string) {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+  const markAsRead = useCallback(
+    async (id: string) => {
+      try {
+        await apiClient.patch(
+          buildPath(`/orgs/:orgId/notifications/${id}/read`),
+          {},
+        );
+        refetch();
+      } catch {
+        // silently ignore — optimistic UI not needed here
       }
-      return next;
-    });
-  }
+    },
+    [refetch],
+  );
+
+  const markAllRead = useCallback(async () => {
+    await markAllReadMutate(undefined as void);
+    refetch();
+  }, [markAllReadMutate, refetch]);
+
+  const toggleRead = useCallback(
+    async (id: string) => {
+      const notif = notifications.find((n) => n.id === id);
+      if (!notif) return;
+      if (!notif.read) {
+        await markAsRead(id);
+      }
+      // API only supports marking as read; toggling back to unread
+      // is not supported by the backend, so we only mark-read.
+    },
+    [notifications, markAsRead],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -185,7 +276,11 @@ export default function NotificationsPage() {
 
       {/* Notification List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredNotifications.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <EmptyState
             icon={Bell}
             title="No notifications yet"

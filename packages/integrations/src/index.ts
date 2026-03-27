@@ -36,6 +36,8 @@ export {
   type CreateSubscriptionOptions,
   type SubscriptionResult,
   type BillingPortalResult,
+  type CreateCheckoutSessionOptions,
+  type CheckoutSessionResult,
 } from "./stripe/index.js";
 
 // Google Calendar
