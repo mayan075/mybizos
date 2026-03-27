@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   GripVertical,
@@ -32,6 +33,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useForm, useUpdateForm } from "@/lib/hooks/use-forms";
 
 // ── Types ──
 
@@ -777,20 +779,14 @@ function FormSettingsPanel({
 
 function EmbedOptionsPanel({ formId }: { formId: string }) {
   const [activeTab, setActiveTab] = useState<
-    "embed" | "link" | "popup" | "qr"
+    "embed" | "link" | "qr"
   >("embed");
   const [copied, setCopied] = useState(false);
 
-  const embedCode = `<iframe src="https://mybizos.com/f/${formId}" width="100%" height="600" frameborder="0"></iframe>`;
-  const directLink = `https://mybizos.com/f/${formId}`;
-  const popupCode = `<script src="https://mybizos.com/js/forms.js"></script>
-<script>
-  MyBizOS.form('${formId}', {
-    trigger: 'button',
-    buttonText: 'Get a Free Quote',
-    buttonColor: '#2563eb'
-  });
-</script>`;
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://app.mybizos.com";
+  const embedUrl = `${baseUrl}/embed/forms/${formId}`;
+  const embedCode = `<iframe src="${embedUrl}" style="width:100%;min-height:500px;border:none;" title="Contact Form"></iframe>`;
+  const directLink = embedUrl;
 
   const handleCopy = useCallback(
     (text: string) => {
@@ -804,7 +800,6 @@ function EmbedOptionsPanel({ formId }: { formId: string }) {
   const tabs = [
     { key: "embed" as const, label: "HTML Embed" },
     { key: "link" as const, label: "Direct Link" },
-    { key: "popup" as const, label: "Popup" },
     { key: "qr" as const, label: "QR Code" },
   ];
 
@@ -898,29 +893,6 @@ function EmbedOptionsPanel({ formId }: { formId: string }) {
           </div>
         )}
 
-        {activeTab === "popup" && (
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Add this code to your website to show the form as a popup
-            </p>
-            <div className="relative">
-              <pre className="rounded-lg bg-muted/50 border border-border p-3 text-xs text-foreground overflow-x-auto font-mono whitespace-pre-wrap">
-                {popupCode}
-              </pre>
-              <button
-                onClick={() => handleCopy(popupCode)}
-                className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md bg-card border border-border text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-success" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
         {activeTab === "qr" && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
@@ -954,11 +926,48 @@ function EmbedOptionsPanel({ formId }: { formId: string }) {
 // ── Page ──
 
 export default function FormBuilderPage() {
+  const params = useParams();
+  const formId = params.id as string;
+  const { data: formData, isLoading } = useForm(formId);
+  const { mutate: updateForm, isLoading: isSaving } = useUpdateForm(formId);
+
   const [fields, setFields] = useState<FormField[]>(initialFields);
   const [settings, setSettings] = useState<FormSettings>(initialSettings);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load form data from API
+  useEffect(() => {
+    if (formData?.form?.id && !loaded) {
+      const form = formData.form;
+      const apiFields = (Array.isArray(form.fields) ? form.fields : []) as FormField[];
+      const apiSettings = (form.settings ?? {}) as Record<string, unknown>;
+      if (apiFields.length > 0) {
+        setFields(apiFields.map((f) => ({
+          id: f.id || `field-${Date.now()}-${Math.random()}`,
+          type: f.type || "text",
+          label: f.label || "",
+          placeholder: f.placeholder || "",
+          required: f.required ?? false,
+          helpText: ((f as unknown as Record<string, unknown>).helpText as string) || "",
+          options: ((f as unknown as Record<string, unknown>).options as string[]) || [],
+        })));
+      }
+      setSettings({
+        name: form.name || "Untitled Form",
+        submitButtonText: (apiSettings.submitButtonText as string) || "Submit",
+        successMessage: (apiSettings.successMessage as string) || "Thank you for your submission!",
+        redirectUrl: (apiSettings.redirectUrl as string) || "",
+        autoCreateContact: apiSettings.autoCreateContact !== false,
+        autoAddTag: (apiSettings.autoAddTag as string) || "",
+        autoAddToPipeline: (apiSettings.autoAddToPipeline as string) || "",
+        notificationEmail: (apiSettings.notificationEmail as string) || "",
+      });
+      setLoaded(true);
+    }
+  }, [formData, loaded]);
 
   const selectedField = fields.find((f) => f.id === selectedFieldId) ?? null;
 
@@ -1179,14 +1188,36 @@ export default function FormBuilderPage() {
             Preview
           </button>
           <button
+            onClick={async () => {
+              await updateForm({
+                name: settings.name,
+                fields: fields.map((f) => ({
+                  id: f.id,
+                  type: f.type,
+                  label: f.label,
+                  placeholder: f.placeholder,
+                  required: f.required,
+                })),
+                settings: {
+                  submitButtonText: settings.submitButtonText,
+                  successMessage: settings.successMessage,
+                  redirectUrl: settings.redirectUrl,
+                  autoCreateContact: settings.autoCreateContact,
+                  autoAddTag: settings.autoAddTag,
+                  notificationEmail: settings.notificationEmail,
+                },
+              });
+            }}
+            disabled={isSaving}
             className={cn(
               "flex h-9 items-center gap-2 rounded-lg px-4",
               "bg-primary text-primary-foreground text-sm font-medium",
               "hover:bg-primary/90 transition-colors",
+              isSaving && "opacity-50 cursor-not-allowed",
             )}
           >
             <Save className="h-4 w-4" />
-            Save Form
+            {isSaving ? "Saving..." : "Save Form"}
           </button>
         </div>
       </div>
@@ -1296,7 +1327,7 @@ export default function FormBuilderPage() {
         {/* Right Panel: Settings & Embed */}
         <div className="col-span-4 space-y-4">
           <FormSettingsPanel settings={settings} onUpdate={setSettings} />
-          <EmbedOptionsPanel formId="form-2" />
+          <EmbedOptionsPanel formId={formId} />
         </div>
       </div>
     </div>

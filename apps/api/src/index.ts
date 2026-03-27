@@ -30,6 +30,7 @@ import { callsRoutes } from './routes/calls.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { aiContentRoutes } from './routes/ai-content.js';
 import { billingRoutes } from './routes/billing.js';
+import { formRoutes, publicFormRoutes } from './routes/forms.js';
 import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
@@ -118,9 +119,11 @@ app.route('/orgs/:orgId/calls', callsRoutes);
 app.route('/orgs/:orgId/assistant', assistantRoutes);
 app.route('/orgs/:orgId/ai', aiContentRoutes);
 app.route('/orgs/:orgId/billing', billingRoutes);
+app.route('/orgs/:orgId/forms', formRoutes);
 
-// Scheduling has both authenticated and public routes
+// Scheduling and forms have both authenticated and public routes
 app.route('/', schedulingRoutes);
+app.route('/', publicFormRoutes);
 
 // Admin routes (no org prefix — platform-level)
 app.route('/admin', adminRoutes);

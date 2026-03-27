@@ -287,6 +287,58 @@ export const aiCallLogSchema = z.object({
   createdAt: z.coerce.date(),
 });
 
+export const formFieldTypeSchema = z.enum([
+  "text",
+  "email",
+  "phone",
+  "textarea",
+  "select",
+  "date",
+  "number",
+  "checkbox",
+]);
+
+export const formStatusSchema = z.enum(["active", "inactive"]);
+
+export const formFieldSchema = z.object({
+  id: z.string().min(1),
+  type: formFieldTypeSchema,
+  label: z.string().min(1).max(255),
+  placeholder: z.string().default(""),
+  required: z.boolean().default(false),
+});
+
+export const formSettingsSchema = z.object({
+  submitButtonText: z.string().default("Submit"),
+  successMessage: z.string().default("Thank you for your submission!"),
+  redirectUrl: z.string().default(""),
+  autoCreateContact: z.boolean().default(true),
+  autoAddTag: z.string().default(""),
+  notificationEmail: z.string().default(""),
+});
+
+export const formSchema = z.object({
+  id: z.string().uuid(),
+  orgId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  description: z.string().nullable(),
+  fields: z.array(formFieldSchema),
+  settings: formSettingsSchema,
+  status: formStatusSchema,
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const formSubmissionSchema = z.object({
+  id: z.string().uuid(),
+  orgId: z.string().uuid(),
+  formId: z.string().uuid(),
+  contactId: z.string().uuid().nullable(),
+  data: z.record(z.string()),
+  source: z.string(),
+  createdAt: z.coerce.date(),
+});
+
 // ─── Create/Update Input Schemas ────────────────────────────────────
 
 export const createContactInput = z.object({
@@ -340,6 +392,21 @@ export const createMessageInput = z.object({
   metadata: z.record(z.unknown()).default({}),
 });
 
+export const createFormInput = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  fields: z.array(formFieldSchema).min(1),
+  settings: formSettingsSchema.default({}),
+  status: formStatusSchema.default("active"),
+});
+
+export const updateFormInput = createFormInput.partial();
+
+export const publicFormSubmissionInput = z.object({
+  data: z.record(z.string(), z.string()),
+  source: z.string().default("website"),
+});
+
 // ─── Type Inference Helpers ─────────────────────────────────────────
 
 export type CreateContactInput = z.infer<typeof createContactInput>;
@@ -349,3 +416,8 @@ export type UpdateDealInput = z.infer<typeof updateDealInput>;
 export type CreateAppointmentInput = z.infer<typeof createAppointmentInput>;
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentInput>;
 export type CreateMessageInput = z.infer<typeof createMessageInput>;
+export type FormField = z.infer<typeof formFieldSchema>;
+export type FormSettings = z.infer<typeof formSettingsSchema>;
+export type CreateFormInput = z.infer<typeof createFormInput>;
+export type UpdateFormInput = z.infer<typeof updateFormInput>;
+export type PublicFormSubmissionInput = z.infer<typeof publicFormSubmissionInput>;

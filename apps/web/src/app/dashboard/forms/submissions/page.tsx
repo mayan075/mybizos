@@ -18,21 +18,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ── Types ──
-
-interface MockSubmission {
-  id: string;
-  formId: string;
-  formName: string;
-  data: Record<string, string>;
-  submittedAt: string;
-  source: string;
-  contactCreated: boolean;
-}
-
-// Real submissions come from the API; start empty
-const mockSubmissions: MockSubmission[] = [];
+import { useFormSubmissions, type FormSubmission } from "@/lib/hooks/use-forms";
 
 // ── Helpers ──
 
@@ -67,18 +53,27 @@ function formatRelativeTime(dateStr: string) {
   return formatDate(dateStr);
 }
 
-const allFormNames = [...new Set(mockSubmissions.map((s) => s.formName))];
-
 // ── Page ──
 
 export default function SubmissionsPage() {
   const [search, setSearch] = useState("");
   const [formFilter, setFormFilter] = useState<string>("all");
   const [selectedSubmission, setSelectedSubmission] =
-    useState<MockSubmission | null>(null);
+    useState<FormSubmission | null>(null);
+  const { data: submissionsData, isLoading } = useFormSubmissions();
+
+  const submissions = useMemo(() => {
+    if (!Array.isArray(submissionsData)) return [];
+    return submissionsData;
+  }, [submissionsData]);
+
+  const allFormNames = useMemo(
+    () => [...new Set(submissions.map((s) => s.formName).filter(Boolean))],
+    [submissions],
+  );
 
   const filtered = useMemo(() => {
-    let result = mockSubmissions;
+    let result = submissions;
 
     if (formFilter !== "all") {
       result = result.filter((s) => s.formName === formFilter);
@@ -86,22 +81,23 @@ export default function SubmissionsPage() {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((s) =>
-        Object.values(s.data).some((v) => v.toLowerCase().includes(q)),
-      );
+      result = result.filter((s) => {
+        const data = (s.data ?? {}) as Record<string, string>;
+        return Object.values(data).some((v) =>
+          String(v).toLowerCase().includes(q),
+        );
+      });
     }
 
-    return result.sort(
-      (a, b) =>
-        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
-    );
-  }, [search, formFilter]);
+    return result;
+  }, [submissions, search, formFilter]);
 
   // Get all unique field names across filtered submissions for table columns
   const allFieldNames = useMemo(() => {
     const names = new Set<string>();
     filtered.forEach((s) => {
-      Object.keys(s.data).forEach((key) => names.add(key));
+      const data = (s.data ?? {}) as Record<string, string>;
+      Object.keys(data).forEach((key) => names.add(key));
     });
     // Prioritize common fields first
     const priority = ["Name", "Email", "Phone"];
@@ -135,7 +131,7 @@ export default function SubmissionsPage() {
               Form Submissions
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {mockSubmissions.length} total submissions across all forms
+              {submissions.length} total submissions across all forms
             </p>
           </div>
         </div>
@@ -215,23 +211,26 @@ export default function SubmissionsPage() {
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                       <FileInput className="h-3 w-3" />
-                      {sub.formName}
+                      {sub.formName ?? "Form"}
                     </span>
                   </td>
-                  {visibleColumns.map((col) => (
-                    <td
-                      key={col}
-                      className="px-4 py-3 text-sm text-foreground max-w-[180px] truncate"
-                    >
-                      {sub.data[col] || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                  ))}
+                  {visibleColumns.map((col) => {
+                    const data = (sub.data ?? {}) as Record<string, string>;
+                    return (
+                      <td
+                        key={col}
+                        className="px-4 py-3 text-sm text-foreground max-w-[180px] truncate"
+                      >
+                        {data[col] || (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {formatRelativeTime(sub.submittedAt)}
+                      {formatRelativeTime(sub.createdAt)}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -284,7 +283,7 @@ export default function SubmissionsPage() {
                   Submission Details
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedSubmission.formName}
+                  {selectedSubmission.formName ?? "Unknown Form"}
                 </p>
               </div>
               <button
@@ -304,8 +303,8 @@ export default function SubmissionsPage() {
                     Submitted
                   </span>
                   <span className="text-xs font-medium text-foreground">
-                    {formatDate(selectedSubmission.submittedAt)} at{" "}
-                    {formatTime(selectedSubmission.submittedAt)}
+                    {formatDate(selectedSubmission.createdAt)} at{" "}
+                    {formatTime(selectedSubmission.createdAt)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -321,12 +320,12 @@ export default function SubmissionsPage() {
                   <span
                     className={cn(
                       "text-xs font-medium",
-                      selectedSubmission.contactCreated
+                      selectedSubmission.contactId
                         ? "text-success"
                         : "text-muted-foreground",
                     )}
                   >
-                    {selectedSubmission.contactCreated ? "Yes" : "No"}
+                    {selectedSubmission.contactId ? "Yes" : "No"}
                   </span>
                 </div>
               </div>
@@ -336,7 +335,7 @@ export default function SubmissionsPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Form Data
                 </p>
-                {Object.entries(selectedSubmission.data).map(
+                {Object.entries((selectedSubmission.data ?? {}) as Record<string, string>).map(
                   ([key, value]) => (
                     <div
                       key={key}

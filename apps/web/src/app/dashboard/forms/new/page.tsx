@@ -19,6 +19,7 @@ import {
   ToggleLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCreateForm } from "@/lib/hooks/use-forms";
 
 type FieldType = "text" | "email" | "phone" | "textarea" | "select" | "date" | "number" | "checkbox";
 
@@ -50,6 +51,8 @@ export default function NewFormPage() {
     { id: "f3", type: "phone", label: "Phone", placeholder: "(555) 000-0000", required: false },
   ]);
   const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { mutate: createForm } = useCreateForm();
 
   function showToast(msg: string) {
     setToast(msg);
@@ -76,7 +79,7 @@ export default function NewFormPage() {
     setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!formName.trim()) {
       showToast("Please enter a form name");
       return;
@@ -85,8 +88,19 @@ export default function NewFormPage() {
       showToast("Please add at least one field");
       return;
     }
-    showToast("Form created successfully");
-    setTimeout(() => router.push("/dashboard/forms"), 1500);
+    setSaving(true);
+    const result = await createForm({
+      name: formName.trim(),
+      fields,
+      settings: {},
+    });
+    setSaving(false);
+    if (result) {
+      showToast("Form created successfully");
+      setTimeout(() => router.push("/dashboard/forms"), 1000);
+    } else {
+      showToast("Failed to create form. Please try again.");
+    }
   }
 
   return (
@@ -116,14 +130,16 @@ export default function NewFormPage() {
         </div>
         <button
           onClick={handleSave}
+          disabled={saving}
           className={cn(
             "flex h-9 items-center gap-2 rounded-lg px-4",
             "bg-primary text-primary-foreground text-sm font-medium",
             "hover:bg-primary/90 transition-colors",
+            saving && "opacity-50 cursor-not-allowed",
           )}
         >
           <Save className="h-4 w-4" />
-          Save Form
+          {saving ? "Saving..." : "Save Form"}
         </button>
       </div>
 
