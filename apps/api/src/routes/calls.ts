@@ -7,36 +7,6 @@ import { logger } from '../middleware/logger.js';
 const callsRoutes = new Hono();
 callsRoutes.use('*', authMiddleware, orgScopeMiddleware);
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-interface CallHistoryEntry {
-  id: string;
-  orgId: string;
-  phoneNumber: string;
-  contactName: string | null;
-  direction: 'inbound' | 'outbound';
-  duration: number;
-  timestamp: string;
-  outcome: 'booked' | 'qualified' | 'voicemail' | 'missed' | 'escalated';
-  aiHandled: boolean;
-  summary: string;
-  transcript: Array<{ speaker: string; text: string; time: string }>;
-  actionsTaken: string[];
-  recordingAvailable: boolean;
-}
-
-// ── In-memory call history store (per org) ────────────────────────────────
-// TODO: Migrate to a proper DB table (call_history) with org_id scoping
-
-const callHistory = new Map<string, CallHistoryEntry[]>();
-
-function getOrgCalls(orgId: string): CallHistoryEntry[] {
-  if (!callHistory.has(orgId)) {
-    callHistory.set(orgId, []);
-  }
-  return callHistory.get(orgId) as CallHistoryEntry[];
-}
-
 // ── Zod schemas ───────────────────────────────────────────────────────────
 
 const logCallSchema = z.object({
@@ -53,30 +23,84 @@ const logCallSchema = z.object({
 
 callsRoutes.get('/', async (c) => {
   const orgId = c.get('orgId');
-  const calls = getOrgCalls(orgId);
 
-  // Return sorted by newest first, map to the shape the frontend expects
-  const sorted = [...calls].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
+  try {
+    const { db, callHistory, withOrgScope } = await import('@mybizos/db');
+    const { desc } = await import('drizzle-orm');
 
-  return c.json(sorted);
+    const rows = await db
+      .select()
+      .from(callHistory)
+      .where(withOrgScope(callHistory.orgId, orgId))
+      .orderBy(desc(callHistory.createdAt))
+      .limit(100);
+
+    const calls = rows.map((row) => ({
+      id: row.id,
+      orgId: row.orgId,
+      phoneNumber: row.phoneNumber,
+      contactName: row.contactName,
+      direction: row.direction,
+      duration: row.durationSeconds,
+      timestamp: row.createdAt.toISOString(),
+      outcome: row.outcome,
+      aiHandled: row.aiHandled,
+      summary: row.summary ?? '',
+      transcript: row.transcript as Array<{ speaker: string; text: string; time: string }>,
+      actionsTaken: row.actionsTaken as string[],
+      recordingAvailable: row.recordingAvailable,
+    }));
+
+    return c.json(calls);
+  } catch (err) {
+    logger.error('Failed to list calls', { orgId, error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
 });
 
-// ── POST /log — Log a completed call ─────────────────────────────────────
+// ── GET /:id — Get single call detail ─────────────────────────────────────
 
 callsRoutes.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const callId = c.req.param('id');
-  const calls = getOrgCalls(orgId);
-  const call = calls.find((entry) => entry.id === callId);
 
-  if (!call) {
-    return c.json({ error: 'Call not found', code: 'NOT_FOUND', status: 404 }, 404);
+  try {
+    const { db, callHistory, withOrgScope } = await import('@mybizos/db');
+    const { and, eq } = await import('drizzle-orm');
+
+    const [row] = await db
+      .select()
+      .from(callHistory)
+      .where(and(withOrgScope(callHistory.orgId, orgId), eq(callHistory.id, callId)));
+
+    if (!row) {
+      return c.json({ error: 'Call not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+
+    return c.json({
+      data: {
+        id: row.id,
+        orgId: row.orgId,
+        phoneNumber: row.phoneNumber,
+        contactName: row.contactName,
+        direction: row.direction,
+        duration: row.durationSeconds,
+        timestamp: row.createdAt.toISOString(),
+        outcome: row.outcome,
+        aiHandled: row.aiHandled,
+        summary: row.summary ?? '',
+        transcript: row.transcript as Array<{ speaker: string; text: string; time: string }>,
+        actionsTaken: row.actionsTaken as string[],
+        recordingAvailable: row.recordingAvailable,
+      },
+    });
+  } catch (err) {
+    logger.error('Failed to get call', { orgId, callId, error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-
-  return c.json({ data: call });
 });
+
+// ── POST /log — Log a completed call ─────────────────────────────────────
 
 callsRoutes.post('/log', async (c) => {
   const orgId = c.get('orgId');
@@ -102,39 +126,42 @@ callsRoutes.post('/log', async (c) => {
 
   const data = parsed.data;
 
-  const entry: CallHistoryEntry = {
-    id: `call-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    orgId,
-    phoneNumber: data.phoneNumber,
-    contactName: data.contactName,
-    direction: data.direction,
-    duration: data.durationSeconds,
-    timestamp: data.timestamp ?? new Date().toISOString(),
-    outcome: data.outcome,
-    aiHandled: false,
-    summary: data.summary ?? `${data.direction === 'outbound' ? 'Outbound' : 'Inbound'} call — ${data.durationSeconds}s`,
-    transcript: [],
-    actionsTaken: ['Call logged'],
-    recordingAvailable: false,
-  };
+  try {
+    const { db, callHistory } = await import('@mybizos/db');
 
-  const calls = getOrgCalls(orgId);
-  calls.push(entry);
+    const [created] = await db
+      .insert(callHistory)
+      .values({
+        orgId,
+        phoneNumber: data.phoneNumber,
+        contactName: data.contactName,
+        direction: data.direction,
+        durationSeconds: data.durationSeconds,
+        outcome: data.outcome,
+        aiHandled: false,
+        summary: data.summary ?? `${data.direction === 'outbound' ? 'Outbound' : 'Inbound'} call — ${data.durationSeconds}s`,
+        transcript: [],
+        actionsTaken: ['Call logged'],
+        recordingAvailable: false,
+      })
+      .returning();
 
-  // Keep max 500 calls per org in memory
-  if (calls.length > 500) {
-    calls.splice(0, calls.length - 500);
+    if (!created) {
+      return c.json({ error: 'Failed to log call', code: 'INTERNAL_ERROR', status: 500 }, 500);
+    }
+
+    logger.info('Call logged to database', {
+      orgId,
+      callId: created.id,
+      phoneNumber: data.phoneNumber,
+      direction: data.direction,
+    });
+
+    return c.json({ success: true, call: created });
+  } catch (err) {
+    logger.error('Failed to log call', { orgId, error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-
-  logger.info('Call logged', {
-    orgId,
-    callId: entry.id,
-    phoneNumber: entry.phoneNumber,
-    direction: entry.direction,
-    duration: String(entry.duration),
-  });
-
-  return c.json({ success: true, call: entry });
 });
 
 export { callsRoutes };

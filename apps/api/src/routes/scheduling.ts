@@ -9,7 +9,7 @@ const scheduling = new Hono();
 // ── Validation Schemas ──
 
 const createAppointmentSchema = z.object({
-  contactId: z.string().min(1, 'Contact ID is required'),
+  contactId: z.string().optional().default(''),
   contactName: z.string().min(1, 'Contact name is required'),
   title: z.string().min(1, 'Appointment title is required'),
   description: z.string().default(''),
@@ -71,8 +71,22 @@ authenticatedScheduling.post('/appointments', async (c) => {
   try {
     const { schedulingService } = await import('../services/scheduling-service.js');
     const orgId = c.get('orgId');
+
+    // If no contactId, create a contact from contactName
+    let contactId = parsed.contactId;
+    if (!contactId) {
+      const { contactService } = await import('../services/contact-service.js');
+      const nameParts = parsed.contactName.split(' ');
+      const created = await contactService.create(orgId, {
+        firstName: nameParts[0] || parsed.contactName,
+        lastName: nameParts.slice(1).join(' ') || 'Unknown',
+        source: 'manual',
+      });
+      contactId = created.id;
+    }
+
     const appointment = await schedulingService.createAppointment(orgId, {
-      contactId: parsed.contactId,
+      contactId,
       title: parsed.title,
       description: parsed.description,
       startTime: new Date(parsed.startTime),
@@ -160,6 +174,7 @@ scheduling.get('/public/org/:slug', async (c) => {
         website: organizations.website,
         vertical: organizations.vertical,
         logoUrl: organizations.logoUrl,
+        settings: organizations.settings,
       })
       .from(organizations)
       .where(eq(organizations.slug, slug));

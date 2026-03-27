@@ -671,10 +671,13 @@ export default function BookingPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "your-business";
   const fallbackName = slugToBusinessName(slug);
-  const services = useMemo(() => getServicesForSlug(slug), [slug]);
+  const fallbackServices = useMemo(() => getServicesForSlug(slug), [slug]);
 
-  // Fetch real org info from API (business name + phone)
+  // Fetch real org info from API (business name + phone + vertical + services)
   const [orgInfo, setOrgInfo] = useState<{ name: string; phone: string } | null>(null);
+  const [orgServices, setOrgServices] = useState<Service[] | null>(null);
+
+  const services = orgServices ?? fallbackServices;
 
   useEffect(() => {
     let cancelled = false;
@@ -684,17 +687,29 @@ export default function BookingPage() {
           signal: AbortSignal.timeout(5000),
         });
         if (res.ok) {
-          const json = await res.json() as { data?: { name?: string; phone?: string } };
+          const json = await res.json() as { data?: Record<string, unknown> };
           const data = json.data ?? json;
           if (!cancelled && data && typeof data === "object") {
+            const d = data as Record<string, unknown>;
             setOrgInfo({
-              name: (data as Record<string, string>).name || fallbackName,
-              phone: (data as Record<string, string>).phone || "",
+              name: (d.name as string) || fallbackName,
+              phone: (d.phone as string) || "",
             });
+
+            // Use vertical from API instead of slug heuristic
+            const vertical = (d.vertical as string) || detectVerticalFromSlug(slug);
+            const verticalServices = SERVICES_BY_VERTICAL[vertical] ?? SERVICES_BY_VERTICAL["default"]!;
+            setOrgServices(verticalServices);
+
+            // If org has custom services in settings, use those instead
+            const settings = d.settings as Record<string, unknown> | undefined;
+            if (settings?.services && Array.isArray(settings.services) && settings.services.length > 0) {
+              setOrgServices(settings.services as Service[]);
+            }
           }
         }
       } catch {
-        // API unavailable — use slug-derived name
+        // API unavailable — use slug-derived name and hardcoded services
       }
     }
     fetchOrgInfo();

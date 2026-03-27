@@ -122,8 +122,8 @@ dashboard.get('/stats', async (c) => {
           gte(aiCallLogs.createdAt, weekAgo),
         ));
       aiCallsThisWeek = aiCallResult?.value ?? 0;
-    } catch {
-      // aiCallLogs table may not have data yet
+    } catch (err) {
+      logger.warn('Failed to fetch AI call count', { orgId, error: err instanceof Error ? err.message : String(err) });
     }
 
     // Calculate revenue this month from won deals
@@ -137,8 +137,8 @@ dashboard.get('/stats', async (c) => {
           sql`${deals.closedAt} IS NOT NULL`,
         ));
       revenueThisMonth = Number(revenueResult?.total ?? 0);
-    } catch {
-      // closed deals may not be tracked yet
+    } catch (err) {
+      logger.warn('Failed to fetch revenue', { orgId, error: err instanceof Error ? err.message : String(err) });
     }
 
     const stats = [
