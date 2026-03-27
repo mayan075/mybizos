@@ -1,33 +1,13 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 
-const inter = localFont({
-  src: [
-    {
-      path: "../fonts/inter-latin-400-normal.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../fonts/inter-latin-500-normal.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../fonts/inter-latin-600-normal.woff2",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "../fonts/inter-latin-700-normal.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -67,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={plusJakartaSans.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ToastProvider>
           {children}

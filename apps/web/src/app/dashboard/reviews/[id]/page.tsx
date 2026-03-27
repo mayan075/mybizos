@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,26 +15,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ── Types ──
-
-interface Review {
-  id: string;
-  platform: "google" | "facebook" | "yelp" | "internal";
-  rating: number;
-  reviewText: string | null;
-  reviewerName: string;
-  reviewerEmail: string | null;
-  reviewerPhone: string | null;
-  aiResponse: string | null;
-  responsePosted: boolean;
-  reviewUrl: string | null;
-  sentiment: "positive" | "neutral" | "negative";
-  createdAt: Date;
-}
-
-// Real reviews will come from the API; start with empty array
-const MOCK_REVIEWS: Review[] = [];
+import { useReview, useGenerateResponse, usePostResponse } from "@/lib/hooks/use-reviews";
+import type { Review } from "@/lib/hooks/use-reviews";
 
 // ── Helper Components ──
 
@@ -77,7 +59,7 @@ function PlatformBadge({ platform }: { platform: Review["platform"] }) {
   );
 }
 
-function formatDate(date: Date): string {
+function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     year: "numeric",
@@ -85,7 +67,7 @@ function formatDate(date: Date): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
+  }).format(new Date(dateStr));
 }
 
 // ── Main Page ──
@@ -94,45 +76,61 @@ export default function ReviewDetailPage() {
   const params = useParams();
   const reviewId = params.id as string;
 
+  const { data: review, isLoading, refetch } = useReview(reviewId);
+  const { mutate: generateResponse } = useGenerateResponse(reviewId);
+  const { mutate: postResponse } = usePostResponse(reviewId);
+
   const [aiDraft, setAiDraft] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosted, setIsPosted] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  const review = useMemo(() => {
-    return MOCK_REVIEWS.find((r) => r.id === reviewId) ?? null;
-  }, [reviewId]);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleGenerateResponse() {
-    if (!review) return;
+  async function handleGenerateResponse() {
     setIsGenerating(true);
-
-    // Simulate AI generation
-    setTimeout(() => {
-      let response: string;
-      if (review.rating >= 4) {
-        response = `Thank you so much for the wonderful ${review.rating}-star review, ${review.reviewerName}! We're thrilled to hear about your positive experience. Your feedback means the world to our team and motivates us to keep delivering excellent service. We look forward to serving you again in the future!`;
-      } else if (review.rating === 3) {
-        response = `Thank you for your feedback, ${review.reviewerName}. We appreciate you taking the time to share your experience. We're always looking to improve and would love to hear more about how we can better serve you. Please don't hesitate to reach out to us directly so we can address your concerns.`;
-      } else {
-        response = `${review.reviewerName}, thank you for bringing this to our attention. We sincerely apologize for the experience you had. This is not the level of service we strive for. We'd like to make this right — please contact us directly at your earliest convenience so we can resolve this for you. Your satisfaction is our top priority.`;
-      }
-      setAiDraft(response);
-      setIsGenerating(false);
-    }, 1500);
+    const result = await generateResponse(undefined as unknown as void);
+    if (result && "response" in result) {
+      setAiDraft(result.response);
+    } else {
+      showToast("Failed to generate response. Please try again.");
+    }
+    setIsGenerating(false);
   }
 
-  function handleApproveAndPost() {
-    setIsPosted(true);
-    showToast("Response posted successfully!");
+  async function handleApproveAndPost() {
+    const result = await postResponse({ response: aiDraft });
+    if (result) {
+      setIsPosted(true);
+      showToast("Response posted successfully!");
+      refetch();
+    } else {
+      showToast("Failed to post response. Please try again.");
+    }
   }
 
-  if (!review) {
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/dashboard/reviews"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Reviews
+        </Link>
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">Loading review...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!review || !review.reviewerName) {
     return (
       <div className="space-y-6">
         <Link
@@ -234,27 +232,6 @@ export default function ReviewDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Contact Information */}
-      {(review.reviewerEmail || review.reviewerPhone) && (
-        <div className="rounded-xl border border-border bg-card p-6 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Contact Information</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {review.reviewerEmail && (
-              <div className="flex items-center gap-2 rounded-lg border border-border p-3">
-                <span className="text-xs font-medium text-muted-foreground">Email:</span>
-                <span className="text-sm text-foreground">{review.reviewerEmail}</span>
-              </div>
-            )}
-            {review.reviewerPhone && (
-              <div className="flex items-center gap-2 rounded-lg border border-border p-3">
-                <span className="text-xs font-medium text-muted-foreground">Phone:</span>
-                <span className="text-sm text-foreground">{review.reviewerPhone}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Response Section */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">

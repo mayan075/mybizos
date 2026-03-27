@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import Link from "next/link";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -30,8 +29,18 @@ import {
   Trash2,
   Copy,
   Check,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useSequence,
+  useUpdateSequence,
+  useActivateSequence,
+  useDeactivateSequence,
+  type SequenceStep,
+  type Sequence,
+} from "@/lib/hooks/use-sequences";
 
 // ── Types ──
 
@@ -152,8 +161,146 @@ const triggerLabels: Record<TriggerType, string> = {
   deal_stale: "Deal stays in stage > 7 days",
 };
 
-// Real workflow data will come from the API
-const mockWorkflows: Record<string, Workflow> = {};
+// ── API → UI Mapping ──
+
+/** Map API trigger type to the UI's TriggerType */
+function mapApiTriggerToUI(triggerType: string): TriggerType {
+  const map: Record<string, TriggerType> = {
+    contact_created: "contact_created",
+    deal_stage_changed: "deal_stage_changed",
+    appointment_completed: "appointment_completed",
+    tag_added: "tag_added",
+    form_submitted: "form_submitted",
+    manual: "contact_created",
+  };
+  return map[triggerType] ?? "contact_created";
+}
+
+/** Map an API step type to a UI NodeType */
+function mapStepTypeToNode(stepType: string): NodeType {
+  const map: Record<string, NodeType> = {
+    send_email: "send_email",
+    send_sms: "send_sms",
+    wait: "wait",
+    add_tag: "add_tag",
+    ai_decision: "ai_decision",
+  };
+  return map[stepType] ?? "send_email";
+}
+
+/** Convert API step config to UI node config */
+function mapStepConfigToNodeConfig(
+  stepType: string,
+  config: Record<string, unknown>,
+): Record<string, string | number | boolean> {
+  switch (stepType) {
+    case "send_email":
+      return {
+        subject: String(config.subject ?? ""),
+        body: String(config.body_html ?? ""),
+      };
+    case "send_sms":
+      return { message: String(config.body ?? "") };
+    case "wait":
+      return {
+        duration: Number(config.delay_hours ?? 1),
+        unit: "hours" as string,
+      };
+    case "add_tag":
+      return { tagName: String(config.tag ?? "") };
+    case "ai_decision":
+      return {
+        condition: String(config.prompt ?? ""),
+        yesBranch: String(config.yes_step ?? ""),
+        noBranch: String(config.no_step ?? ""),
+      };
+    default:
+      return {};
+  }
+}
+
+/** Build a Workflow from a Sequence API response */
+function sequenceToWorkflow(seq: Sequence): Workflow {
+  const triggerNode: WorkflowNode = {
+    id: "node-trigger",
+    type: "trigger",
+    config: { triggerType: mapApiTriggerToUI(seq.triggerType) },
+  };
+
+  const stepNodes: WorkflowNode[] = seq.steps.map((step, i) => ({
+    id: `node-step-${i}`,
+    type: mapStepTypeToNode(step.type),
+    config: mapStepConfigToNodeConfig(step.type, step.config as Record<string, unknown>),
+  }));
+
+  return {
+    id: seq.id,
+    name: seq.name,
+    active: seq.isActive,
+    runCount: seq.enrolledCount ?? 0,
+    lastRun: null,
+    nodes: [triggerNode, ...stepNodes],
+  };
+}
+
+/** Convert UI workflow nodes back to API steps (excluding trigger) */
+function workflowToApiSteps(nodes: WorkflowNode[]): SequenceStep[] {
+  return nodes
+    .filter((n) => n.type !== "trigger")
+    .map((node): SequenceStep => {
+      switch (node.type) {
+        case "send_email":
+          return {
+            type: "send_email",
+            config: {
+              subject: String(node.config.subject ?? ""),
+              body_html: String(node.config.body ?? ""),
+            },
+          };
+        case "send_sms":
+          return {
+            type: "send_sms",
+            config: { body: String(node.config.message ?? "") },
+          };
+        case "wait":
+          return {
+            type: "wait",
+            config: { delay_hours: Number(node.config.duration ?? 1) },
+          };
+        case "add_tag":
+          return {
+            type: "add_tag",
+            config: { tag: String(node.config.tagName ?? "") },
+          };
+        case "ai_decision":
+          return {
+            type: "ai_decision",
+            config: {
+              prompt: String(node.config.condition ?? ""),
+              yes_step: Number(node.config.yesBranch ?? 0),
+              no_step: Number(node.config.noBranch ?? 0),
+            },
+          };
+        default:
+          return {
+            type: "send_email",
+            config: { subject: "", body_html: "" },
+          };
+      }
+    });
+}
+
+/** Map UI trigger type back to API trigger type */
+function mapUITriggerToApi(
+  nodes: WorkflowNode[],
+): "manual" | "tag_added" | "deal_stage_changed" | "form_submitted" | "appointment_completed" | "contact_created" {
+  const triggerNode = nodes.find((n) => n.type === "trigger");
+  const tt = String(triggerNode?.config.triggerType ?? "manual");
+  const validTypes = ["manual", "tag_added", "deal_stage_changed", "form_submitted", "appointment_completed", "contact_created"] as const;
+  return (validTypes as readonly string[]).includes(tt)
+    ? (tt as typeof validTypes[number])
+    : "manual";
+}
 
 // ── Helpers ──
 
@@ -658,7 +805,13 @@ export default function WorkflowBuilderPage() {
   const router = useRouter();
   const workflowId = params.id as string;
 
-  const initialWorkflow = mockWorkflows[workflowId] ?? {
+  // ── API hooks ──
+  const { data: sequence, isLoading: isLoadingSequence, isLive } = useSequence(workflowId);
+  const { mutate: updateSequence, isLoading: isSaving } = useUpdateSequence(workflowId);
+  const { mutate: activateSequence } = useActivateSequence(workflowId);
+  const { mutate: deactivateSequence } = useDeactivateSequence(workflowId);
+
+  const emptyWorkflow: Workflow = {
     id: workflowId,
     name: "New Automation",
     active: false,
@@ -673,17 +826,40 @@ export default function WorkflowBuilderPage() {
     ],
   };
 
-  const [workflow, setWorkflow] = useState<Workflow>(initialWorkflow);
+  const [workflow, setWorkflow] = useState<Workflow>(emptyWorkflow);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(workflow.name);
   const [showTestToast, setShowTestToast] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  // Hydrate from API when sequence data arrives
+  useEffect(() => {
+    if (sequence && !hasHydrated) {
+      const wf = sequenceToWorkflow(sequence);
+      setWorkflow(wf);
+      setNameInput(wf.name);
+      setHasHydrated(true);
+    }
+  }, [sequence, hasHydrated]);
 
   const selectedNode = workflow.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
-  const handleToggleActive = useCallback(() => {
-    setWorkflow((prev) => ({ ...prev, active: !prev.active }));
-  }, []);
+  function showSaveToast(msg: string) {
+    setSaveToast(msg);
+    setTimeout(() => setSaveToast(null), 3000);
+  }
+
+  const handleToggleActive = useCallback(async () => {
+    const willBeActive = !workflow.active;
+    setWorkflow((prev) => ({ ...prev, active: willBeActive }));
+    if (willBeActive) {
+      await activateSequence(undefined as never);
+    } else {
+      await deactivateSequence(undefined as never);
+    }
+  }, [workflow.active, activateSequence, deactivateSequence]);
 
   const handleAddStep = useCallback(
     (afterIndex: number, type: NodeType) => {
@@ -724,13 +900,47 @@ export default function WorkflowBuilderPage() {
     setEditingName(false);
   }, [nameInput]);
 
+  const handleSaveToApi = useCallback(async () => {
+    const steps = workflowToApiSteps(workflow.nodes);
+    const triggerType = mapUITriggerToApi(workflow.nodes);
+
+    const result = await updateSequence({
+      name: workflow.name,
+      triggerType,
+      steps,
+    });
+
+    if (result) {
+      showSaveToast("Workflow saved successfully");
+    } else {
+      showSaveToast("Failed to save workflow");
+    }
+  }, [workflow, updateSequence]);
+
   const handleTest = useCallback(() => {
     setShowTestToast(true);
     setTimeout(() => setShowTestToast(false), 3000);
   }, []);
 
+  // Show loading state while fetching from API
+  if (isLoadingSequence && !hasHydrated) {
+    return (
+      <div className="relative h-full flex flex-col -m-6 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-3 text-sm text-muted-foreground">Loading automation...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full flex flex-col -m-6">
+      {/* Save toast */}
+      {saveToast && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          {saveToast}
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3 shrink-0">
         <div className="flex items-center gap-4">
@@ -830,6 +1040,18 @@ export default function WorkflowBuilderPage() {
           >
             <TestTube className="h-3.5 w-3.5" />
             Test Workflow
+          </button>
+
+          <button
+            onClick={handleSaveToApi}
+            disabled={isSaving}
+            className={cn(
+              "flex h-8 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors",
+              isSaving && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {isSaving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

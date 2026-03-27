@@ -20,11 +20,19 @@ import {
   Smartphone,
   DollarSign,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { trackPageVisit } from "@/lib/recently-viewed";
 import { useEffect } from "react";
+import {
+  useInvoice,
+  useUpdateInvoice,
+  useSendInvoice,
+  useMarkInvoicePaid,
+} from "@/lib/hooks/use-invoices";
+import type { Invoice } from "@/lib/hooks/use-invoices";
 
 // ── Types ──
 
@@ -63,8 +71,36 @@ interface InvoiceData {
   payments: PaymentRecord[];
 }
 
-// Real invoice data will come from the API
-const mockInvoiceDetails: Record<string, InvoiceData> = {};
+/** Map an API Invoice to the local InvoiceData shape used by the UI */
+function mapApiInvoice(inv: Invoice): InvoiceData {
+  return {
+    id: inv.id,
+    number: inv.invoiceNumber,
+    customerName: inv.contactName ?? "Unknown Customer",
+    customerEmail: inv.contactEmail ?? "",
+    customerPhone: "",
+    customerAddress: "",
+    service: inv.lineItems?.[0]?.description ?? "Service",
+    status: (inv.status === "viewed" || inv.status === "cancelled") ? "sent" : inv.status as InvoiceData["status"],
+    lineItems: (inv.lineItems ?? []).map((li, idx) => ({
+      id: `li-${idx}`,
+      description: li.description,
+      quantity: li.quantity,
+      rate: li.unitPrice,
+    })),
+    taxRate: parseFloat(inv.taxRate) || 0,
+    issueDate: inv.createdAt ? inv.createdAt.split("T")[0] ?? "" : "",
+    dueDate: inv.dueDate ? inv.dueDate.split("T")[0] ?? "" : "",
+    paidDate: inv.paidAt ? inv.paidAt.split("T")[0] ?? null : null,
+    notes: inv.notes ?? "",
+    terms: "",
+    isRecurring: false,
+    recurringInterval: null,
+    payments: inv.paidAt
+      ? [{ id: "p1", date: inv.paidAt.split("T")[0] ?? "", amount: parseFloat(inv.total) || 0, method: "Payment" }]
+      : [],
+  };
+}
 
 // ── Helpers ──
 
@@ -88,7 +124,13 @@ export default function InvoiceDetailPage() {
   const invoiceId = params.id as string;
   const [toast, setToast] = useState<string | null>(null);
 
-  const invoiceData = mockInvoiceDetails[invoiceId];
+  // Fetch invoice from API
+  const { data: apiInvoice, isLoading, refetch } = useInvoice(invoiceId);
+
+  const invoiceData = useMemo(() => {
+    if (!apiInvoice) return null;
+    return mapApiInvoice(apiInvoice);
+  }, [apiInvoice]);
 
   // Track page visit for recently viewed
   useEffect(() => {
@@ -100,6 +142,30 @@ export default function InvoiceDetailPage() {
       });
     }
   }, [invoiceId, invoiceData]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/invoices"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground">Loading...</h1>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-12 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   if (!invoiceData) {
     return (
@@ -132,20 +198,17 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
-
   if (invoiceData.status === "draft") {
     return (
       <div className="space-y-4">
         <Breadcrumbs currentLabel={invoiceData.number} />
         <DraftInvoiceView
           invoice={invoiceData}
+          invoiceId={invoiceId}
           toast={toast}
           showToast={showToast}
           router={router}
+          onRefetch={refetch}
         />
       </div>
     );
@@ -156,8 +219,10 @@ export default function InvoiceDetailPage() {
       <Breadcrumbs currentLabel={invoiceData.number} />
       <InvoiceView
         invoice={invoiceData}
+        invoiceId={invoiceId}
         toast={toast}
         showToast={showToast}
+        onRefetch={refetch}
       />
     </div>
   );
@@ -167,20 +232,27 @@ export default function InvoiceDetailPage() {
 
 function DraftInvoiceView({
   invoice,
+  invoiceId,
   toast,
   showToast,
   router,
+  onRefetch,
 }: {
   invoice: InvoiceData;
+  invoiceId: string;
   toast: string | null;
   showToast: (msg: string) => void;
   router: ReturnType<typeof useRouter>;
+  onRefetch: () => void;
 }) {
   const [lineItems, setLineItems] = useState<LineItem[]>(invoice.lineItems);
   const [taxRate, setTaxRate] = useState(invoice.taxRate);
   const [notes, setNotes] = useState(invoice.notes);
   const [terms, setTerms] = useState(invoice.terms);
   const [dueDate, setDueDate] = useState(invoice.dueDate);
+
+  const { mutate: updateInvoice, isLoading: isUpdating } = useUpdateInvoice(invoiceId);
+  const { mutate: sendInvoice, isLoading: isSending } = useSendInvoice(invoiceId);
 
   const subtotal = useMemo(
     () => lineItems.reduce((sum, li) => sum + li.quantity * li.rate, 0),
@@ -238,22 +310,63 @@ function DraftInvoiceView({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              showToast("Invoice saved");
+            onClick={async () => {
+              const payload = {
+                dueDate,
+                lineItems: lineItems
+                  .filter((li) => li.description.trim() || li.rate > 0)
+                  .map((li) => ({
+                    description: li.description,
+                    quantity: li.quantity,
+                    unitPrice: li.rate,
+                    amount: li.quantity * li.rate,
+                  })),
+                taxRate,
+                notes: notes || undefined,
+              };
+              const result = await updateInvoice(payload);
+              if (result) {
+                showToast("Invoice saved");
+                onRefetch();
+              } else {
+                showToast("Failed to save invoice");
+              }
             }}
-            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            disabled={isUpdating || isSending}
+            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Save className="h-4 w-4" />
+            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Draft
           </button>
           <button
-            onClick={() => {
-              showToast(`Invoice sent to ${invoice.customerEmail}`);
-              setTimeout(() => router.push("/dashboard/invoices"), 1500);
+            onClick={async () => {
+              // Save first, then send
+              const payload = {
+                dueDate,
+                lineItems: lineItems
+                  .filter((li) => li.description.trim() || li.rate > 0)
+                  .map((li) => ({
+                    description: li.description,
+                    quantity: li.quantity,
+                    unitPrice: li.rate,
+                    amount: li.quantity * li.rate,
+                  })),
+                taxRate,
+                notes: notes || undefined,
+              };
+              await updateInvoice(payload);
+              const result = await sendInvoice({});
+              if (result) {
+                showToast(`Invoice sent to ${invoice.customerEmail}`);
+                setTimeout(() => router.push("/dashboard/invoices"), 1500);
+              } else {
+                showToast("Failed to send invoice");
+              }
             }}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            disabled={isUpdating || isSending}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Send className="h-4 w-4" />
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Send Invoice
           </button>
         </div>
@@ -404,13 +517,19 @@ function DraftInvoiceView({
 
 function InvoiceView({
   invoice,
+  invoiceId,
   toast,
   showToast,
+  onRefetch,
 }: {
   invoice: InvoiceData;
+  invoiceId: string;
   toast: string | null;
   showToast: (msg: string) => void;
+  onRefetch: () => void;
 }) {
+  const { mutate: markPaid, isLoading: isMarkingPaid } = useMarkInvoicePaid(invoiceId);
+  const { mutate: sendInvoice, isLoading: isSendingReminder } = useSendInvoice(invoiceId);
   const subtotal = invoice.lineItems.reduce(
     (sum, li) => sum + li.quantity * li.rate,
     0,
@@ -487,10 +606,19 @@ function InvoiceView({
         <div className="flex items-center gap-2">
           {invoice.status === "overdue" && (
             <button
-              onClick={() => showToast(`Reminder sent to ${invoice.customerEmail}`)}
-              className="flex h-9 items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 text-sm font-medium text-warning hover:bg-warning/10 transition-colors"
+              onClick={async () => {
+                const result = await sendInvoice({});
+                if (result) {
+                  showToast(`Reminder sent to ${invoice.customerEmail}`);
+                  onRefetch();
+                } else {
+                  showToast("Failed to send reminder");
+                }
+              }}
+              disabled={isSendingReminder}
+              className="flex h-9 items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 text-sm font-medium text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
             >
-              <Bell className="h-4 w-4" />
+              {isSendingReminder ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
               Send Reminder
             </button>
           )}
@@ -504,10 +632,19 @@ function InvoiceView({
                 Text Payment Link
               </button>
               <button
-                onClick={() => showToast("Invoice marked as paid")}
-                className="flex h-9 items-center gap-2 rounded-lg bg-success px-4 text-sm font-medium text-white hover:bg-success/90 transition-colors"
+                onClick={async () => {
+                  const result = await markPaid({});
+                  if (result) {
+                    showToast("Invoice marked as paid");
+                    onRefetch();
+                  } else {
+                    showToast("Failed to mark invoice as paid");
+                  }
+                }}
+                disabled={isMarkingPaid}
+                className="flex h-9 items-center gap-2 rounded-lg bg-success px-4 text-sm font-medium text-white hover:bg-success/90 transition-colors disabled:opacity-50"
               >
-                <DollarSign className="h-4 w-4" />
+                {isMarkingPaid ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
                 Mark as Paid
               </button>
             </>

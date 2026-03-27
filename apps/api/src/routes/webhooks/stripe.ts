@@ -12,7 +12,7 @@ stripeWebhooks.post('/', async (c) => {
   try {
     const { StripeClient } = await import('@mybizos/integrations');
     const { db, organizations } = await import('@mybizos/db');
-    const { eq } = await import('drizzle-orm');
+    const { eq, sql } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY || !config.STRIPE_WEBHOOK_SECRET) {
       logger.info('Stripe webhook received but Stripe not configured');
@@ -44,7 +44,7 @@ stripeWebhooks.post('/', async (c) => {
 
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as { metadata?: Record<string, string>; customer?: string; subscription?: string };
+        const session = event.data.object as { metadata?: Record<string, string>; customer?: string; subscription?: string; amount_total?: number };
         const orgId = session.metadata?.orgId;
 
         if (!orgId) {
@@ -62,12 +62,16 @@ stripeWebhooks.post('/', async (c) => {
           break;
         }
 
+        // Determine plan from price: starter ($49/4900 cents) vs pro ($99/9900 cents)
+        const amountCents = session.amount_total ?? 0;
+        const plan = amountCents <= 5000 ? 'starter' : 'pro';
+
         const settings = (org.settings ?? {}) as Record<string, unknown>;
         const updatedSettings = {
           ...settings,
           stripeCustomerId: session.customer as string,
           stripeSubscriptionId: session.subscription as string,
-          plan: 'pro',
+          plan,
           subscriptionStatus: 'active',
         };
 
@@ -84,36 +88,15 @@ stripeWebhooks.post('/', async (c) => {
         const subscription = event.data.object as { id: string; status: string; cancel_at_period_end: boolean; metadata?: Record<string, string> };
         const orgId = subscription.metadata?.orgId;
 
-        if (!orgId) {
-          // Try to find org by subscription ID
-          const allOrgs = await db.select().from(organizations);
-          const matchingOrg = allOrgs.find((o) => {
-            const s = (o.settings ?? {}) as Record<string, unknown>;
-            return s['stripeSubscriptionId'] === subscription.id;
-          });
-          if (matchingOrg) {
-            const settings = (matchingOrg.settings ?? {}) as Record<string, unknown>;
-            const updatedSettings = {
-              ...settings,
-              subscriptionStatus: subscription.status,
-              cancelAtPeriodEnd: subscription.cancel_at_period_end,
-            };
-            await db
-              .update(organizations)
-              .set({ settings: updatedSettings })
-              .where(eq(organizations.id, matchingOrg.id));
-            logger.info('Subscription updated', { orgId: matchingOrg.id, status: subscription.status });
-          }
-          break;
-        }
+        // Find the org — by metadata orgId or by subscription ID in settings JSON
+        const [targetOrg] = orgId
+          ? await db.select().from(organizations).where(eq(organizations.id, orgId))
+          : await db.select().from(organizations).where(
+              sql`${organizations.settings}->>'stripeSubscriptionId' = ${subscription.id}`,
+            );
 
-        const [org] = await db
-          .select()
-          .from(organizations)
-          .where(eq(organizations.id, orgId));
-
-        if (org) {
-          const settings = (org.settings ?? {}) as Record<string, unknown>;
+        if (targetOrg) {
+          const settings = (targetOrg.settings ?? {}) as Record<string, unknown>;
           const updatedSettings = {
             ...settings,
             subscriptionStatus: subscription.status,
@@ -122,8 +105,8 @@ stripeWebhooks.post('/', async (c) => {
           await db
             .update(organizations)
             .set({ settings: updatedSettings })
-            .where(eq(organizations.id, orgId));
-          logger.info('Subscription updated', { orgId, status: subscription.status });
+            .where(eq(organizations.id, targetOrg.id));
+          logger.info('Subscription updated', { orgId: targetOrg.id, status: subscription.status });
         }
         break;
       }
@@ -131,12 +114,10 @@ stripeWebhooks.post('/', async (c) => {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as { id: string; metadata?: Record<string, string> };
 
-        // Find org by subscription ID
-        const allOrgs = await db.select().from(organizations);
-        const matchingOrg = allOrgs.find((o) => {
-          const s = (o.settings ?? {}) as Record<string, unknown>;
-          return s['stripeSubscriptionId'] === subscription.id;
-        });
+        // Find org by subscription ID using indexed JSON query
+        const [matchingOrg] = await db.select().from(organizations).where(
+          sql`${organizations.settings}->>'stripeSubscriptionId' = ${subscription.id}`,
+        );
 
         if (matchingOrg) {
           const settings = (matchingOrg.settings ?? {}) as Record<string, unknown>;

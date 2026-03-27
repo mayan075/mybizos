@@ -58,6 +58,26 @@ interface CreateReviewCampaignInput {
   isActive?: boolean;
 }
 
+function useReview(id: string) {
+  return useApiQuery<Review>(
+    `/orgs/:orgId/reviews/${id}`,
+    {
+      id,
+      orgId: "",
+      contactId: null,
+      platform: "google",
+      rating: 0,
+      reviewText: null,
+      reviewerName: "",
+      aiResponse: null,
+      responsePosted: false,
+      reviewUrl: null,
+      sentiment: "neutral",
+      createdAt: "",
+    },
+  );
+}
+
 function useReviews(options: { platform?: string; sentiment?: string } = {}) {
   const params: Record<string, string> = {};
   if (options.platform) params.platform = options.platform;
@@ -113,6 +133,7 @@ function useCreateReviewCampaign() {
 }
 
 export {
+  useReview,
   useReviews,
   useReviewStats,
   useCreateReview,

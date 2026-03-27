@@ -113,11 +113,19 @@ billing.get('/', async (c) => {
       /* table may not exist yet */
     }
 
-    const planName = subscription?.status === 'active' ? 'pro' : 'free';
+    // Determine plan from org settings (set by webhook) or subscription status
+    const storedPlan = typeof settings['plan'] === 'string' ? settings['plan'] : null;
+    const planName = storedPlan && storedPlan !== 'free'
+      ? storedPlan
+      : subscription?.status === 'active' || subscription?.status === 'trialing'
+        ? 'pro'
+        : 'free';
     const limits =
       planName === 'pro'
         ? { aiMinutesLimit: 2000, smsLimit: 5000 }
-        : { aiMinutesLimit: 100, smsLimit: 50 };
+        : planName === 'starter'
+          ? { aiMinutesLimit: 500, smsLimit: 1000 }
+          : { aiMinutesLimit: 100, smsLimit: 50 };
 
     return c.json({
       data: {

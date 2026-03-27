@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -23,34 +23,13 @@ import {
   Kanban,
   CalendarCheck,
   X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTeamMember, useUpdateTeamMember, useRemoveTeamMember } from "@/lib/hooks/use-team";
+import type { TeamMember } from "@/lib/hooks/use-team";
 
 type Role = "Owner" | "Manager" | "Technician";
-
-interface MemberData {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: Role;
-  status: "active" | "inactive";
-  joinedDate: string;
-  permissions: Set<string>;
-  stats: {
-    dealsClosed: number;
-    revenue: number;
-    avgResponseTime: string;
-    customerSatisfaction: number;
-  };
-  activityLog: {
-    action: string;
-    detail: string;
-    time: string;
-    icon: "deal" | "message" | "pipeline" | "calendar" | "invoice";
-  }[];
-  schedule: boolean[][];
-}
 
 const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const hours = [
@@ -81,8 +60,12 @@ const allPermissions = [
   { key: "manage_settings", label: "Manage settings" },
 ] as const;
 
-// Real team member data will come from the API
-const membersData: Record<string, MemberData> = {};
+function mapApiRole(role: string): Role {
+  const normalized = role.toLowerCase();
+  if (normalized === "owner" || normalized === "admin") return "Owner";
+  if (normalized === "manager") return "Manager";
+  return "Technician";
+}
 
 function roleBadgeClasses(role: Role): string {
   switch (role) {
@@ -118,20 +101,54 @@ export default function TeamMemberDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const memberData = membersData[id];
+  const { data: memberFromApi, isLoading, refetch } = useTeamMember(id);
+  const { mutate: updateMember } = useUpdateTeamMember(id);
+  const { mutate: removeMember } = useRemoveTeamMember(id);
 
   const [toast, setToast] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState<"deactivate" | "remove" | null>(null);
-  const [name, setName] = useState(memberData?.name ?? "");
-  const [email, setEmail] = useState(memberData?.email ?? "");
-  const [phone, setPhone] = useState(memberData?.phone ?? "");
-  const [role, setRole] = useState<Role>(memberData?.role ?? "Technician");
-  const [permissions, setPermissions] = useState<Set<string>>(
-    new Set(memberData?.permissions ?? []),
-  );
-  const [schedule, setSchedule] = useState<boolean[][]>(
-    memberData?.schedule ?? makeDefaultSchedule(),
-  );
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<Role>("Technician");
+  const [permissions, setPermissions] = useState<Set<string>>(new Set());
+  const [schedule, setSchedule] = useState<boolean[][]>(makeDefaultSchedule());
+  const [initialized, setInitialized] = useState(false);
+
+  // Sync form state when API data arrives
+  useEffect(() => {
+    if (memberFromApi && memberFromApi.name && !initialized) {
+      setName(memberFromApi.name);
+      setEmail(memberFromApi.email);
+      setPhone(memberFromApi.phone ?? "");
+      setRole(mapApiRole(memberFromApi.role));
+      setPermissions(new Set(memberFromApi.permissions ?? []));
+      setSchedule(memberFromApi.schedule ?? makeDefaultSchedule());
+      setInitialized(true);
+    }
+  }, [memberFromApi, initialized]);
+
+  // Build a memberData-like object for the template to use
+  const memberData = memberFromApi && memberFromApi.name ? {
+    id: memberFromApi.id,
+    name: memberFromApi.name,
+    email: memberFromApi.email,
+    phone: memberFromApi.phone ?? "",
+    role: mapApiRole(memberFromApi.role),
+    status: memberFromApi.isActive ? "active" as const : "inactive" as const,
+    joinedDate: memberFromApi.joinedAt
+      ? new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(new Date(memberFromApi.joinedAt))
+      : "Unknown",
+    permissions: new Set(memberFromApi.permissions ?? []),
+    stats: memberFromApi.stats ?? {
+      dealsClosed: 0,
+      revenue: 0,
+      avgResponseTime: "N/A",
+      customerSatisfaction: 0,
+    },
+    activityLog: memberFromApi.activityLog ?? [],
+    schedule: memberFromApi.schedule ?? makeDefaultSchedule(),
+  } : null;
 
   function showToast(msg: string) {
     setToast(msg);
@@ -156,6 +173,24 @@ export default function TeamMemberDetailPage({
       next[dayIdx][hourIdx] = !next[dayIdx][hourIdx];
       return next;
     });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/dashboard/team"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Team
+        </Link>
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">Loading team member...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!memberData) {
@@ -222,12 +257,27 @@ export default function TeamMemberDetailPage({
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  showToast(
-                    showConfirmModal === "deactivate"
-                      ? `${memberData.name} has been deactivated`
-                      : `${memberData.name} has been removed`,
-                  );
+                onClick={async () => {
+                  if (showConfirmModal === "deactivate") {
+                    const result = await updateMember({ isActive: false });
+                    if (result) {
+                      showToast(`${memberData.name} has been deactivated`);
+                      refetch();
+                    } else {
+                      showToast("Failed to deactivate member. Please try again.");
+                    }
+                  } else {
+                    const result = await removeMember(undefined as unknown as void);
+                    if (result) {
+                      showToast(`${memberData.name} has been removed`);
+                      // Redirect back to team list after removal
+                      setTimeout(() => {
+                        window.location.href = "/dashboard/team";
+                      }, 1000);
+                    } else {
+                      showToast("Failed to remove member. Please try again.");
+                    }
+                  }
                   setShowConfirmModal(null);
                 }}
                 className="flex h-9 items-center gap-2 rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
@@ -376,7 +426,15 @@ export default function TeamMemberDetailPage({
             </div>
             <div className="flex justify-end pt-2">
               <button
-                onClick={() => showToast("Profile updated successfully")}
+                onClick={async () => {
+                  const result = await updateMember({ name, email, phone, role: role.toLowerCase() });
+                  if (result) {
+                    showToast("Profile updated successfully");
+                    refetch();
+                  } else {
+                    showToast("Failed to update profile. Please try again.");
+                  }
+                }}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-lg px-4",
                   "bg-primary text-primary-foreground text-sm font-medium",
@@ -426,7 +484,15 @@ export default function TeamMemberDetailPage({
             {!isOwner && (
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => showToast("Permissions updated")}
+                  onClick={async () => {
+                    const result = await updateMember({ permissions: Array.from(permissions) });
+                    if (result) {
+                      showToast("Permissions updated");
+                      refetch();
+                    } else {
+                      showToast("Failed to update permissions. Please try again.");
+                    }
+                  }}
                   className={cn(
                     "flex h-9 items-center gap-2 rounded-lg px-4",
                     "bg-primary text-primary-foreground text-sm font-medium",
@@ -492,7 +558,15 @@ export default function TeamMemberDetailPage({
             </div>
             <div className="flex justify-end pt-2">
               <button
-                onClick={() => showToast("Schedule saved")}
+                onClick={async () => {
+                  const result = await updateMember({ schedule });
+                  if (result) {
+                    showToast("Schedule saved");
+                    refetch();
+                  } else {
+                    showToast("Failed to save schedule. Please try again.");
+                  }
+                }}
                 className={cn(
                   "flex h-9 items-center gap-2 rounded-lg px-4",
                   "bg-primary text-primary-foreground text-sm font-medium",

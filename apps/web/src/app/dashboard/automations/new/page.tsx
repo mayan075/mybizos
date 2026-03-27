@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Plus,
   Save,
   Trash2,
   Zap,
@@ -17,25 +16,25 @@ import {
   Clock,
   Tag,
   Bell,
-  GitBranch,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCreateSequence, type SequenceStep } from "@/lib/hooks/use-sequences";
 
 type TriggerType =
-  | "new_lead"
-  | "appointment_booked"
+  | "contact_created"
   | "appointment_completed"
-  | "new_review"
   | "deal_stage_changed"
-  | "form_submitted";
+  | "form_submitted"
+  | "tag_added"
+  | "manual";
 
 type ActionType =
   | "send_email"
   | "send_sms"
   | "wait"
   | "add_tag"
-  | "notify_owner"
-  | "enroll_sequence";
+  | "ai_decision";
 
 interface AutomationAction {
   id: string;
@@ -45,12 +44,12 @@ interface AutomationAction {
 }
 
 const triggerOptions: { value: TriggerType; label: string; icon: React.ElementType }[] = [
-  { value: "new_lead", label: "New Lead Created", icon: UserPlus },
-  { value: "appointment_booked", label: "Appointment Booked", icon: CalendarCheck },
+  { value: "contact_created", label: "New Contact Created", icon: UserPlus },
   { value: "appointment_completed", label: "Appointment Completed", icon: CalendarCheck },
-  { value: "new_review", label: "New Review Received", icon: Star },
   { value: "deal_stage_changed", label: "Deal Stage Changed", icon: Zap },
   { value: "form_submitted", label: "Form Submitted", icon: Mail },
+  { value: "tag_added", label: "Tag Added", icon: Tag },
+  { value: "manual", label: "Manual Enrollment", icon: Star },
 ];
 
 const actionConfig: Record<ActionType, { label: string; icon: React.ElementType; className: string }> = {
@@ -58,17 +57,34 @@ const actionConfig: Record<ActionType, { label: string; icon: React.ElementType;
   send_sms: { label: "Send SMS", icon: MessageSquare, className: "bg-success/10 text-success" },
   wait: { label: "Wait", icon: Clock, className: "bg-warning/10 text-warning" },
   add_tag: { label: "Add Tag", icon: Tag, className: "bg-accent text-accent-foreground" },
-  notify_owner: { label: "Notify Owner", icon: Bell, className: "bg-info/10 text-info" },
-  enroll_sequence: { label: "Enroll in Sequence", icon: GitBranch, className: "bg-primary/10 text-primary" },
+  ai_decision: { label: "AI Decision", icon: Bell, className: "bg-info/10 text-info" },
 };
+
+/** Convert a UI action to an API-compatible SequenceStep */
+function actionToStep(action: AutomationAction): SequenceStep {
+  switch (action.type) {
+    case "send_email":
+      return { type: "send_email", config: { subject: action.config, body_html: "" } };
+    case "send_sms":
+      return { type: "send_sms", config: { body: action.config } };
+    case "wait":
+      return { type: "wait", config: { delay_hours: parseInt(action.config, 10) || 1 } };
+    case "add_tag":
+      return { type: "add_tag", config: { tag: action.config } };
+    case "ai_decision":
+      return { type: "ai_decision", config: { prompt: action.config, yes_step: 0, no_step: 0 } };
+  }
+}
 
 export default function NewAutomationPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [trigger, setTrigger] = useState<TriggerType>("new_lead");
+  const [trigger, setTrigger] = useState<TriggerType>("contact_created");
   const [actions, setActions] = useState<AutomationAction[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+
+  const { mutate: createSequence, isLoading: isSaving, error: saveError } = useCreateSequence();
 
   function showToast(msg: string) {
     setToast(msg);
@@ -90,13 +106,30 @@ export default function NewAutomationPage() {
     setActions((prev) => prev.filter((a) => a.id !== id));
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) {
       showToast("Please enter an automation name");
       return;
     }
-    showToast("Automation created successfully");
-    setTimeout(() => router.push("/dashboard/automations"), 1500);
+
+    const steps: SequenceStep[] = actions.map(actionToStep);
+
+    const result = await createSequence({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      triggerType: trigger,
+      triggerConfig: {},
+      steps,
+    });
+
+    if (result) {
+      showToast("Automation created successfully");
+      setTimeout(() => router.push("/dashboard/automations"), 1500);
+    } else if (saveError) {
+      showToast(`Error: ${saveError}`);
+    } else {
+      showToast("Failed to create automation. Please try again.");
+    }
   }
 
   return (
@@ -126,14 +159,16 @@ export default function NewAutomationPage() {
         </div>
         <button
           onClick={handleSave}
+          disabled={isSaving}
           className={cn(
             "flex h-9 items-center gap-2 rounded-lg px-4",
             "bg-primary text-primary-foreground text-sm font-medium",
             "hover:bg-primary/90 transition-colors",
+            isSaving && "opacity-50 cursor-not-allowed",
           )}
         >
-          <Save className="h-4 w-4" />
-          Save Automation
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isSaving ? "Saving..." : "Save Automation"}
         </button>
       </div>
 

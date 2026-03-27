@@ -14,9 +14,11 @@ import {
   Clock,
   Users,
   Eye,
-  X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
+import type { CreateCampaignInput } from "@/lib/hooks/use-campaigns";
 
 // ── Types ──
 
@@ -706,6 +708,7 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const { mutate: createCampaign, isLoading: isCreating } = useCreateCampaign();
 
   const [draft, setDraft] = useState<CampaignDraft>({
     type: null,
@@ -761,15 +764,46 @@ export default function NewCampaignPage() {
           ((draft.audience.maxScore - draft.audience.minScore) / 100),
       );
 
-  function handleSend() {
-    showToast(
-      draft.sendNow
-        ? "Campaign is being sent!"
-        : `Campaign scheduled for ${draft.scheduledDate} at ${draft.scheduledTime}`,
-    );
-    setTimeout(() => {
-      router.push("/dashboard/campaigns");
-    }, 1500);
+  async function handleSend() {
+    if (!draft.type) return;
+
+    // Build the scheduled time if scheduling
+    let scheduledAt: string | undefined;
+    if (!draft.sendNow && draft.scheduledDate) {
+      const dateTime = `${draft.scheduledDate}T${draft.scheduledTime || "09:00"}:00`;
+      scheduledAt = new Date(dateTime).toISOString();
+    }
+
+    const input: CreateCampaignInput = {
+      name: draft.name,
+      type: draft.type,
+      subject: draft.type === "email" ? draft.subject : undefined,
+      bodyHtml: draft.type === "email" ? draft.bodyHtml : undefined,
+      bodyText: draft.type === "sms" ? draft.bodyText : undefined,
+      segmentFilter: {
+        allContacts: draft.audience.allContacts,
+        tags: draft.audience.tags.length > 0 ? draft.audience.tags : undefined,
+        minScore: draft.audience.minScore > 0 ? draft.audience.minScore : undefined,
+        maxScore: draft.audience.maxScore < 100 ? draft.audience.maxScore : undefined,
+        source: draft.audience.source || undefined,
+      },
+      scheduledAt,
+    };
+
+    const result = await createCampaign(input);
+
+    if (result) {
+      showToast(
+        draft.sendNow
+          ? "Campaign created successfully!"
+          : `Campaign scheduled for ${draft.scheduledDate} at ${draft.scheduledTime}`,
+      );
+      setTimeout(() => {
+        router.push(`/dashboard/campaigns/${result.id}`);
+      }, 1500);
+    } else {
+      showToast("Failed to create campaign. Please try again.");
+    }
   }
 
   return (
@@ -905,16 +939,16 @@ export default function NewCampaignPage() {
         ) : (
           <button
             onClick={handleSend}
-            disabled={!canProceed()}
+            disabled={!canProceed() || isCreating}
             className={cn(
               "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-              canProceed()
+              canProceed() && !isCreating
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed",
             )}
           >
-            <Send className="h-4 w-4" />
-            {draft.sendNow ? "Send Campaign" : "Schedule Campaign"}
+            {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {isCreating ? "Creating..." : draft.sendNow ? "Send Campaign" : "Schedule Campaign"}
           </button>
         )}
       </div>

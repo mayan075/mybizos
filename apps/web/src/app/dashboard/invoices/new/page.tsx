@@ -12,8 +12,12 @@ import {
   Send,
   Receipt,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useContacts } from "@/lib/hooks/use-contacts";
+import { useCreateInvoice } from "@/lib/hooks/use-invoices";
+import type { CreateInvoiceInput } from "@/lib/hooks/use-invoices";
 
 // ── Types ──
 
@@ -37,9 +41,6 @@ interface InvoiceDraft {
   terms: string;
 }
 
-// Real contacts will come from the API; start empty
-const mockContacts: { id: string; name: string; email: string; phone: string; address: string }[] = [];
-
 // ── Helpers ──
 
 function generateId(): string {
@@ -54,6 +55,10 @@ export default function NewInvoicePage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+
+  // API hooks
+  const { data: contacts, isLoading: contactsLoading } = useContacts({ search: customerSearch });
+  const { mutate: createInvoice, isLoading: isSaving } = useCreateInvoice();
 
   const [draft, setDraft] = useState<InvoiceDraft>({
     customerId: "",
@@ -75,14 +80,14 @@ export default function NewInvoicePage() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  function selectCustomer(contact: typeof mockContacts[number]) {
+  function selectCustomer(contact: { id: string; name: string; email: string; phone: string }) {
     setDraft((prev) => ({
       ...prev,
       customerId: contact.id,
       customerName: contact.name,
       customerEmail: contact.email,
       customerPhone: contact.phone,
-      customerAddress: contact.address,
+      customerAddress: "",
     }));
     setShowCustomerDropdown(false);
     setCustomerSearch("");
@@ -127,28 +132,57 @@ export default function NewInvoicePage() {
   }, [subtotal, taxAmount]);
 
   const filteredContacts = useMemo(() => {
-    if (!customerSearch.trim()) return mockContacts;
-    const q = customerSearch.toLowerCase();
-    return mockContacts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q),
-    );
-  }, [customerSearch]);
+    // The useContacts hook already handles server-side search filtering
+    return contacts;
+  }, [contacts]);
 
   const canSave = draft.customerName.trim().length > 0 && draft.lineItems.some((li) => li.description.trim().length > 0 && li.rate > 0);
 
-  const handleSaveDraft = useCallback(() => {
-    showToast("Invoice saved as draft");
-    setTimeout(() => router.push("/dashboard/invoices"), 1500);
-  }, [router]);
+  const buildPayload = useCallback((): CreateInvoiceInput => {
+    return {
+      contactId: draft.customerId || undefined,
+      dueDate: draft.dueDate,
+      lineItems: draft.lineItems
+        .filter((li) => li.description.trim() || li.rate > 0)
+        .map((li) => ({
+          description: li.description,
+          quantity: li.quantity,
+          unitPrice: li.rate,
+          amount: li.quantity * li.rate,
+        })),
+      taxRate: draft.taxRate,
+      notes: draft.notes || undefined,
+    };
+  }, [draft]);
 
-  const handleSend = useCallback(() => {
-    showToast(`Invoice sent to ${draft.customerEmail}`);
-    setTimeout(() => router.push("/dashboard/invoices"), 1500);
-  }, [router, draft.customerEmail]);
+  const handleSaveDraft = useCallback(async () => {
+    const payload = buildPayload();
+    const result = await createInvoice(payload);
+    if (result) {
+      showToast("Invoice saved as draft");
+      setTimeout(() => router.push("/dashboard/invoices"), 1500);
+    } else {
+      showToast("Failed to save invoice. Please try again.");
+    }
+  }, [buildPayload, createInvoice, router]);
 
-  const invoiceNumber = "INV-009";
+  const handleSend = useCallback(async () => {
+    const payload = buildPayload();
+    const result = await createInvoice(payload);
+    if (result) {
+      // After creating, send it via the send endpoint
+      const { apiClient, tryFetch } = await import("@/lib/api-client");
+      const { buildPath } = await import("@/lib/hooks/use-api");
+      const sendPath = buildPath(`/orgs/:orgId/invoices/${result.id}/send`);
+      await tryFetch(() => apiClient.post(sendPath, {}));
+      showToast(`Invoice sent to ${draft.customerEmail}`);
+      setTimeout(() => router.push("/dashboard/invoices"), 1500);
+    } else {
+      showToast("Failed to create invoice. Please try again.");
+    }
+  }, [buildPayload, createInvoice, router, draft.customerEmail]);
+
+  const invoiceNumber = "New";
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -197,28 +231,28 @@ export default function NewInvoicePage() {
           </button>
           <button
             onClick={handleSaveDraft}
-            disabled={!canSave}
+            disabled={!canSave || isSaving}
             className={cn(
               "flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium transition-colors",
-              canSave
+              canSave && !isSaving
                 ? "text-foreground hover:bg-muted"
                 : "text-muted-foreground cursor-not-allowed",
             )}
           >
-            <Save className="h-4 w-4" />
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Draft
           </button>
           <button
             onClick={handleSend}
-            disabled={!canSave}
+            disabled={!canSave || isSaving}
             className={cn(
               "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-              canSave
+              canSave && !isSaving
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed",
             )}
           >
-            <Send className="h-4 w-4" />
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Send Invoice
           </button>
         </div>
@@ -256,7 +290,13 @@ export default function NewInvoicePage() {
                     />
                   </div>
                   <div className="max-h-48 overflow-y-auto py-1">
-                    {filteredContacts.map((contact) => (
+                    {contactsLoading && (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Loading contacts...</span>
+                      </div>
+                    )}
+                    {!contactsLoading && filteredContacts.map((contact) => (
                       <button
                         key={contact.id}
                         onClick={() => selectCustomer(contact)}
@@ -271,7 +311,7 @@ export default function NewInvoicePage() {
                         </div>
                       </button>
                     ))}
-                    {filteredContacts.length === 0 && (
+                    {!contactsLoading && filteredContacts.length === 0 && (
                       <p className="px-3 py-4 text-sm text-muted-foreground text-center">
                         No contacts found
                       </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,99 +22,31 @@ import {
   RotateCcw,
   CalendarCheck,
   UserPlus,
-  ChevronDown,
+  Loader2,
+  FileText,
+  Hash,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useSequence,
+  useUpdateSequence,
+  useActivateSequence,
+  useDeactivateSequence,
+} from "@/lib/hooks/use-sequences";
+import type { SequenceStep as ApiSequenceStep } from "@/lib/hooks/use-sequences";
 
 // ── Types ──
 
-type TriggerType = "contact_created" | "deal_stage_changed" | "appointment_completed" | "manual";
-type StepType = "send_email" | "send_sms" | "wait" | "add_tag" | "ai_decision";
+type TriggerType = "contact_created" | "deal_stage_changed" | "appointment_completed" | "manual" | "tag_added" | "form_submitted";
+type StepType = "send_email" | "send_sms" | "wait" | "add_tag" | "remove_tag" | "ai_decision";
 
-interface SequenceStep {
+interface UiSequenceStep {
   id: string;
   type: StepType;
   label: string;
   config: string;
 }
-
-interface Sequence {
-  id: string;
-  name: string;
-  description: string;
-  trigger: TriggerType;
-  triggerDetail: string | null;
-  steps: SequenceStep[];
-  enrolledCount: number;
-  active: boolean;
-}
-
-// ── Mock Data ──
-
-const allSequences: Record<string, Sequence> = {
-  "seq-1": {
-    id: "seq-1",
-    name: "New Lead Follow-Up",
-    description: "Automatically nurture new leads with a 7-touch sequence over 14 days.",
-    trigger: "contact_created",
-    triggerDetail: null,
-    steps: [
-      { id: "s1-1", type: "send_email", label: "Welcome Email", config: "Subject: Welcome to {{business_name}}!" },
-      { id: "s1-2", type: "wait", label: "Wait 1 day", config: "Delay: 1 day" },
-      { id: "s1-3", type: "send_sms", label: "Quick Intro SMS", config: "Hi {{first_name}}, thanks for reaching out..." },
-      { id: "s1-4", type: "wait", label: "Wait 2 days", config: "Delay: 2 days" },
-      { id: "s1-5", type: "ai_decision", label: "Check Engagement", config: "If opened email \u2192 Path A, else \u2192 Path B" },
-      { id: "s1-6", type: "send_email", label: "Value Offer Email", config: "Subject: Here\u2019s 10% off your first service" },
-      { id: "s1-7", type: "add_tag", label: "Tag as Nurtured", config: "Tag: lead-nurtured" },
-    ],
-    enrolledCount: 142,
-    active: true,
-  },
-  "seq-2": {
-    id: "seq-2",
-    name: "Quote Follow-Up",
-    description: "Follow up on sent quotes with 5 touches over 10 days.",
-    trigger: "deal_stage_changed",
-    triggerDetail: "Quoted",
-    steps: [
-      { id: "s2-1", type: "wait", label: "Wait 1 day", config: "Delay: 1 day" },
-      { id: "s2-2", type: "send_email", label: "Quote Recap Email", config: "Subject: Your quote from {{business_name}}" },
-      { id: "s2-3", type: "wait", label: "Wait 3 days", config: "Delay: 3 days" },
-      { id: "s2-4", type: "send_sms", label: "Gentle Nudge SMS", config: "Hi {{first_name}}, just checking in on your quote..." },
-      { id: "s2-5", type: "ai_decision", label: "Check Response", config: "If replied \u2192 Stop, else \u2192 Continue" },
-    ],
-    enrolledCount: 38,
-    active: true,
-  },
-  "seq-3": {
-    id: "seq-3",
-    name: "Post-Service Review Request",
-    description: "Ask for a review after service completion. 3 touches over 7 days.",
-    trigger: "appointment_completed",
-    triggerDetail: null,
-    steps: [
-      { id: "s3-1", type: "wait", label: "Wait 2 hours", config: "Delay: 2 hours" },
-      { id: "s3-2", type: "send_sms", label: "Review Request SMS", config: "Thanks for choosing us! Leave a review: {{review_link}}" },
-      { id: "s3-3", type: "wait", label: "Wait 3 days", config: "Delay: 3 days" },
-    ],
-    enrolledCount: 267,
-    active: true,
-  },
-  "seq-4": {
-    id: "seq-4",
-    name: "Re-engagement",
-    description: "Win back inactive customers with a 3-touch campaign over 30 days.",
-    trigger: "manual",
-    triggerDetail: null,
-    steps: [
-      { id: "s4-1", type: "send_email", label: "We Miss You Email", config: "Subject: It\u2019s been a while, {{first_name}}!" },
-      { id: "s4-2", type: "wait", label: "Wait 14 days", config: "Delay: 14 days" },
-      { id: "s4-3", type: "send_sms", label: "Special Offer SMS", config: "We\u2019d love to have you back! Here\u2019s 15% off..." },
-    ],
-    enrolledCount: 54,
-    active: false,
-  },
-};
 
 // ── Config ──
 
@@ -123,6 +55,8 @@ const triggerConfig: Record<TriggerType, { label: string; icon: React.ElementTyp
   deal_stage_changed: { label: "Deal Stage Changed", icon: Zap, className: "bg-info/10 text-info" },
   appointment_completed: { label: "Appointment Completed", icon: CalendarCheck, className: "bg-primary/10 text-primary" },
   manual: { label: "Manual", icon: RotateCcw, className: "bg-muted text-muted-foreground" },
+  tag_added: { label: "Tag Added", icon: Tag, className: "bg-warning/10 text-warning" },
+  form_submitted: { label: "Form Submitted", icon: FileText, className: "bg-accent text-accent-foreground" },
 };
 
 const stepTypeConfig: Record<StepType, { label: string; icon: React.ElementType; className: string }> = {
@@ -130,10 +64,92 @@ const stepTypeConfig: Record<StepType, { label: string; icon: React.ElementType;
   send_sms: { label: "Send SMS", icon: MessageSquare, className: "bg-success/10 text-success" },
   wait: { label: "Wait", icon: Clock, className: "bg-warning/10 text-warning" },
   add_tag: { label: "Add Tag", icon: Tag, className: "bg-accent text-accent-foreground" },
+  remove_tag: { label: "Remove Tag", icon: Hash, className: "bg-muted text-muted-foreground" },
   ai_decision: { label: "AI Decision", icon: Brain, className: "bg-info/10 text-info" },
 };
 
-const stepTypes: StepType[] = ["send_email", "send_sms", "wait", "add_tag", "ai_decision"];
+const stepTypes: StepType[] = ["send_email", "send_sms", "wait", "add_tag", "remove_tag", "ai_decision"];
+
+// ── Helpers ──
+
+/** Convert API step to UI step format */
+function toUiStep(apiStep: ApiSequenceStep, index: number): UiSequenceStep {
+  const cfg = apiStep.config;
+  let label = stepTypeConfig[apiStep.type]?.label ?? apiStep.type;
+  let config = "";
+
+  switch (apiStep.type) {
+    case "send_email":
+      label = (cfg.subject as string) || label;
+      config = (cfg.body as string) || (cfg.body_html as string) || "";
+      break;
+    case "send_sms":
+      config = (cfg.body as string) || "";
+      break;
+    case "wait": {
+      const hours = (cfg.delay_hours as number) || 24;
+      if (hours >= 24) {
+        const days = Math.round(hours / 24);
+        label = `Wait ${days} day${days === 1 ? "" : "s"}`;
+        config = `Delay: ${days} day${days === 1 ? "" : "s"}`;
+      } else {
+        label = `Wait ${hours} hour${hours === 1 ? "" : "s"}`;
+        config = `Delay: ${hours} hour${hours === 1 ? "" : "s"}`;
+      }
+      break;
+    }
+    case "add_tag":
+    case "remove_tag":
+      label = `${apiStep.type === "add_tag" ? "Add" : "Remove"} Tag: ${(cfg.tag as string) || ""}`;
+      config = `Tag: ${(cfg.tag as string) || ""}`;
+      break;
+    case "ai_decision":
+      config = (cfg.prompt as string) || "";
+      break;
+  }
+
+  return {
+    id: `step-${index}-${Date.now()}`,
+    type: apiStep.type,
+    label,
+    config,
+  };
+}
+
+/** Convert UI step to API step format */
+function toApiStep(uiStep: UiSequenceStep): ApiSequenceStep {
+  const config: Record<string, unknown> = {};
+  const raw = uiStep.config.trim();
+
+  switch (uiStep.type) {
+    case "send_email":
+      config.subject = uiStep.label;
+      config.body = raw;
+      break;
+    case "send_sms":
+      config.body = raw;
+      break;
+    case "wait": {
+      const match = raw.match(/(\d+)/);
+      const isHours = /hour/i.test(raw);
+      if (match) {
+        config.delay_hours = isHours ? parseInt(match[1], 10) : parseInt(match[1], 10) * 24;
+      } else {
+        config.delay_hours = 24;
+      }
+      break;
+    }
+    case "add_tag":
+    case "remove_tag":
+      config.tag = raw.replace(/^Tag:\s*/i, "");
+      break;
+    case "ai_decision":
+      config.prompt = raw;
+      break;
+  }
+
+  return { type: uiStep.type, config };
+}
 
 // ── Components ──
 
@@ -149,7 +165,7 @@ function StepCard({
   onEditLabelChange,
   onEditConfigChange,
 }: {
-  step: SequenceStep;
+  step: UiSequenceStep;
   onEdit: () => void;
   onDelete: () => void;
   isEditing: boolean;
@@ -301,14 +317,55 @@ export default function SequenceDetailPage() {
   const params = useParams();
   const sequenceId = params.id as string;
 
-  const initialSequence = allSequences[sequenceId];
+  // API hooks
+  const { data: apiSequence, isLoading, refetch } = useSequence(sequenceId);
+  const { mutate: updateSequence, isLoading: isUpdating } = useUpdateSequence(sequenceId);
+  const { mutate: activateSequence, isLoading: isActivating } = useActivateSequence(sequenceId);
+  const { mutate: deactivateSequence, isLoading: isDeactivating } = useDeactivateSequence(sequenceId);
 
-  const [sequence, setSequence] = useState<Sequence | null>(initialSequence ?? null);
+  // Local editing state
+  const [steps, setSteps] = useState<UiSequenceStep[]>([]);
+  const [isActive, setIsActive] = useState(false);
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editConfig, setEditConfig] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  if (!sequence) {
+  // Sync API data into local state when it arrives
+  useEffect(() => {
+    if (apiSequence) {
+      setSteps(apiSequence.steps.map((s, i) => toUiStep(s, i)));
+      setIsActive(apiSequence.isActive);
+      setHasUnsavedChanges(false);
+    }
+  }, [apiSequence]);
+
+  function showToast(message: string, type: "success" | "error" = "success") {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/dashboard/sequences"
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Sequences
+        </Link>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not found state
+  if (!apiSequence) {
     return (
       <div className="space-y-6">
         <Link
@@ -329,14 +386,36 @@ export default function SequenceDetailPage() {
     );
   }
 
-  const triggerCfg = triggerConfig[sequence.trigger];
+  const triggerType = apiSequence.triggerType as TriggerType;
+  const triggerCfg = triggerConfig[triggerType] ?? triggerConfig.manual;
   const TriggerIcon = triggerCfg.icon;
+  const triggerDetail = apiSequence.triggerConfig
+    ? ((apiSequence.triggerConfig.tag as string) || (apiSequence.triggerConfig.stage as string) || null)
+    : null;
 
-  function toggleActive() {
-    setSequence((prev) => prev ? { ...prev, active: !prev.active } : prev);
+  async function toggleActive() {
+    if (isActive) {
+      const result = await deactivateSequence(undefined as never);
+      if (result) {
+        setIsActive(false);
+        showToast("Sequence deactivated");
+        refetch();
+      } else {
+        showToast("Failed to deactivate sequence", "error");
+      }
+    } else {
+      const result = await activateSequence(undefined as never);
+      if (result) {
+        setIsActive(true);
+        showToast("Sequence activated");
+        refetch();
+      } else {
+        showToast("Failed to activate sequence", "error");
+      }
+    }
   }
 
-  function startEdit(step: SequenceStep) {
+  function startEdit(step: UiSequenceStep) {
     setEditingStepId(step.id);
     setEditLabel(step.label);
     setEditConfig(step.config);
@@ -344,16 +423,13 @@ export default function SequenceDetailPage() {
 
   function saveEdit() {
     if (!editingStepId) return;
-    setSequence((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        steps: prev.steps.map((s) =>
-          s.id === editingStepId ? { ...s, label: editLabel, config: editConfig } : s,
-        ),
-      };
-    });
+    setSteps((prev) =>
+      prev.map((s) =>
+        s.id === editingStepId ? { ...s, label: editLabel, config: editConfig } : s,
+      ),
+    );
     setEditingStepId(null);
+    setHasUnsavedChanges(true);
   }
 
   function cancelEdit() {
@@ -361,30 +437,52 @@ export default function SequenceDetailPage() {
   }
 
   function deleteStep(stepId: string) {
-    setSequence((prev) => {
-      if (!prev) return prev;
-      return { ...prev, steps: prev.steps.filter((s) => s.id !== stepId) };
-    });
+    setSteps((prev) => prev.filter((s) => s.id !== stepId));
+    setHasUnsavedChanges(true);
   }
 
   function addStep(afterIndex: number, type: StepType) {
     const cfg = stepTypeConfig[type];
-    const newStep: SequenceStep = {
+    const newStep: UiSequenceStep = {
       id: `new-${Date.now()}`,
       type,
       label: cfg.label,
       config: type === "wait" ? "Delay: 1 day" : type === "add_tag" ? "Tag: " : "",
     };
-    setSequence((prev) => {
-      if (!prev) return prev;
-      const newSteps = [...prev.steps];
+    setSteps((prev) => {
+      const newSteps = [...prev];
       newSteps.splice(afterIndex + 1, 0, newStep);
-      return { ...prev, steps: newSteps };
+      return newSteps;
     });
+    setHasUnsavedChanges(true);
   }
+
+  async function handleSaveChanges() {
+    const apiSteps = steps.map(toApiStep);
+    const result = await updateSequence({ steps: apiSteps });
+    if (result) {
+      showToast("Changes saved successfully");
+      setHasUnsavedChanges(false);
+      refetch();
+    } else {
+      showToast("Failed to save changes", "error");
+    }
+  }
+
+  const isToggling = isActivating || isDeactivating;
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
+          toast.type === "error" ? "bg-destructive" : "bg-success",
+        )}>
+          {toast.message}
+        </div>
+      )}
+
       {/* Back link */}
       <Link
         href="/dashboard/sequences"
@@ -397,8 +495,8 @@ export default function SequenceDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{sequence.name}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{sequence.description}</p>
+          <h1 className="text-2xl font-bold text-foreground">{apiSequence.name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{apiSequence.description}</p>
           <div className="flex items-center gap-4 mt-3">
             <span className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
@@ -406,44 +504,61 @@ export default function SequenceDetailPage() {
             )}>
               <TriggerIcon className="h-3 w-3" />
               {triggerCfg.label}
-              {sequence.triggerDetail && (
-                <span className="opacity-70">&middot; {sequence.triggerDetail}</span>
+              {triggerDetail && (
+                <span className="opacity-70">&middot; {triggerDetail}</span>
               )}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <GitBranch className="h-3 w-3" />
-              {sequence.steps.length} steps
+              {steps.length} steps
             </span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Users className="h-3 w-3" />
-              {sequence.enrolledCount} enrolled
+              {apiSequence.enrolledCount} enrolled
             </span>
           </div>
         </div>
 
-        {/* Active toggle */}
+        {/* Active toggle + Save */}
         <div className="flex items-center gap-3 shrink-0">
+          {hasUnsavedChanges && (
+            <button
+              onClick={handleSaveChanges}
+              disabled={isUpdating}
+              className={cn(
+                "flex h-9 items-center gap-2 rounded-lg px-4",
+                "bg-primary text-primary-foreground text-sm font-medium",
+                "hover:bg-primary/90 transition-colors",
+                isUpdating && "opacity-50 cursor-not-allowed",
+              )}
+            >
+              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isUpdating ? "Saving..." : "Save Changes"}
+            </button>
+          )}
           <button
             onClick={toggleActive}
+            disabled={isToggling}
             className={cn(
               "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-              sequence.active ? "bg-primary" : "bg-muted",
+              isActive ? "bg-primary" : "bg-muted",
+              isToggling && "opacity-50 cursor-not-allowed",
             )}
             role="switch"
-            aria-checked={sequence.active}
+            aria-checked={isActive}
           >
             <span
               className={cn(
                 "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                sequence.active ? "translate-x-5" : "translate-x-0",
+                isActive ? "translate-x-5" : "translate-x-0",
               )}
             />
           </button>
           <span className={cn(
             "text-sm font-medium",
-            sequence.active ? "text-success" : "text-muted-foreground",
+            isActive ? "text-success" : "text-muted-foreground",
           )}>
-            {sequence.active ? "Active" : "Inactive"}
+            {isToggling ? "..." : isActive ? "Active" : "Inactive"}
           </span>
         </div>
       </div>
@@ -464,7 +579,7 @@ export default function SequenceDetailPage() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Trigger</p>
               <p className="text-sm font-medium text-foreground">
                 {triggerCfg.label}
-                {sequence.triggerDetail && ` \u2014 ${sequence.triggerDetail}`}
+                {triggerDetail && ` \u2014 ${triggerDetail}`}
               </p>
             </div>
           </div>
@@ -482,7 +597,7 @@ export default function SequenceDetailPage() {
           </div>
 
           {/* Steps */}
-          {sequence.steps.map((step, index) => (
+          {steps.map((step, index) => (
             <div key={step.id}>
               <StepCard
                 step={step}
@@ -502,7 +617,7 @@ export default function SequenceDetailPage() {
                 <div className="w-px h-4 bg-border" />
               </div>
               <AddStepButton onAdd={(type) => addStep(index, type)} />
-              {index < sequence.steps.length - 1 && (
+              {index < steps.length - 1 && (
                 <div className="flex justify-center py-0.5">
                   <div className="w-px h-4 bg-border" />
                 </div>
@@ -511,7 +626,7 @@ export default function SequenceDetailPage() {
           ))}
 
           {/* End marker */}
-          {sequence.steps.length > 0 && (
+          {steps.length > 0 && (
             <>
               <div className="flex justify-center py-0.5">
                 <div className="w-px h-4 bg-border" />

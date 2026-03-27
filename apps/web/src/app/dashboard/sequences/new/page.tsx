@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Plus,
   Mail,
   MessageSquare,
   Clock,
@@ -13,12 +12,15 @@ import {
   Brain,
   Save,
   Trash2,
-  ChevronDown,
-  X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCreateSequence } from "@/lib/hooks/use-sequences";
+import type { SequenceStep as ApiSequenceStep } from "@/lib/hooks/use-sequences";
 
 type StepType = "send_email" | "send_sms" | "wait" | "add_tag" | "ai_decision";
+
+type TriggerType = "manual" | "tag_added" | "deal_stage_changed" | "form_submitted" | "appointment_completed" | "contact_created";
 
 interface SequenceStep {
   id: string;
@@ -39,12 +41,14 @@ export default function NewSequencePage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [trigger, setTrigger] = useState("contact_created");
+  const [trigger, setTrigger] = useState<TriggerType>("contact_created");
   const [steps, setSteps] = useState<SequenceStep[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  function showToast(msg: string) {
-    setToast(msg);
+  const { mutate: createSequence, isLoading: isSaving, error: saveError } = useCreateSequence();
+
+  function showToast(message: string, type: "success" | "error" = "success") {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   }
 
@@ -63,21 +67,68 @@ export default function NewSequencePage() {
     setSteps((prev) => prev.filter((s) => s.id !== id));
   }
 
-  function handleSave() {
+  /** Convert UI step format to API step format */
+  function toApiSteps(uiSteps: SequenceStep[]): ApiSequenceStep[] {
+    return uiSteps.map((step) => {
+      const config: Record<string, unknown> = {};
+      const raw = step.config.trim();
+
+      switch (step.type) {
+        case "send_email":
+          config.subject = step.label;
+          config.body = raw;
+          break;
+        case "send_sms":
+          config.body = raw;
+          break;
+        case "wait": {
+          const match = raw.match(/(\d+)/);
+          config.delay_hours = match ? parseInt(match[1], 10) * 24 : 24;
+          break;
+        }
+        case "add_tag":
+          config.tag = raw.replace(/^Tag:\s*/i, "");
+          break;
+        case "ai_decision":
+          config.prompt = raw;
+          break;
+      }
+
+      return { type: step.type, config };
+    });
+  }
+
+  async function handleSave() {
     if (!name.trim()) {
-      showToast("Please enter a sequence name");
+      showToast("Please enter a sequence name", "error");
       return;
     }
-    showToast("Sequence created successfully");
-    setTimeout(() => router.push("/dashboard/sequences"), 1500);
+
+    const result = await createSequence({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      triggerType: trigger,
+      triggerConfig: {},
+      steps: toApiSteps(steps),
+    });
+
+    if (result) {
+      showToast("Sequence created successfully");
+      setTimeout(() => router.push("/dashboard/sequences"), 1000);
+    } else {
+      showToast(saveError ?? "Failed to create sequence. Please try again.", "error");
+    }
   }
 
   return (
     <div className="space-y-6">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
+        <div className={cn(
+          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
+          toast.type === "error" ? "bg-destructive" : "bg-success",
+        )}>
+          {toast.message}
         </div>
       )}
 
@@ -99,14 +150,16 @@ export default function NewSequencePage() {
         </div>
         <button
           onClick={handleSave}
+          disabled={isSaving}
           className={cn(
             "flex h-9 items-center gap-2 rounded-lg px-4",
             "bg-primary text-primary-foreground text-sm font-medium",
             "hover:bg-primary/90 transition-colors",
+            isSaving && "opacity-50 cursor-not-allowed",
           )}
         >
-          <Save className="h-4 w-4" />
-          Save Sequence
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isSaving ? "Saving..." : "Save Sequence"}
         </button>
       </div>
 
@@ -136,12 +189,14 @@ export default function NewSequencePage() {
           <label className="text-sm font-medium text-foreground">Trigger</label>
           <select
             value={trigger}
-            onChange={(e) => setTrigger(e.target.value)}
+            onChange={(e) => setTrigger(e.target.value as TriggerType)}
             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           >
             <option value="contact_created">Contact Created</option>
             <option value="deal_stage_changed">Deal Stage Changed</option>
             <option value="appointment_completed">Appointment Completed</option>
+            <option value="tag_added">Tag Added</option>
+            <option value="form_submitted">Form Submitted</option>
             <option value="manual">Manual Enrollment</option>
           </select>
         </div>

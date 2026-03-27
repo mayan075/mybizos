@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Mail,
@@ -15,54 +15,27 @@ import {
   CheckCircle2,
   Clock,
   FileEdit,
-  XCircle,
   UserMinus,
   Search,
-  Sparkles,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useCampaign,
+  useUpdateCampaign,
+  useDeleteCampaign,
+  useSendCampaign,
+  useCampaignRecipients,
+} from "@/lib/hooks/use-campaigns";
+import type { Campaign, CampaignRecipient } from "@/lib/hooks/use-campaigns";
 
-// ── Mock Data ──
-
-interface MockCampaignDetail {
-  id: string;
-  name: string;
-  type: "email" | "sms";
-  status: "draft" | "scheduled" | "sending" | "sent" | "cancelled";
-  subject: string | null;
-  bodyHtml: string | null;
-  bodyText: string | null;
-  stats: {
-    sent: number;
-    delivered: number;
-    opened: number;
-    clicked: number;
-    bounced: number;
-    unsubscribed: number;
-  };
-  scheduledAt: string | null;
-  sentAt: string | null;
-  createdAt: string;
-}
-
-interface MockRecipient {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  status: "pending" | "sent" | "delivered" | "opened" | "clicked" | "bounced" | "unsubscribed";
-  sentAt: string | null;
-  openedAt: string | null;
-  clickedAt: string | null;
-}
-
-// Real campaign data will come from the API
-const mockCampaigns: Record<string, MockCampaignDetail> = {};
-const mockRecipients: MockRecipient[] = [];
 // ── Helpers ──
 
+type RecipientStatus = CampaignRecipient["status"];
+
 const recipientStatusConfig: Record<
-  MockRecipient["status"],
+  RecipientStatus,
   { label: string; icon: React.ElementType; className: string }
 > = {
   pending: { label: "Pending", icon: Clock, className: "text-muted-foreground" },
@@ -134,12 +107,44 @@ function RateBar({ label, rate, color }: { label: string; rate: number; color: s
 
 // ── Draft View ──
 
-function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
+function DraftView({ campaign, onRefetch }: { campaign: Campaign; onRefetch: () => void }) {
   const [toast, setToast] = useState<string | null>(null);
+  const [name, setName] = useState(campaign.name);
+  const [subject, setSubject] = useState(campaign.subject ?? "");
+  const [bodyHtml, setBodyHtml] = useState(campaign.bodyHtml ?? "");
+  const [bodyText, setBodyText] = useState(campaign.bodyText ?? "");
+
+  const { mutate: updateCampaign, isLoading: isSaving } = useUpdateCampaign(campaign.id);
+  const { mutate: sendCampaign, isLoading: isSending } = useSendCampaign(campaign.id);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  }
+
+  async function handleSave() {
+    const result = await updateCampaign({
+      name,
+      subject: campaign.type === "email" ? subject : undefined,
+      bodyHtml: campaign.type === "email" ? bodyHtml : undefined,
+      bodyText: campaign.type === "sms" ? bodyText : undefined,
+    });
+    if (result) {
+      showToast("Campaign saved");
+      onRefetch();
+    } else {
+      showToast("Failed to save campaign");
+    }
+  }
+
+  async function handleSend() {
+    const result = await sendCampaign(undefined as void);
+    if (result) {
+      showToast("Campaign is being sent!");
+      onRefetch();
+    } else {
+      showToast("Failed to send campaign");
+    }
   }
 
   return (
@@ -169,7 +174,8 @@ function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Campaign Name</label>
           <input
-            defaultValue={campaign.name}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
@@ -179,14 +185,16 @@ function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Subject</label>
               <input
-                defaultValue={campaign.subject ?? ""}
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
                 className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Body (HTML)</label>
               <textarea
-                defaultValue={campaign.bodyHtml ?? ""}
+                value={bodyHtml}
+                onChange={(e) => setBodyHtml(e.target.value)}
                 rows={8}
                 className="w-full rounded-lg border border-input bg-background p-4 text-sm text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
               />
@@ -198,7 +206,8 @@ function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">SMS Message</label>
             <textarea
-              defaultValue={campaign.bodyText ?? ""}
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
               rows={4}
               className="w-full rounded-lg border border-input bg-background p-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
             />
@@ -207,18 +216,21 @@ function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
 
         <div className="flex items-center gap-3 pt-2">
           <button
-            onClick={() => showToast("Campaign saved")}
-            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             Save Draft
           </button>
-          <Link
-            href={`/dashboard/campaigns/new`}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          <button
+            onClick={handleSend}
+            disabled={isSending}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Send className="h-4 w-4" />
-            Continue to Send
-          </Link>
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send Now
+          </button>
         </div>
       </div>
     </div>
@@ -227,10 +239,11 @@ function DraftView({ campaign }: { campaign: MockCampaignDetail }) {
 
 // ── Sent Stats View ──
 
-function SentView({ campaign }: { campaign: MockCampaignDetail }) {
+function SentView({ campaign }: { campaign: Campaign }) {
   const [recipientSearch, setRecipientSearch] = useState("");
+  const { data: recipients, isLoading: recipientsLoading } = useCampaignRecipients(campaign.id);
 
-  const stats = campaign.stats;
+  const stats = campaign.stats ?? { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, unsubscribed: 0 };
   const sent = stats.sent || 1;
   const openRate = (stats.opened / sent) * 100;
   const clickRate = (stats.clicked / sent) * 100;
@@ -239,14 +252,14 @@ function SentView({ campaign }: { campaign: MockCampaignDetail }) {
   const unsubRate = (stats.unsubscribed / sent) * 100;
 
   const filteredRecipients = useMemo(() => {
-    if (!recipientSearch.trim()) return mockRecipients;
+    if (!recipientSearch.trim()) return recipients;
     const q = recipientSearch.toLowerCase();
-    return mockRecipients.filter(
+    return recipients.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q),
     );
-  }, [recipientSearch]);
+  }, [recipientSearch, recipients]);
 
   return (
     <div className="space-y-6">
@@ -328,7 +341,7 @@ function SentView({ campaign }: { campaign: MockCampaignDetail }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Recipients ({mockRecipients.length})
+            Recipients ({recipients.length})
           </h3>
           <div className="relative max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -422,13 +435,25 @@ function SentView({ campaign }: { campaign: MockCampaignDetail }) {
                   </tr>
                 );
               })}
-              {filteredRecipients.length === 0 && (
+              {recipientsLoading && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-5 py-8 text-center"
+                  >
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mx-auto" />
+                  </td>
+                </tr>
+              )}
+              {!recipientsLoading && filteredRecipients.length === 0 && (
                 <tr>
                   <td
                     colSpan={6}
                     className="px-5 py-8 text-center text-sm text-muted-foreground"
                   >
-                    No recipients found matching &ldquo;{recipientSearch}&rdquo;
+                    {recipientSearch.trim()
+                      ? <>No recipients found matching &ldquo;{recipientSearch}&rdquo;</>
+                      : "No recipients yet"}
                   </td>
                 </tr>
               )}
@@ -444,36 +469,99 @@ function SentView({ campaign }: { campaign: MockCampaignDetail }) {
 
 export default function CampaignDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const campaignId = params.id as string;
 
-  // Look up campaign from mock data — fallback to a default sent campaign
-  const campaign = mockCampaigns[campaignId] ?? mockCampaigns["camp-1"];
+  const { data: campaign, isLoading, refetch } = useCampaign(campaignId);
+  const { mutate: deleteCampaign, isLoading: isDeleting } = useDeleteCampaign(campaignId);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this campaign?")) return;
+    const result = await deleteCampaign(undefined as void);
+    if (result) {
+      showToast("Campaign deleted");
+      setTimeout(() => router.push("/dashboard/campaigns"), 1000);
+    } else {
+      showToast("Failed to delete campaign");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!campaign) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/campaigns"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground">Campaign not found</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          This campaign may have been deleted or does not exist.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href="/dashboard/campaigns"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {campaign.name}
-          </h1>
-          {campaign.subject && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {campaign.subject}
-            </p>
-          )}
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
+          {toast}
         </div>
+      )}
+
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/campaigns"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              {campaign.name}
+            </h1>
+            {campaign.subject && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {campaign.subject}
+              </p>
+            )}
+          </div>
+        </div>
+        {campaign.status === "draft" && (
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-4 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete
+          </button>
+        )}
       </div>
 
       {/* Render based on status */}
       {campaign.status === "draft" ? (
-        <DraftView campaign={campaign} />
+        <DraftView campaign={campaign} onRefetch={refetch} />
       ) : (
         <SentView campaign={campaign} />
       )}

@@ -67,15 +67,15 @@ function useUpdateInvoice(id: string) {
 }
 
 function useSendInvoice(id: string) {
-  return useApiMutation<void, Invoice>(`/orgs/:orgId/invoices/${id}/send`, "post");
+  return useApiMutation<Record<string, never>, Invoice>(`/orgs/:orgId/invoices/${id}/send`, "post");
 }
 
 function useMarkInvoicePaid(id: string) {
-  return useApiMutation<void, Invoice>(`/orgs/:orgId/invoices/${id}/mark-paid`, "post");
+  return useApiMutation<Record<string, never>, Invoice>(`/orgs/:orgId/invoices/${id}/mark-paid`, "post");
 }
 
 function useDeleteInvoice(id: string) {
-  return useApiMutation<void, { message: string }>(`/orgs/:orgId/invoices/${id}`, "delete");
+  return useApiMutation<Record<string, never>, { message: string }>(`/orgs/:orgId/invoices/${id}`, "delete");
 }
 
 export { useInvoices, useInvoice, useCreateInvoice, useUpdateInvoice, useSendInvoice, useMarkInvoicePaid, useDeleteInvoice };

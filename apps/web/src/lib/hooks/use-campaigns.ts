@@ -90,6 +90,24 @@ function useSendCampaign(id: string) {
   );
 }
 
+interface CampaignRecipient {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: "pending" | "sent" | "delivered" | "opened" | "clicked" | "bounced" | "unsubscribed";
+  sentAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+}
+
+function useCampaignRecipients(id: string) {
+  return useApiQuery<CampaignRecipient[]>(
+    `/orgs/:orgId/campaigns/${id}/recipients`,
+    [],
+  );
+}
+
 export {
   useCampaigns,
   useCampaign,
@@ -97,6 +115,7 @@ export {
   useUpdateCampaign,
   useDeleteCampaign,
   useSendCampaign,
+  useCampaignRecipients,
 };
 
-export type { Campaign, CreateCampaignInput, UpdateCampaignInput };
+export type { Campaign, CreateCampaignInput, UpdateCampaignInput, CampaignRecipient };
