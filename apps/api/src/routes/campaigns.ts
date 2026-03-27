@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockCampaigns } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const campaignsRouter = new Hono();
@@ -70,10 +69,9 @@ campaignsRouter.get('/', async (c) => {
     const orgId = c.get('orgId');
     const result = await campaignService.list(orgId, query);
     return c.json({ data: result.campaigns, pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) } });
-  } catch {
-    logger.warn('DB unavailable for campaigns list, using mock data');
-    const mock = getMockCampaigns();
-    return c.json({ data: mock.campaigns, pagination: { page: query.page, limit: query.limit, total: mock.total, totalPages: 1 } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -84,11 +82,9 @@ campaignsRouter.get('/:id', async (c) => {
     const orgId = c.get('orgId');
     const result = await campaignService.getById(orgId, campaignId);
     return c.json({ data: result });
-  } catch {
-    logger.warn('DB unavailable for campaign get, using mock data');
-    const mock = getMockCampaigns();
-    const campaign = mock.campaigns.find((c) => c.id === campaignId) ?? mock.campaigns[0];
-    return c.json({ data: campaign });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -100,9 +96,9 @@ campaignsRouter.post('/', async (c) => {
     const orgId = c.get('orgId');
     const campaign = await campaignService.create(orgId, { ...parsed, scheduledAt: parsed.scheduledAt ? new Date(parsed.scheduledAt) : null });
     return c.json({ data: campaign }, 201);
-  } catch {
-    logger.warn('DB unavailable for campaign create, returning mock');
-    return c.json({ data: { id: `camp_${Date.now()}`, ...parsed, status: 'draft', createdAt: new Date().toISOString() } }, 201);
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -115,9 +111,9 @@ campaignsRouter.patch('/:id', async (c) => {
     const orgId = c.get('orgId');
     const campaign = await campaignService.update(orgId, campaignId, { ...parsed, scheduledAt: parsed.scheduledAt !== undefined ? (parsed.scheduledAt ? new Date(parsed.scheduledAt) : null) : undefined });
     return c.json({ data: campaign });
-  } catch {
-    logger.warn('DB unavailable for campaign update');
-    return c.json({ data: { id: campaignId, ...parsed, updatedAt: new Date().toISOString() } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -128,9 +124,9 @@ campaignsRouter.post('/:id/send', async (c) => {
     const orgId = c.get('orgId');
     const result = await campaignService.send(orgId, campaignId);
     return c.json({ data: result });
-  } catch {
-    logger.warn('DB unavailable for campaign send');
-    return c.json({ data: { id: campaignId, status: 'sending', message: 'Campaign queued (mock)' } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -140,8 +136,9 @@ campaignsRouter.delete('/:id', async (c) => {
     const orgId = c.get('orgId');
     const campaignId = c.req.param('id');
     await campaignService.delete(orgId, campaignId);
-  } catch {
-    logger.warn('DB unavailable for campaign delete');
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
   return c.json({ data: { message: 'Campaign deleted successfully' } });
 });
@@ -154,9 +151,9 @@ campaignsRouter.get('/:id/recipients', async (c) => {
     const orgId = c.get('orgId');
     const result = await campaignService.getRecipients(orgId, campaignId, query.page, query.limit);
     return c.json({ data: result.recipients, pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) } });
-  } catch {
-    logger.warn('DB unavailable for campaign recipients');
-    return c.json({ data: [], pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 

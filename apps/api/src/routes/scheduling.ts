@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockAppointments, getMockAvailability, getFrontendAppointments } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const scheduling = new Hono();
@@ -61,10 +60,8 @@ authenticatedScheduling.get('/appointments', async (c) => {
     logger.info('Appointments list served from REAL DATABASE', { orgId, count: appointments.length });
     return c.json({ data: appointments, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for appointments list, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: getFrontendAppointments(), _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -87,10 +84,8 @@ authenticatedScheduling.post('/appointments', async (c) => {
     logger.info('Appointment created in REAL DATABASE', { orgId, appointmentId: appointment.id });
     return c.json({ data: appointment }, 201);
   } catch (err) {
-    logger.warn('DB unavailable for appointment create, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: `apt_${Date.now()}`, ...parsed, status: 'scheduled', createdAt: new Date().toISOString() } }, 201);
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -109,10 +104,8 @@ authenticatedScheduling.patch('/appointments/:id', async (c) => {
     logger.info('Appointment updated in REAL DATABASE', { orgId, appointmentId });
     return c.json({ data: appointment });
   } catch (err) {
-    logger.warn('DB unavailable for appointment update, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: appointmentId, ...parsed, updatedAt: new Date().toISOString() } });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -129,10 +122,8 @@ authenticatedScheduling.get('/availability', async (c) => {
     logger.info('Availability served from REAL DATABASE', { orgId, date: query.date, slots: slots.length });
     return c.json({ data: slots, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for availability, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: getMockAvailability(query.date), _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -146,10 +137,8 @@ scheduling.post('/public/book/:orgSlug', async (c) => {
     logger.info('Public booking created in REAL DATABASE', { orgSlug, appointmentId: appointment.id });
     return c.json({ data: appointment }, 201);
   } catch (err) {
-    logger.warn('DB unavailable for public booking, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: `apt_${Date.now()}`, orgSlug, ...parsed, status: 'scheduled', createdAt: new Date().toISOString() } }, 201);
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 

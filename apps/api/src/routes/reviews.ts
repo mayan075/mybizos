@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockReviews, getMockReviewStats } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const reviewsRouter = new Hono();
@@ -68,10 +67,9 @@ reviewsRouter.get('/', async (c) => {
     const orgId = c.get('orgId');
     const result = await reviewService.list(orgId, query);
     return c.json({ data: result.reviews, pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) } });
-  } catch {
-    logger.warn('DB unavailable for reviews list, using mock data');
-    const mock = getMockReviews();
-    return c.json({ data: mock.reviews, pagination: { page: query.page, limit: query.limit, total: mock.total, totalPages: 1 } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -81,9 +79,9 @@ reviewsRouter.get('/stats', async (c) => {
     const orgId = c.get('orgId');
     const stats = await reviewService.getStats(orgId);
     return c.json({ data: stats });
-  } catch {
-    logger.warn('DB unavailable for review stats, using mock data');
-    return c.json({ data: getMockReviewStats() });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -94,11 +92,9 @@ reviewsRouter.get('/:id', async (c) => {
     const orgId = c.get('orgId');
     const review = await reviewService.getById(orgId, reviewId);
     return c.json({ data: review });
-  } catch {
-    logger.warn('DB unavailable for review get, using mock data');
-    const mock = getMockReviews();
-    const review = mock.reviews.find((r) => r.id === reviewId) ?? mock.reviews[0];
-    return c.json({ data: review });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -110,8 +106,9 @@ reviewsRouter.post('/', async (c) => {
     const orgId = c.get('orgId');
     const review = await reviewService.create(orgId, parsed);
     return c.json({ data: review }, 201);
-  } catch {
-    return c.json({ data: { id: `rev_${Date.now()}`, ...parsed, createdAt: new Date().toISOString() } }, 201);
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -122,8 +119,9 @@ reviewsRouter.post('/:id/generate-response', async (c) => {
     const orgId = c.get('orgId');
     const review = await reviewService.generateResponse(orgId, reviewId);
     return c.json({ data: review });
-  } catch {
-    return c.json({ data: { id: reviewId, suggestedResponse: 'Thank you for your feedback! We appreciate you taking the time to share your experience.' } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -136,8 +134,9 @@ reviewsRouter.post('/:id/respond', async (c) => {
     const orgId = c.get('orgId');
     const review = await reviewService.postResponse(orgId, reviewId, parsed.response);
     return c.json({ data: review });
-  } catch {
-    return c.json({ data: { id: reviewId, responded: true, responseText: parsed.response } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -147,8 +146,9 @@ reviewsRouter.get('/campaigns', async (c) => {
     const orgId = c.get('orgId');
     const campaigns = await reviewService.listCampaigns(orgId);
     return c.json({ data: campaigns });
-  } catch {
-    return c.json({ data: [] });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -159,8 +159,9 @@ reviewsRouter.get('/campaigns/:campaignId', async (c) => {
     const orgId = c.get('orgId');
     const campaign = await reviewService.getCampaign(orgId, campaignId);
     return c.json({ data: campaign });
-  } catch {
-    return c.json({ error: 'Campaign not found', code: 'NOT_FOUND', status: 404 }, 404);
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -172,8 +173,9 @@ reviewsRouter.post('/campaigns', async (c) => {
     const orgId = c.get('orgId');
     const campaign = await reviewService.createCampaign(orgId, parsed);
     return c.json({ data: campaign }, 201);
-  } catch {
-    return c.json({ data: { id: `rc_${Date.now()}`, ...parsed, createdAt: new Date().toISOString() } }, 201);
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -186,8 +188,9 @@ reviewsRouter.patch('/campaigns/:campaignId', async (c) => {
     const orgId = c.get('orgId');
     const campaign = await reviewService.updateCampaign(orgId, campaignId, parsed);
     return c.json({ data: campaign });
-  } catch {
-    return c.json({ data: { id: campaignId, ...parsed, updatedAt: new Date().toISOString() } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -197,8 +200,9 @@ reviewsRouter.delete('/campaigns/:campaignId', async (c) => {
     const orgId = c.get('orgId');
     const campaignId = c.req.param('campaignId');
     await reviewService.deleteCampaign(orgId, campaignId);
-  } catch {
-    logger.warn('DB unavailable for review campaign delete');
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
   return c.json({ data: { message: 'Review campaign deleted successfully' } });
 });

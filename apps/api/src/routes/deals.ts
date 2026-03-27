@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockDeals, getFrontendDeals } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const deals = new Hono();
@@ -44,10 +43,8 @@ deals.get('/', async (c) => {
     logger.info('Deals list served from REAL DATABASE', { orgId, count: result.length });
     return c.json({ data: result, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for deals list, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: getFrontendDeals(), _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -61,10 +58,8 @@ deals.post('/', async (c) => {
     logger.info('Deal created in REAL DATABASE', { orgId, dealId: deal.id });
     return c.json({ data: deal }, 201);
   } catch (err) {
-    logger.warn('DB unavailable for deal create, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: `deal_${Date.now()}`, ...parsed, createdAt: new Date().toISOString() } }, 201);
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -79,10 +74,8 @@ deals.patch('/:id', async (c) => {
     logger.info('Deal updated in REAL DATABASE', { orgId, dealId });
     return c.json({ data: deal });
   } catch (err) {
-    logger.warn('DB unavailable for deal update, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: dealId, ...parsed, updatedAt: new Date().toISOString() } });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -94,9 +87,8 @@ deals.delete('/:id', async (c) => {
     await dealService.remove(orgId, dealId);
     logger.info('Deal deleted from REAL DATABASE', { orgId, dealId });
   } catch (err) {
-    logger.warn('DB unavailable for deal delete, skipping', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
   return c.json({ data: { message: 'Deal deleted successfully' } });
 });

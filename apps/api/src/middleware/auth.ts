@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { validateToken, type JwtPayload } from '../services/auth-service.js';
 import { config } from '../config.js';
+import { logger } from './logger.js';
 
 export interface AuthUser {
   id: string;
@@ -16,32 +17,20 @@ declare module 'hono' {
   }
 }
 
-/**
- * Default demo user for development mode when no auth token is provided.
- * Matches the mock data in mock-service.ts.
- */
-const DEV_USER: AuthUser = {
-  id: 'usr_01',
-  email: 'demo@mybizos.com',
-  orgId: 'org_01',
-  role: 'owner',
-};
-
-// Cache the real dev user so we only query the DB once
+// Cache the dev user so we only query the DB once per process
 let cachedDevUser: AuthUser | null = null;
 
 /**
- * In dev mode, try to find a real user + org from the database so that
- * features like voice calling, phone system, etc. work against real data.
- * Falls back to the hardcoded DEV_USER if the DB is not available.
+ * In dev mode, try to find a real user + org from the database.
+ * Returns null if DB is unavailable — caller must handle 401.
  */
-async function getDevUser(): Promise<AuthUser> {
+async function getDevUser(): Promise<AuthUser | null> {
   if (cachedDevUser) return cachedDevUser;
 
   try {
     const { db, users, orgMembers } = await import('@mybizos/db');
+    const { eq } = await import('drizzle-orm');
 
-    // Find the first user that has an org membership
     const result = await db
       .select({
         userId: users.id,
@@ -50,7 +39,7 @@ async function getDevUser(): Promise<AuthUser> {
         role: orgMembers.role,
       })
       .from(users)
-      .innerJoin(orgMembers, (await import('drizzle-orm')).eq(orgMembers.userId, users.id))
+      .innerJoin(orgMembers, eq(orgMembers.userId, users.id))
       .limit(1);
 
     if (result.length > 0 && result[0]) {
@@ -64,30 +53,33 @@ async function getDevUser(): Promise<AuthUser> {
       return cachedDevUser;
     }
   } catch {
-    // DB not available — fall through to hardcoded dev user
+    // DB not available — return null so caller returns 401
   }
 
-  return DEV_USER;
+  return null;
 }
 
 /**
  * Auth middleware: extracts and validates the JWT from the Authorization header,
  * then sets the authenticated user on the Hono context.
  *
- * In development mode, if no Authorization header is provided, a real user
- * from the database is used (if available), otherwise falls back to DEV_USER.
+ * In development mode without a token, attempts DB lookup for a real user.
+ * Never falls back to hardcoded credentials.
  */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authorization = c.req.header('Authorization');
 
-  // Dev bypass: if no auth header and we're in development, use dev user
   if (!authorization) {
+    // In dev mode, allow token-less requests if we can find a real user in the DB
     if (config.NODE_ENV === 'development') {
       const devUser = await getDevUser();
-      c.set('user', devUser);
-      c.set('token', 'dev-bypass-token');
-      await next();
-      return;
+      if (devUser) {
+        c.set('user', devUser);
+        c.set('token', 'dev-bypass-token');
+        await next();
+        return;
+      }
+      logger.warn('Dev mode: no auth token and no user found in database');
     }
     return c.json(
       { error: 'Authorization header is required', code: 'UNAUTHORIZED', status: 401 },
@@ -97,14 +89,6 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
   const parts = authorization.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    // Dev bypass: treat malformed auth as no auth in development
-    if (config.NODE_ENV === 'development') {
-      const devUser = await getDevUser();
-      c.set('user', devUser);
-      c.set('token', 'dev-bypass-token');
-      await next();
-      return;
-    }
     return c.json(
       { error: 'Invalid authorization format. Use: Bearer <token>', code: 'UNAUTHORIZED', status: 401 },
       401,
@@ -126,14 +110,6 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
     await next();
   } catch {
-    // Dev bypass: if token validation fails in development, use dev user
-    if (config.NODE_ENV === 'development') {
-      const devUser = await getDevUser();
-      c.set('user', devUser);
-      c.set('token', 'dev-bypass-token');
-      await next();
-      return;
-    }
     return c.json(
       { error: 'Invalid or expired token', code: 'UNAUTHORIZED', status: 401 },
       401,

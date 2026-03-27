@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockConversations, getMockMessages, getFrontendConversations, getFrontendMessages } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const conversations = new Hono();
@@ -31,10 +30,8 @@ conversations.get('/', async (c) => {
     logger.info('Conversations list served from REAL DATABASE', { orgId, count: result.length });
     return c.json({ data: result, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for conversations list, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: getFrontendConversations(filters), _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -47,10 +44,8 @@ conversations.get('/:id/messages', async (c) => {
     logger.info('Messages served from REAL DATABASE', { orgId, conversationId, count: messages.length });
     return c.json({ data: messages, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for messages, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: getFrontendMessages(conversationId), _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -70,10 +65,8 @@ conversations.post('/:id/messages', async (c) => {
     logger.info('Message created in REAL DATABASE', { orgId, conversationId });
     return c.json({ data: message }, 201);
   } catch (err) {
-    logger.warn('DB unavailable for message create, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: `msg_${Date.now()}`, conversationId, direction: 'outbound', channel: parsed.channel, body: parsed.content, createdAt: new Date().toISOString() } }, 201);
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 

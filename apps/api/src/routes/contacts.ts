@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
-import { getMockContacts, getMockContactById, getFrontendContacts, getFrontendContactById } from '../services/mock-service.js';
 import { logger } from '../middleware/logger.js';
 
 const contacts = new Hono();
@@ -67,15 +66,8 @@ contacts.get('/', async (c) => {
       _source: 'database',
     });
   } catch (err) {
-    logger.warn('DB unavailable for contacts list, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    const result = getFrontendContacts(query);
-    return c.json({
-      data: result.data,
-      pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
-      _source: 'mock',
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -88,12 +80,8 @@ contacts.get('/:id', async (c) => {
     logger.info('Contact detail served from REAL DATABASE', { orgId, contactId });
     return c.json({ data: result, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for contact get, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    const result = getFrontendContactById(contactId);
-    if (!result) return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);
-    return c.json({ data: result, _source: 'mock' });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -107,10 +95,8 @@ contacts.post('/', async (c) => {
     logger.info('Contact created in REAL DATABASE', { orgId, contactId: contact.id });
     return c.json({ data: contact }, 201);
   } catch (err) {
-    logger.warn('DB unavailable for contact create, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return c.json({ data: { id: `cnt_${Date.now()}`, ...parsed, orgId: 'org_01', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }, 201);
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -125,11 +111,8 @@ contacts.patch('/:id', async (c) => {
     logger.info('Contact updated in REAL DATABASE', { orgId, contactId });
     return c.json({ data: contact });
   } catch (err) {
-    logger.warn('DB unavailable for contact update, returning MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    const existing = getMockContactById(contactId);
-    return c.json({ data: { ...existing, ...parsed, updatedAt: new Date().toISOString() } });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
@@ -141,9 +124,8 @@ contacts.delete('/:id', async (c) => {
     await contactService.softDelete(orgId, contactId);
     logger.info('Contact deleted from REAL DATABASE', { orgId, contactId });
   } catch (err) {
-    logger.warn('DB unavailable for contact delete, skipping', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
   return c.json({ data: { message: 'Contact archived successfully' } });
 });

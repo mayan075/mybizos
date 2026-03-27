@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
-import { getMockAuthResult } from './mock-service.js';
 
 const TOKEN_EXPIRY = '7d';
 
@@ -38,8 +37,8 @@ function generateToken(payload: JwtPayload): string {
 }
 
 /**
- * In dev mode without a database, register returns mock data with a real JWT.
- * In production with a DB, this would do the full registration flow.
+ * Register a new user with a new organization.
+ * Requires a working database — returns 503 if DB is unavailable.
  */
 export async function register(
   email: string,
@@ -48,7 +47,6 @@ export async function register(
   businessName: string,
   vertical: string,
 ): Promise<AuthResult> {
-  // Try real DB registration
   try {
     const { db, users, sessions, organizations, orgMembers } = await import('@mybizos/db');
     const bcrypt = await import('bcryptjs');
@@ -97,21 +95,16 @@ export async function register(
     return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner' }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, vertical: newOrg.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
-    // DB not available — return mock
-    logger.warn('Database unavailable for register, returning MOCK auth', {
+    logger.error('Database unavailable for registration', {
       error: err instanceof Error ? err.message : String(err),
     });
-    const mock = getMockAuthResult();
-    mock.user.email = email;
-    mock.user.name = name;
-    mock.org.name = businessName;
-    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner', name: mock.user.name, orgName: mock.org.name });
-    return mock;
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
   }
 }
 
 /**
- * In dev mode without a database, login returns mock data with a real JWT.
+ * Authenticate user with email and password.
+ * Requires a working database — returns 503 if DB is unavailable.
  */
 export async function login(
   email: string,
@@ -152,14 +145,10 @@ export async function login(
     return { user: { id: user.id, email: user.email, name: user.name, role: membership.role }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
-    // DB not available — return mock
-    logger.warn('Database unavailable for login, returning MOCK auth', {
+    logger.error('Database unavailable for login', {
       error: err instanceof Error ? err.message : String(err),
     });
-    const mock = getMockAuthResult();
-    mock.user.email = email;
-    mock.token = generateToken({ userId: mock.user.id, orgId: mock.org.id, email, role: 'owner', name: mock.user.name, orgName: mock.org.name });
-    return mock;
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
   }
 }
 
@@ -194,12 +183,10 @@ export async function getMe(_userId: string): Promise<{
     return { user: { ...user, role: membership.role }, org };
   } catch (err) {
     if (err instanceof AuthError) throw err;
-    // DB not available — return mock
-    const mock = getMockAuthResult();
-    return {
-      user: { id: mock.user.id, email: mock.user.email, name: mock.user.name, avatarUrl: null, role: mock.user.role },
-      org: mock.org,
-    };
+    logger.error('Database unavailable for getMe', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
   }
 }
 

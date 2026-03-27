@@ -49,8 +49,7 @@ function isTokenExpired(token: string): boolean {
 
 /**
  * Check if auth should be skipped.
- * On localhost and Vercel deployments, skip auth entirely (demo mode).
- * Remove the Vercel check once Better Auth + DB are wired up.
+ * Only skip on localhost for local development.
  */
 function shouldSkipAuth(request: NextRequest): boolean {
   const host = request.headers.get("host") ?? "";
@@ -59,10 +58,7 @@ function shouldSkipAuth(request: NextRequest): boolean {
     host.startsWith("127.0.0.1") ||
     host.startsWith("0.0.0.0");
 
-  // VERCEL_ENV is set automatically on Vercel deployments
-  const isVercel = !!process.env.VERCEL;
-
-  return isLocal || isVercel;
+  return isLocal;
 }
 
 export function middleware(request: NextRequest) {
@@ -77,7 +73,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip auth in development and on Vercel (no DB for auth yet)
+  // Skip auth in local development only
   if (shouldSkipAuth(request)) {
     return NextResponse.next();
   }

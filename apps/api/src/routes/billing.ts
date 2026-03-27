@@ -137,21 +137,8 @@ billing.get('/', async (c) => {
       },
     });
   } catch (err) {
-    logger.warn('Billing fetch failed, returning defaults', {
-      orgId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-
-    // Return sensible defaults when Stripe isn't configured
-    return c.json({
-      data: {
-        plan: 'free',
-        status: 'inactive',
-        subscription: null,
-        usage: { aiMinutes: 0, aiMinutesLimit: 100, smsSent: 0, smsLimit: 50 },
-        invoices: [],
-      },
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 

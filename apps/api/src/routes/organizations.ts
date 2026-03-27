@@ -33,21 +33,7 @@ const inviteMemberSchema = z.object({
   name: z.string().min(1, 'Name is required'),
 });
 
-// ── Mock data ──
-
-interface Org {
-  id: string;
-  name: string;
-  slug: string;
-  phone: string;
-  email: string;
-  address: string;
-  timezone: string;
-  businessHours: { start: string; end: string; days: number[] };
-  plan: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// ── Types ──
 
 interface OrgMember {
   id: string;
@@ -60,40 +46,11 @@ interface OrgMember {
   joinedAt: string;
 }
 
-const mockOrgs: Org[] = [
-  {
-    id: 'org_01',
-    name: 'Acme HVAC & Plumbing',
-    slug: 'acme-hvac',
-    phone: '+15551234567',
-    email: 'info@acmehvac.com',
-    address: '789 Main Street, Springfield, IL',
-    timezone: 'America/Chicago',
-    businessHours: { start: '08:00', end: '17:00', days: [1, 2, 3, 4, 5] },
-    plan: 'starter',
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-03-01T00:00:00Z',
-  },
-];
-
-const mockMembers: OrgMember[] = [
-  {
-    id: 'mem_01',
-    orgId: 'org_01',
-    userId: 'usr_01',
-    name: 'Demo Owner',
-    email: 'demo@mybizos.com',
-    role: 'owner',
-    status: 'active',
-    joinedAt: '2026-01-01T00:00:00Z',
-  },
-];
-
 // ── Routes ──
 
 /**
  * GET /orgs/:orgId — get organization details
- * Tries real database first, falls back to mock data.
+ * Returns org details from the database.
  */
 organizations.get('/:orgId', async (c) => {
   const orgId = c.get('orgId');
@@ -124,20 +81,14 @@ organizations.get('/:orgId', async (c) => {
       });
     }
   } catch (err) {
-    logger.warn('DB unavailable for org get, using MOCK data', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
-  // Fallback to mock
-  const org = mockOrgs.find((o) => o.id === orgId);
-  if (!org) {
-    return c.json(
-      { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
-      404,
-    );
-  }
-  return c.json({ data: org, _source: 'mock' });
+  return c.json(
+    { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
+    404,
+  );
 });
 
 /**
@@ -162,30 +113,14 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
       return c.json({ data: updated, _source: 'database' });
     }
   } catch (err) {
-    logger.warn('DB unavailable for org update, using MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
-  // Fallback to mock
-  const idx = mockOrgs.findIndex((o) => o.id === orgId);
-  if (idx === -1) {
-    return c.json(
-      { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
-      404,
-    );
-  }
-
-  const existing = mockOrgs[idx] as Org;
-  const updatedMock: Org = {
-    ...existing,
-    ...parsed,
-    updatedAt: new Date().toISOString(),
-  };
-  mockOrgs[idx] = updatedMock;
-
-  logger.info('Organization updated (mock)', { orgId });
-  return c.json({ data: updatedMock, _source: 'mock' });
+  return c.json(
+    { error: 'Organization not found', code: 'NOT_FOUND', status: 404 },
+    404,
+  );
 });
 
 /**
@@ -226,13 +161,9 @@ organizations.get('/:orgId/members', async (c) => {
     logger.info('Members served from REAL DATABASE', { orgId, count: members.length });
     return c.json({ data: members, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for members list, using MOCK', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-
-  const members = mockMembers.filter((m) => m.orgId === orgId);
-  return c.json({ data: members, _source: 'mock' });
 });
 
 /**
@@ -243,36 +174,33 @@ organizations.post('/:orgId/invite', requireRole('owner', 'admin'), async (c) =>
   const body = await c.req.json();
   const parsed = inviteMemberSchema.parse(body);
 
-  // Check if already a member
-  const existing = mockMembers.find((m) => m.orgId === orgId && m.email === parsed.email);
-  if (existing) {
-    return c.json(
-      { error: 'User is already a member of this organization', code: 'CONFLICT', status: 409 },
-      409,
-    );
+  try {
+    const { db, orgMembers, users, withOrgScope } = await import('@mybizos/db');
+    const { eq, and } = await import('drizzle-orm');
+
+    // Check if already a member
+    const existingRows = await db
+      .select({ id: orgMembers.id })
+      .from(orgMembers)
+      .leftJoin(users, eq(orgMembers.userId, users.id))
+      .where(and(withOrgScope(orgMembers.orgId, orgId), eq(users.email, parsed.email)));
+
+    if (existingRows.length > 0) {
+      return c.json(
+        { error: 'User is already a member of this organization', code: 'CONFLICT', status: 409 },
+        409,
+      );
+    }
+
+    // TODO: Create invitation record in database and send invite email
+    logger.info('Member invited', { orgId, email: parsed.email, role: parsed.role });
+
+    return c.json({ data: { orgId, email: parsed.email, role: parsed.role, status: 'invited' } }, 201);
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-
-  const member: OrgMember = {
-    id: `mem_${Date.now()}`,
-    orgId,
-    userId: `usr_invited_${Date.now()}`,
-    name: parsed.name,
-    email: parsed.email,
-    role: parsed.role,
-    status: 'invited',
-    joinedAt: new Date().toISOString(),
-  };
-
-  mockMembers.push(member);
-  logger.info('Member invited', { orgId, email: parsed.email, role: parsed.role });
-
-  return c.json({ data: member }, 201);
 });
-
-// ── In-memory settings store (per-org) ──
-// In production this would be the organization's `settings` JSONB column.
-
-const orgSettings: Record<string, Record<string, unknown>> = {};
 
 const settingsSchema = z.record(z.string(), z.unknown());
 
@@ -294,14 +222,11 @@ organizations.get('/:orgId/settings', async (c) => {
       return c.json({ data: org.settings ?? {}, _source: 'database' });
     }
   } catch (err) {
-    logger.warn('DB unavailable for settings get, using in-memory', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
-  const settings = orgSettings[orgId] ?? {};
-  logger.info('Settings retrieved (in-memory)', { orgId });
-  return c.json({ data: settings, _source: 'memory' });
+  return c.json({ data: {}, _source: 'database' });
 });
 
 /**
@@ -322,18 +247,11 @@ organizations.post('/:orgId/settings', async (c) => {
       .where(withOrgScope(orgsTable.id, orgId));
 
     logger.info('Settings saved to REAL DATABASE', { orgId, keys: Object.keys(parsed) });
-    // Also update in-memory cache
-    orgSettings[orgId] = { ...orgSettings[orgId], ...parsed };
-    return c.json({ data: orgSettings[orgId], _source: 'database' });
+    return c.json({ data: parsed, _source: 'database' });
   } catch (err) {
-    logger.warn('DB unavailable for settings save, using in-memory', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-
-  orgSettings[orgId] = { ...orgSettings[orgId], ...parsed };
-  logger.info('Settings saved (in-memory)', { orgId, keys: Object.keys(parsed) });
-  return c.json({ data: orgSettings[orgId], _source: 'memory' });
 });
 
 /**
@@ -363,31 +281,12 @@ organizations.post('/:orgId/onboarding', async (c) => {
 
     logger.info('Onboarding data saved to REAL DATABASE', { orgId, businessName: body.businessName });
   } catch (err) {
-    logger.warn('DB unavailable for onboarding save, using in-memory', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  // Also update in-memory
-  if (!orgSettings[orgId]) {
-    orgSettings[orgId] = {};
-  }
-  orgSettings[orgId]['onboarding'] = body;
-
-  if (body.businessName) {
-    const orgIdx = mockOrgs.findIndex((o) => o.id === orgId);
-    if (orgIdx !== -1) {
-      const existing = mockOrgs[orgIdx] as Org;
-      mockOrgs[orgIdx] = {
-        ...existing,
-        name: body.businessName,
-        updatedAt: new Date().toISOString(),
-      };
-    }
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
   logger.info('Onboarding data saved', { orgId, businessName: body.businessName });
-  return c.json({ data: orgSettings[orgId] });
+  return c.json({ data: { onboarding: body } });
 });
 
 /**
@@ -400,9 +299,9 @@ organizations.get('/:orgId/conversations/unread-count', async (c) => {
     const conversations = await conversationService.list(orgId, { status: 'open' });
     const unreadCount = conversations.filter((conv: Record<string, unknown>) => conv.status === 'open').length;
     return c.json({ data: { count: unreadCount } });
-  } catch {
-    // If DB unavailable, return 0 (not a fake number)
-    return c.json({ data: { count: 0 } });
+  } catch (err) {
+    logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 });
 
