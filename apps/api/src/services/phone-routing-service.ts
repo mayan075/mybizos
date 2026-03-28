@@ -179,29 +179,7 @@ export async function resolveOrgByPhoneNumber(
       }
     }
 
-    // ── Single-tenant fallback ───────────────────────────────────────────
-    // If no number match was found but there's exactly one org, use it.
-    // This covers single-tenant setups where the number might be stored
-    // in a slightly different format or the phone config is incomplete.
-    if (allOrgs.length === 1) {
-      const org = allOrgs[0]!;
-      const settings = org.settings as OrgSettings | null;
-      const resolved: ResolvedOrg = {
-        orgId: org.id,
-        orgName: org.name,
-        vertical: org.vertical,
-        settings: settings ?? {},
-      };
-      setCache(normalized, resolved);
-      logger.warn('No exact phone match — using single-tenant fallback', {
-        phone: normalized,
-        orgId: org.id,
-        orgName: org.name,
-      });
-      return resolved;
-    }
-
-    logger.warn('No org found for phone number (multi-tenant, no fallback)', {
+    logger.warn('No org found for phone number', {
       phone: normalized,
       orgCount: String(allOrgs.length),
     });
