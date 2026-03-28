@@ -28,8 +28,11 @@ import {
   AlertCircle,
   HeartPulse,
   Plug,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/hooks/use-theme";
 import { getUser } from "@/lib/auth";
 import { getOnboardingData } from "@/lib/onboarding";
 import { tryFetch, apiClient } from "@/lib/api-client";
@@ -109,6 +112,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   const user = useMemo(() => getUser(), []);
   const onboarding = useMemo(() => getOnboardingData(), []);
@@ -190,7 +194,7 @@ export function Sidebar() {
         collapsed ? "w-[var(--sidebar-width-collapsed)]" : "w-[var(--sidebar-width)]",
       )}
       style={{
-        backgroundImage: "linear-gradient(180deg, var(--color-sidebar) 0%, oklch(0.96 0.01 265) 100%)",
+        backgroundImage: "linear-gradient(180deg, var(--color-sidebar) 0%, var(--color-sidebar-accent) 100%)",
       }}
     >
       {/* Subtle right edge shadow instead of hard border */}
@@ -294,6 +298,28 @@ export function Sidebar() {
       {/* Bottom section */}
       <div className="p-3">
         <div className="h-px bg-sidebar-border/40 mb-3 mx-2" />
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className={cn(
+            "flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium w-full",
+            "text-sidebar-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+            "transition-all duration-200",
+            collapsed && "justify-center px-2",
+          )}
+          title={collapsed ? (theme === "dark" ? "Switch to light mode" : "Switch to dark mode") : undefined}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-[18px] w-[18px] shrink-0" />
+          ) : (
+            <Moon className="h-[18px] w-[18px] shrink-0" />
+          )}
+          {!collapsed && (
+            <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+          )}
+        </button>
+
         <div
           className={cn(
             "flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sidebar-accent/40 transition-all duration-200 cursor-pointer",

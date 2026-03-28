@@ -730,6 +730,7 @@ function EstimateView({
         </div>
 
         {/* Line Items Table */}
+        <div className="overflow-x-auto">
         <table className="w-full mb-6">
           <thead>
             <tr className="border-b-2 border-gray-200">
@@ -752,6 +753,7 @@ function EstimateView({
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* Totals */}
         <div className="flex justify-end">

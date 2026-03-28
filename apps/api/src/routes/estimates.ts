@@ -63,7 +63,7 @@ estimateRoutes.get('/', async (c) => {
         contactEmail: contacts.email,
       })
       .from(estimates)
-      .leftJoin(contacts, eq(estimates.contactId, contacts.id))
+      .leftJoin(contacts, and(eq(estimates.contactId, contacts.id), eq(contacts.orgId, estimates.orgId)))
       .where(whereClause)
       .orderBy(desc(estimates.createdAt))
       .limit(query.limit)

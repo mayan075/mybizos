@@ -195,6 +195,7 @@ export const sequenceService = {
       .select()
       .from(sequenceEnrollments)
       .where(and(
+        withOrgScope(sequenceEnrollments.orgId, orgId),
         eq(sequenceEnrollments.sequenceId, sequenceId),
         eq(sequenceEnrollments.contactId, contactId),
         sql`${sequenceEnrollments.status} IN ('active', 'paused')`,

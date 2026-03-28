@@ -537,6 +537,7 @@ function EstimatePreview({
       </div>
 
       {/* Line Items */}
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
@@ -570,6 +571,7 @@ function EstimatePreview({
           )}
         </tbody>
       </table>
+      </div>
 
       {/* Totals */}
       <div className="space-y-1.5 text-sm">

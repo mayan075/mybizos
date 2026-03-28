@@ -203,9 +203,9 @@ function CustomizeStagesModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl max-h-[80vh] flex flex-col">
+      <div className="relative w-full max-w-lg rounded-xl border border-border bg-card p-4 sm:p-6 shadow-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">Customize Stages</h2>
           <button
@@ -529,7 +529,7 @@ export default function PipelinePage() {
     <div className="space-y-6">
       {/* Add Deal Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowAddModal(null); resetForm(); }} />
           <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
@@ -657,31 +657,32 @@ export default function PipelinePage() {
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Pipeline</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 truncate">
             {allDeals.length} deals &middot; {formatValue(totalValue, orgCurrency)} total value
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowCustomizeModal(true)}
-            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            className="flex h-9 items-center gap-2 rounded-lg border border-input px-2 sm:px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            title="Customize Stages"
           >
             <Settings2 className="h-4 w-4" />
-            Customize Stages
+            <span className="hidden sm:inline">Customize Stages</span>
           </button>
           <button
             onClick={() => setShowAddModal(columnDefs[0]?.id ?? "new_lead")}
             className={cn(
-              "flex h-9 items-center gap-2 rounded-lg px-4",
+              "flex h-9 items-center gap-2 rounded-lg px-3 sm:px-4",
               "bg-primary text-primary-foreground text-sm font-medium",
               "hover:bg-primary/90 transition-colors",
             )}
           >
             <Plus className="h-4 w-4" />
-            Add Deal
+            <span className="hidden sm:inline">Add Deal</span>
           </button>
         </div>
       </div>

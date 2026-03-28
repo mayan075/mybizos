@@ -711,6 +711,7 @@ function InvoiceView({
         </div>
 
         {/* Line Items Table */}
+        <div className="overflow-x-auto">
         <table className="w-full mb-6">
           <thead>
             <tr className="border-b-2 border-gray-200">
@@ -733,6 +734,7 @@ function InvoiceView({
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* Totals */}
         <div className="flex justify-end">

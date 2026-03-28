@@ -254,7 +254,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
 
           {/* Notification dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 rounded-xl bg-popover border border-border/60 shadow-lg z-[60]">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-96 rounded-xl bg-popover border border-border/60 shadow-lg z-[60]">
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-foreground tracking-tight">Notifications</h3>

@@ -88,7 +88,7 @@ dashboard.get('/stats', async (c) => {
         contactLastName: contacts.lastName,
       })
         .from(appointments)
-        .leftJoin(contacts, eq(appointments.contactId, contacts.id))
+        .leftJoin(contacts, and(eq(appointments.contactId, contacts.id), eq(contacts.orgId, appointments.orgId)))
         .where(and(
           withOrgScope(appointments.orgId, orgId),
           gte(appointments.startTime, now),

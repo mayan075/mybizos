@@ -19,18 +19,26 @@ import { logger } from '../middleware/logger.js';
 
 // ── Lazy singletons ──────────────────────────────────────────────────────────
 
-let twilioInstance: TwilioClient | null = null;
 let resendInstance: ResendProvider | null = null;
 
-function getTwilio(): TwilioClient {
-  if (!twilioInstance) {
-    twilioInstance = new TwilioClient({
-      accountSid: config.TWILIO_ACCOUNT_SID,
-      authToken: config.TWILIO_AUTH_TOKEN,
-      defaultFromNumber: config.TWILIO_PHONE_NUMBER,
-    });
-  }
-  return twilioInstance;
+/**
+ * Create a Twilio client using the org's subaccount credentials (from settings JSONB),
+ * falling back to global platform credentials if the org has none configured.
+ */
+async function getTwilioForOrg(orgId: string): Promise<TwilioClient> {
+  const [org] = await db
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, orgId));
+
+  const settings = (org?.settings ?? {}) as Record<string, unknown>;
+  const phoneSettings = (settings['phone'] ?? settings['mybizosPhone'] ?? {}) as Record<string, string>;
+
+  return new TwilioClient({
+    accountSid: phoneSettings['subaccountSid'] || phoneSettings['accountSid'] || config.TWILIO_ACCOUNT_SID,
+    authToken: phoneSettings['subaccountAuthToken'] || phoneSettings['authToken'] || config.TWILIO_AUTH_TOKEN,
+    defaultFromNumber: phoneSettings['phoneNumber'] || config.TWILIO_PHONE_NUMBER,
+  });
 }
 
 function getResend(): ResendProvider {
@@ -194,7 +202,7 @@ export const notificationService = {
     // Send SMS confirmation
     if (details.contactPhone) {
       try {
-        const twilio = getTwilio();
+        const twilio = await getTwilioForOrg(orgId);
         const fromNumber = details.orgPhone ?? config.TWILIO_PHONE_NUMBER;
         await twilio.sendSms(
           details.contactPhone,
@@ -277,7 +285,7 @@ export const notificationService = {
     // Send SMS reminder
     if (details.contactPhone) {
       try {
-        const twilio = getTwilio();
+        const twilio = await getTwilioForOrg(orgId);
         const fromNumber = details.orgPhone ?? config.TWILIO_PHONE_NUMBER;
         await twilio.sendSms(
           details.contactPhone,
@@ -357,7 +365,7 @@ export const notificationService = {
     // Send SMS to owner's personal phone
     if (owner.phone) {
       try {
-        const twilio = getTwilio();
+        const twilio = await getTwilioForOrg(orgId);
         const fromNumber = org?.phone ?? config.TWILIO_PHONE_NUMBER;
         await twilio.sendSms(owner.phone, message, fromNumber);
         smsSent = true;

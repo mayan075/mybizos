@@ -110,4 +110,34 @@ function useUpdateContact(contactId: string) {
   );
 }
 
-export { useContacts, useContact, useCreateContact, useUpdateContact };
+// --------------------------------------------------------
+// useImportContacts — bulk CSV import
+// --------------------------------------------------------
+
+interface ImportContactInput {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+  source?: string | null;
+  tags?: string | null;
+}
+
+interface ImportContactsPayload {
+  contacts: ImportContactInput[];
+}
+
+interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+function useImportContacts() {
+  return useApiMutation<ImportContactsPayload, ImportResult>(
+    "/orgs/:orgId/contacts/import",
+    "post",
+  );
+}
+
+export { useContacts, useContact, useCreateContact, useUpdateContact, useImportContacts };

@@ -116,6 +116,47 @@ contacts.patch('/:id', async (c) => {
   }
 });
 
+// ── Bulk Import ──
+
+const importContactSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email().nullable().optional().default(null),
+  phone: z.string().nullable().optional().default(null),
+  source: z.string().nullable().optional().default(null),
+  tags: z.string().nullable().optional().default(null),
+});
+
+const bulkImportSchema = z.object({
+  contacts: z.array(importContactSchema).min(1, 'At least one contact is required').max(5000, 'Maximum 5000 contacts per import'),
+});
+
+contacts.post('/import', async (c) => {
+  const body = await c.req.json();
+  const parsed = bulkImportSchema.parse(body);
+
+  try {
+    const { contactService } = await import('../services/contact-service.js');
+    const orgId = c.get('orgId');
+
+    // Convert to the format the service expects
+    const csvRows = parsed.contacts.map((contact) => ({
+      first_name: contact.firstName,
+      last_name: contact.lastName,
+      email: contact.email ?? '',
+      phone: contact.phone ?? '',
+      tags: contact.tags ?? '',
+    }));
+
+    const result = await contactService.importCsv(orgId, csvRows);
+    logger.info('Bulk import completed', { orgId, imported: result.imported, skipped: result.skipped });
+    return c.json({ data: result }, 201);
+  } catch (err) {
+    logger.error('Bulk import failed', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Import failed', code: 'IMPORT_FAILED', status: 500 }, 500);
+  }
+});
+
 contacts.delete('/:id', async (c) => {
   try {
     const { contactService } = await import('../services/contact-service.js');

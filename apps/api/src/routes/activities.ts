@@ -51,7 +51,7 @@ activityRoutes.get('/', async (c) => {
         contactLastName: contacts.lastName,
       })
       .from(activities)
-      .leftJoin(contacts, eq(activities.contactId, contacts.id))
+      .leftJoin(contacts, and(eq(activities.contactId, contacts.id), eq(contacts.orgId, activities.orgId)))
       .where(whereClause)
       .orderBy(desc(activities.createdAt))
       .limit(query.limit)

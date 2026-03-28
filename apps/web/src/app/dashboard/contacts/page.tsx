@@ -7,6 +7,7 @@ import {
   Plus,
   Filter,
   Download,
+  Upload,
   MoreHorizontal,
   ArrowUpDown,
   Phone,
@@ -19,7 +20,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useContacts, useCreateContact } from "@/lib/hooks/use-contacts";
+import { useContacts, useCreateContact, useImportContacts } from "@/lib/hooks/use-contacts";
+import { CsvImportModal } from "@/components/contacts/csv-import-modal";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -124,6 +126,7 @@ export default function ContactsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Local additions (optimistic UI for when API is offline)
   const [localContacts, setLocalContacts] = useState<MockContact[]>([]);
@@ -139,6 +142,7 @@ export default function ContactsPage() {
   // Hook: fetches from API, falls back to mock data
   const { data: apiContacts, isLoading, refetch } = useContacts({ search });
   const { mutate: createContact } = useCreateContact();
+  const { mutate: importContacts } = useImportContacts();
 
   // Merge API/mock contacts with locally added ones
   const contacts = useMemo(() => {
@@ -257,6 +261,28 @@ export default function ContactsPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function handleCsvImport(
+    parsedContacts: Array<{
+      firstName: string;
+      lastName: string;
+      email?: string | null;
+      phone?: string | null;
+      source?: string | null;
+      tags?: string | null;
+    }>,
+  ) {
+    const result = await importContacts({ contacts: parsedContacts });
+
+    if (result) {
+      toast.success(`Imported ${result.imported} contact${result.imported !== 1 ? "s" : ""} successfully${result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}`);
+      refetch();
+    } else {
+      toast.error("Import failed. The API may be unavailable.");
+    }
+
+    return result;
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -401,6 +427,17 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <CsvImportModal
+          onClose={() => {
+            setShowImportModal(false);
+            refetch();
+          }}
+          onImport={handleCsvImport}
+        />
+      )}
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -410,17 +447,26 @@ export default function ContactsPage() {
             {selected.size > 0 && ` \u00b7 ${selected.size} selected`}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-4",
-            "bg-primary text-primary-foreground text-sm font-medium",
-            "hover:bg-primary/90 transition-colors",
-          )}
-        >
-          <Plus className="h-4 w-4" />
-          Add Contact
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className={cn(
+              "flex h-9 items-center gap-2 rounded-lg px-4",
+              "bg-primary text-primary-foreground text-sm font-medium",
+              "hover:bg-primary/90 transition-colors",
+            )}
+          >
+            <Plus className="h-4 w-4" />
+            Add Contact
+          </button>
+        </div>
       </div>
 
       {/* Toolbar */}

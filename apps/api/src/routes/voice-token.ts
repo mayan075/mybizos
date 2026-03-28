@@ -37,12 +37,12 @@ interface OrgSettings {
 
 async function loadPhoneSettings(orgId: string): Promise<PhoneSettings | null> {
   try {
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
 
     const [org] = await db
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       logger.warn('Org not found in DB for voice-token, trying phone-system cache', { orgId });

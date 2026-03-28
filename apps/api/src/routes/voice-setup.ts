@@ -48,12 +48,12 @@ function escapeXml(text: string): string {
 
 async function loadPhoneSettings(orgId: string): Promise<{ phone: PhoneSettings | null; orgFound: boolean }> {
   try {
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
 
     const [org] = await db
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       logger.warn('Org not found in DB for voice-setup, trying phone-system cache', { orgId });
@@ -99,7 +99,7 @@ async function saveVoiceConfig(orgId: string, updatedPhone: PhoneSettings): Prom
   }
 
   try {
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
 
     await db
       .update(organizations)
@@ -107,7 +107,7 @@ async function saveVoiceConfig(orgId: string, updatedPhone: PhoneSettings): Prom
         settings: sql`jsonb_set(COALESCE(settings, '{}'), '{phone}', ${JSON.stringify(updatedPhone)}::jsonb)`,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
     logger.warn('DB write failed for voice config, data saved to cache only', {
       orgId,

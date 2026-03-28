@@ -63,7 +63,7 @@ invoiceRoutes.get('/', async (c) => {
         contactEmail: contacts.email,
       })
       .from(invoices)
-      .leftJoin(contacts, eq(invoices.contactId, contacts.id))
+      .leftJoin(contacts, and(eq(invoices.contactId, contacts.id), eq(contacts.orgId, invoices.orgId)))
       .where(whereClause)
       .orderBy(desc(invoices.createdAt))
       .limit(query.limit)

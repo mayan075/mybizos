@@ -32,7 +32,7 @@ billing.get('/', async (c) => {
     const [org] = await db
       .select()
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       return c.json(
@@ -161,7 +161,7 @@ billing.post('/portal', async (c) => {
 
   try {
     const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
     const { eq } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -176,7 +176,7 @@ billing.post('/portal', async (c) => {
     const [org] = await db
       .select()
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       return c.json(
@@ -220,7 +220,7 @@ billing.post('/subscribe', async (c) => {
   try {
     const body = subscribeSchema.parse(await c.req.json());
     const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
     const { eq, sql } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -235,7 +235,7 @@ billing.post('/subscribe', async (c) => {
     const [org] = await db
       .select()
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       return c.json(
@@ -263,7 +263,7 @@ billing.post('/subscribe', async (c) => {
       await db
         .update(organizations)
         .set({ settings: updatedSettings })
-        .where(eq(organizations.id, orgId));
+        .where(withOrgScope(organizations.id, orgId));
     }
 
     // Map plan name to Stripe price ID
@@ -312,7 +312,7 @@ billing.post('/cancel', async (c) => {
 
   try {
     const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@mybizos/db');
     const { eq } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -327,7 +327,7 @@ billing.post('/cancel', async (c) => {
     const [org] = await db
       .select()
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) {
       return c.json(

@@ -62,6 +62,7 @@ export async function processOnboardingData(
     pipelines,
     pipelineStages,
     availabilityRules,
+    withOrgScope,
   } = await import('@mybizos/db');
   const { eq, and } = await import('drizzle-orm');
 
@@ -74,7 +75,7 @@ export async function processOnboardingData(
     await db
       .update(organizations)
       .set(updateFields)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     logger.info('Org updated from onboarding', { orgId, name: data.businessName, vertical: data.vertical });
   }
@@ -84,7 +85,7 @@ export async function processOnboardingData(
     const existingPipelines = await db
       .select()
       .from(pipelines)
-      .where(eq(pipelines.orgId, orgId))
+      .where(withOrgScope(pipelines.orgId, orgId))
       .limit(1);
 
     if (existingPipelines.length === 0) {
@@ -126,14 +127,14 @@ export async function processOnboardingData(
       const [owner] = await db
         .select()
         .from(orgMembers)
-        .where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.role, 'owner')))
+        .where(and(withOrgScope(orgMembers.orgId, orgId), eq(orgMembers.role, 'owner')))
         .limit(1);
 
       if (owner) {
         // Delete existing availability rules for this org to avoid duplicates
         await db
           .delete(availabilityRules)
-          .where(eq(availabilityRules.orgId, orgId));
+          .where(withOrgScope(availabilityRules.orgId, orgId));
 
         const rulesToInsert = Object.entries(data.hours)
           .filter(([, entry]) => entry.open && entry.start && entry.end)

@@ -6,7 +6,7 @@ import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
 import { TwilioClient } from '@mybizos/integrations';
-import { db, organizations } from '@mybizos/db';
+import { db, organizations, withOrgScope } from '@mybizos/db';
 import type { PurchasedNumber } from '@mybizos/integrations';
 
 const phoneSystem = new Hono();
@@ -60,7 +60,7 @@ async function getPhoneSettings(orgId: string): Promise<PhoneSettings | null> {
     const [org] = await db
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) return credentialCache.get(orgId) ?? null;
 
@@ -99,7 +99,7 @@ async function setPhoneSettings(orgId: string, phone: PhoneSettings): Promise<vo
         settings: sql`jsonb_set(COALESCE(settings, '{}'), '{phone}', ${JSON.stringify(phone)}::jsonb)`,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
     logger.error('DB write failed for phone settings, data in cache only', {
       orgId,
@@ -121,7 +121,7 @@ async function deletePhoneSettings(orgId: string): Promise<void> {
         settings: sql`COALESCE(settings, '{}') - 'phone'`,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
     logger.error('DB write failed for phone settings delete', {
       orgId,
@@ -139,7 +139,7 @@ async function getMybizosSettings(orgId: string): Promise<MybizosPhoneSettings |
     const [org] = await db
       .select({ settings: organizations.settings })
       .from(organizations)
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
 
     if (!org) return mybizosCache.get(orgId) ?? null;
 
@@ -177,7 +177,7 @@ async function setMybizosSettings(orgId: string, data: MybizosPhoneSettings): Pr
         settings: sql`jsonb_set(COALESCE(settings, '{}'), '{mybizosPhone}', ${JSON.stringify(data)}::jsonb)`,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
     logger.error('DB write failed for mybizos phone settings, data in cache only', {
       orgId,
@@ -199,7 +199,7 @@ async function deleteMybizosSettings(orgId: string): Promise<void> {
         settings: sql`COALESCE(settings, '{}') - 'mybizosPhone'`,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, orgId));
+      .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
     logger.error('DB write failed for mybizos phone settings delete', {
       orgId,
