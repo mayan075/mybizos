@@ -7,6 +7,7 @@ import {
   login,
   logout,
   getMe,
+  loginOrCreateWithGoogle,
   AuthError,
 } from '../services/auth-service.js';
 import { config } from '../config.js';
@@ -334,6 +335,91 @@ auth.post('/reset-password', async (c) => {
       );
     }
     throw err;
+  }
+});
+
+// ── Google OAuth ──
+
+/**
+ * GET /auth/google — redirect to Google consent screen
+ */
+auth.get('/google', (c) => {
+  const clientId = config.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return c.json({ error: 'Google OAuth not configured', code: 'NOT_CONFIGURED', status: 501 }, 501);
+  }
+
+  const redirectUri = `${config.APP_URL}/auth/google/callback`;
+  const scope = encodeURIComponent('openid email profile');
+  const state = crypto.randomUUID();
+
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${state}&access_type=offline&prompt=consent`;
+
+  return c.redirect(url);
+});
+
+/**
+ * GET /auth/google/callback — exchange code for tokens, log user in
+ */
+auth.get('/google/callback', async (c) => {
+  try {
+    const code = c.req.query('code');
+    if (!code) {
+      return c.json({ error: 'Missing authorization code', code: 'BAD_REQUEST', status: 400 }, 400);
+    }
+
+    const redirectUri = `${config.APP_URL}/auth/google/callback`;
+
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: config.GOOGLE_CLIENT_ID,
+        client_secret: config.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text();
+      throw new AuthError(`Google token exchange failed: ${err}`, 'OAUTH_ERROR', 502);
+    }
+
+    const tokens = (await tokenRes.json()) as { access_token: string; id_token?: string; refresh_token?: string };
+
+    // Fetch user profile from Google
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+
+    if (!profileRes.ok) {
+      throw new AuthError('Failed to fetch Google profile', 'OAUTH_ERROR', 502);
+    }
+
+    const profile = (await profileRes.json()) as { id: string; email: string; name: string; picture?: string };
+
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip');
+    const userAgent = c.req.header('user-agent');
+
+    const result = await loginOrCreateWithGoogle(
+      { email: profile.email, name: profile.name, googleId: profile.id, avatarUrl: profile.picture },
+      ipAddress,
+      userAgent,
+    );
+
+    // Redirect to frontend with token
+    const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+    return c.redirect(`${frontendUrl}/auth/callback?token=${result.token}`);
+  } catch (err) {
+    if (err instanceof AuthError) {
+      const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+    }
+    const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+    return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Google sign-in failed. Please try again.')}`);
   }
 });
 

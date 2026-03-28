@@ -33,6 +33,8 @@ const envSchema = z.object({
   STRIPE_PRICE_PRO: optionalInDev(z.string()),
   VAPI_API_KEY: optionalInDev(z.string()),
   VAPI_WEBHOOK_SECRET: optionalInDev(z.string()),
+  GOOGLE_CLIENT_ID: optionalInDev(z.string()),
+  GOOGLE_CLIENT_SECRET: optionalInDev(z.string()),
   ENABLE_SCHEDULER: z.enum(['true', 'false', '']).default('').transform((v) => v === 'true'),
 });
 

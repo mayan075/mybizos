@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
       icon: DollarSign,
       bg: "bg-emerald-500/10",
       color: "text-emerald-500",
-      ringColor: "ring-emerald-500/20",
+      borderColor: "border-t-emerald-500",
     },
     {
       label: "New Leads",
@@ -109,7 +109,7 @@ export default function AnalyticsPage() {
       icon: Users,
       bg: "bg-blue-500/10",
       color: "text-blue-500",
-      ringColor: "ring-blue-500/20",
+      borderColor: "border-t-blue-500",
     },
     {
       label: "Deals Won",
@@ -118,20 +118,20 @@ export default function AnalyticsPage() {
       changeDirection: (kpis?.dealsWon.change ?? 0) >= 0 ? ("up" as const) : ("down" as const),
       subtitle: "vs last period",
       icon: TrendingUp,
-      bg: "bg-purple-500/10",
-      color: "text-purple-500",
-      ringColor: "ring-purple-500/20",
+      bg: "bg-violet-500/10",
+      color: "text-violet-500",
+      borderColor: "border-t-violet-500",
     },
     {
-      label: "Avg Response Time",
-      value: "--",
+      label: "AI Calls Answered",
+      value: kpis ? kpis.calls.value.toLocaleString() : "0",
       change: undefined,
       changeDirection: "up" as const,
       subtitle: "AI-powered",
       icon: Zap,
       bg: "bg-orange-500/10",
       color: "text-orange-500",
-      ringColor: "ring-orange-500/20",
+      borderColor: "border-t-orange-500",
     },
   ];
 
@@ -182,24 +182,24 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1400px]">
       {/* Header + Date Range */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
             {dateRangeLabels[dateRange]} performance overview
           </p>
         </div>
-        <div className="flex items-center rounded-lg border border-border bg-card p-1">
-          {(Object.keys(dateRangeLabels) as DateRange[]).map((key) => (
+        <div className="flex items-center rounded-lg border border-border/60 bg-muted p-1 shrink-0">
+          {(Object.keys(dateRangeLabels) as DateRange[]).filter(k => k !== "custom").map((key) => (
             <button
               key={key}
               onClick={() => setDateRange(key)}
               className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
                 dateRange === key
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -215,12 +215,12 @@ export default function AnalyticsPage() {
           <div
             key={card.label}
             className={cn(
-              "rounded-xl border border-border bg-card p-5 ring-1 transition-shadow hover:shadow-md",
-              card.ringColor,
+              "rounded-xl border border-border/60 border-t-2 bg-card p-5 shadow-sm hover:shadow-md transition-all duration-200",
+              card.borderColor,
             )}
           >
             <div className="flex items-center justify-between">
-              <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", card.bg)}>
+              <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", card.bg)}>
                 <card.icon className={cn("h-5 w-5", card.color)} />
               </div>
               {card.change !== undefined ? (
@@ -244,7 +244,8 @@ export default function AnalyticsPage() {
               )}
             </div>
             <div className="mt-4">
-              <p className="text-2xl font-bold text-foreground">{card.value}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{card.label}</p>
+              <p className="text-3xl font-extrabold text-foreground tracking-tight mt-1 tabular-nums">{card.value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{card.subtitle}</p>
             </div>
           </div>
