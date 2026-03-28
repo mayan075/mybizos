@@ -46,19 +46,27 @@ const app = new Hono();
 
 app.use('*', cors({
   origin: (origin) => {
-    const allowed = [
+    // Build allowed origins from config
+    const allowed: string[] = [
       'http://localhost:3000',
       'http://localhost:3002',
       config.CORS_ORIGIN,
     ];
-    // Allow any Vercel deployment URL
-    if (origin && (allowed.includes(origin) || origin.endsWith('.vercel.app'))) {
+
+    // Add explicitly allowed origins from env (e.g., your Vercel deployment URL)
+    if (config.ALLOWED_ORIGINS) {
+      allowed.push(...config.ALLOWED_ORIGINS.split(',').map((o: string) => o.trim()).filter(Boolean));
+    }
+
+    if (origin && allowed.includes(origin)) {
       return origin;
     }
-    // In dev, allow all origins
+
+    // In dev mode only, allow all origins for local testing
     if (config.NODE_ENV === 'development') {
       return origin || '*';
     }
+
     return allowed[0] as string;
   },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
