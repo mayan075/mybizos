@@ -99,37 +99,20 @@ app.get('/', (c) => {
 
 app.get('/health', async (c) => {
   let dbStatus = 'unknown';
-  let dbError: string | null = null;
   try {
     const { db } = await import('@mybizos/db');
     const { sql } = await import('drizzle-orm');
     const result = await db.execute(sql`SELECT 1 as ok`);
     dbStatus = Array.isArray(result) && result.length > 0 ? 'connected' : 'no-result';
-  } catch (err) {
+  } catch {
     dbStatus = 'disconnected';
-    dbError = err instanceof Error ? err.message : String(err);
   }
-  const services = {
-    database: dbStatus,
-    stripe: config.STRIPE_SECRET_KEY ? 'configured' : 'missing',
-    twilio: config.TWILIO_ACCOUNT_SID ? 'configured' : 'missing',
-    anthropic: config.ANTHROPIC_API_KEY ? 'configured' : 'missing',
-    resend: config.RESEND_API_KEY ? 'configured' : 'missing',
-  };
-
-  const allConfigured = Object.values(services).every((v) => v !== 'missing' && v !== 'disconnected');
 
   const isHealthy = dbStatus === 'connected';
-  const statusCode = isHealthy ? 200 : 503;
-
   return c.json({
-    status: isHealthy ? (allConfigured ? 'ok' : 'degraded') : 'down',
+    status: isHealthy ? 'ok' : 'down',
     timestamp: new Date().toISOString(),
-    version: '0.1.0',
-    environment: config.NODE_ENV,
-    services,
-    ...(dbError ? { dbError } : {}),
-  }, statusCode);
+  }, isHealthy ? 200 : 503);
 });
 
 // ── API Routes ──
