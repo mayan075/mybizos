@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import {
   ArrowLeft,
   Plus,
@@ -13,6 +14,7 @@ import {
   FileText,
   ChevronDown,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
@@ -41,6 +43,61 @@ interface EstimateDraft {
   notes: string;
 }
 
+// ── Zod Validation ──
+
+const estimateLineItemSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1"),
+  rate: z.number().min(0.01, "Rate must be greater than 0"),
+});
+
+const estimateFormSchema = z.object({
+  customerName: z.string().min(1, "Customer must be selected"),
+  lineItems: z
+    .array(estimateLineItemSchema)
+    .min(1, "At least one line item is required")
+    .refine(
+      (items) => items.some((li) => li.description.trim().length > 0 && li.rate > 0),
+      "At least one line item must have a description and rate > 0",
+    ),
+  validUntil: z.string().min(1, "Valid until date is required").refine(
+    (val) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const until = new Date(val + "T00:00:00");
+      return until >= today;
+    },
+    "Valid until date must be today or in the future",
+  ),
+});
+
+interface EstimateFormErrors {
+  customer?: string;
+  lineItems?: string;
+  validUntil?: string;
+}
+
+function validateEstimateForm(draft: EstimateDraft): EstimateFormErrors {
+  const result = estimateFormSchema.safeParse({
+    customerName: draft.customerName.trim(),
+    lineItems: draft.lineItems,
+    validUntil: draft.validUntil,
+  });
+  if (result.success) return {};
+  const errors: EstimateFormErrors = {};
+  for (const issue of result.error.issues) {
+    const path = issue.path[0];
+    if (path === "customerName" && !errors.customer) {
+      errors.customer = issue.message;
+    } else if (path === "lineItems" && !errors.lineItems) {
+      errors.lineItems = issue.message;
+    } else if (path === "validUntil" && !errors.validUntil) {
+      errors.validUntil = issue.message;
+    }
+  }
+  return errors;
+}
+
 // ── Helpers ──
 
 function generateId(): string {
@@ -55,6 +112,7 @@ export default function NewEstimatePage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [formErrors, setFormErrors] = useState<EstimateFormErrors>({});
 
   // API hooks
   const { data: contacts, isLoading: contactsLoading } = useContacts({ search: customerSearch });
@@ -149,6 +207,12 @@ export default function NewEstimatePage() {
   }, [draft]);
 
   const handleSaveDraft = useCallback(async () => {
+    const errors = validateEstimateForm(draft);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the errors below");
+      return;
+    }
     const payload = buildPayload();
     const result = await createEstimate(payload);
     if (result) {
@@ -157,9 +221,15 @@ export default function NewEstimatePage() {
     } else {
       toast.error("Failed to save estimate. Please try again.");
     }
-  }, [buildPayload, createEstimate, router]);
+  }, [buildPayload, createEstimate, router, draft]);
 
   const handleSend = useCallback(async () => {
+    const errors = validateEstimateForm(draft);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the errors below");
+      return;
+    }
     const payload = buildPayload();
     const result = await createEstimate(payload);
     if (result) {
@@ -172,7 +242,7 @@ export default function NewEstimatePage() {
     } else {
       toast.error("Failed to create estimate. Please try again.");
     }
-  }, [buildPayload, createEstimate, router, draft.customerEmail]);
+  }, [buildPayload, createEstimate, router, draft]);
 
   const estimateNumber = "New";
   const today = new Date().toLocaleDateString("en-US", {
@@ -306,6 +376,13 @@ export default function NewEstimatePage() {
               )}
             </div>
 
+            {formErrors.customer && (
+              <p className="flex items-center gap-1 text-xs text-destructive mt-2">
+                <AlertCircle className="h-3 w-3" />
+                {formErrors.customer}
+              </p>
+            )}
+
             {draft.customerName && (
               <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1">
                 <p className="text-sm font-medium text-foreground">{draft.customerName}</p>
@@ -318,7 +395,15 @@ export default function NewEstimatePage() {
 
           {/* Line Items */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Line Items</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-foreground">Line Items</h2>
+              {formErrors.lineItems && (
+                <p className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  {formErrors.lineItems}
+                </p>
+              )}
+            </div>
             <div className="space-y-3">
               {/* Header */}
               <div className="grid grid-cols-[1fr_80px_100px_100px_40px] gap-3 px-1">
@@ -425,9 +510,23 @@ export default function NewEstimatePage() {
                 <input
                   type="date"
                   value={draft.validUntil}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, validUntil: e.target.value }))}
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  onChange={(e) => {
+                    setDraft((prev) => ({ ...prev, validUntil: e.target.value }));
+                    if (formErrors.validUntil) setFormErrors((prev) => ({ ...prev, validUntil: undefined }));
+                  }}
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.validUntil
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.validUntil && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.validUntil}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Estimate Number</label>
@@ -453,7 +552,7 @@ export default function NewEstimatePage() {
 
         {/* Preview Panel */}
         {showPreview && (
-          <div className="rounded-xl border border-border bg-white p-8 shadow-sm sticky top-6 self-start">
+          <div className="rounded-xl border border-border bg-white dark:bg-white dark:border-gray-200 p-8 shadow-sm sticky top-6 self-start">
             <EstimatePreview
               draft={draft}
               estimateNumber={estimateNumber}

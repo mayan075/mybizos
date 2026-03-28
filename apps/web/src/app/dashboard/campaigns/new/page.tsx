@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,6 +16,7 @@ import {
   Users,
   Eye,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
@@ -320,9 +322,11 @@ function StepAudience({
 function StepContent({
   draft,
   onChange,
+  errors,
 }: {
   draft: CampaignDraft;
   onChange: (updates: Partial<CampaignDraft>) => void;
+  errors: CampaignContentErrors;
 }) {
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -398,8 +402,19 @@ function StepContent({
           value={draft.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="e.g., Spring Cleanout Special"
-          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          className={cn(
+            "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+            errors.name
+              ? "border-destructive focus:ring-destructive/30"
+              : "border-input focus:ring-ring",
+          )}
         />
+        {errors.name && (
+          <p className="flex items-center gap-1 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" />
+            {errors.name}
+          </p>
+        )}
       </div>
 
       {draft.type === "email" ? (
@@ -413,8 +428,19 @@ function StepContent({
               value={draft.subject}
               onChange={(e) => onChange({ subject: e.target.value })}
               placeholder="Enter email subject..."
-              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+              className={cn(
+                "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors",
+                errors.subject
+                  ? "border-destructive focus:ring-destructive/30"
+                  : "border-input focus:ring-ring",
+              )}
             />
+            {errors.subject && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                {errors.subject}
+              </p>
+            )}
           </div>
 
           {/* Email body — simple textarea with basic formatting buttons */}
@@ -487,6 +513,12 @@ function StepContent({
                 className="w-full bg-background p-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-mono"
               />
             </div>
+            {errors.body && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                {errors.body}
+              </p>
+            )}
           </div>
         </>
       ) : (
@@ -517,6 +549,12 @@ function StepContent({
               maxLength={640}
               className="w-full rounded-lg border border-input bg-background p-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
             />
+            {errors.body && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3" />
+                {errors.body}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               SMS messages are split into 160-character segments. Each segment
               counts as one message.
@@ -703,6 +741,43 @@ function StepReview({
 
 // ── Main Page ──
 
+// ── Zod Validation Schemas ──
+
+const campaignContentEmailSchema = z.object({
+  name: z.string().min(1, "Campaign name is required"),
+  subject: z.string().min(1, "Subject line is required for email campaigns"),
+  bodyHtml: z.string().min(1, "Email body content is required"),
+});
+
+const campaignContentSmsSchema = z.object({
+  name: z.string().min(1, "Campaign name is required"),
+  bodyText: z.string().min(1, "SMS message is required"),
+});
+
+interface CampaignContentErrors {
+  name?: string;
+  subject?: string;
+  body?: string;
+}
+
+function validateCampaignContent(draft: CampaignDraft): CampaignContentErrors {
+  const schema = draft.type === "email" ? campaignContentEmailSchema : campaignContentSmsSchema;
+  const data = draft.type === "email"
+    ? { name: draft.name.trim(), subject: draft.subject.trim(), bodyHtml: draft.bodyHtml.trim() }
+    : { name: draft.name.trim(), bodyText: draft.bodyText.trim() };
+
+  const result = schema.safeParse(data);
+  if (result.success) return {};
+  const errors: CampaignContentErrors = {};
+  for (const issue of result.error.issues) {
+    const path = issue.path[0] as string;
+    if (path === "name" && !errors.name) errors.name = issue.message;
+    if (path === "subject" && !errors.subject) errors.subject = issue.message;
+    if ((path === "bodyHtml" || path === "bodyText") && !errors.body) errors.body = issue.message;
+  }
+  return errors;
+}
+
 const STEPS = ["Type", "Audience", "Content", "Review"];
 
 export default function NewCampaignPage() {
@@ -710,6 +785,7 @@ export default function NewCampaignPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const toast = useToast();
   const { mutate: createCampaign, isLoading: isCreating } = useCreateCampaign();
+  const [contentErrors, setContentErrors] = useState<CampaignContentErrors>({});
 
   const [draft, setDraft] = useState<CampaignDraft>({
     type: null,
@@ -739,17 +815,26 @@ export default function NewCampaignPage() {
         return draft.type !== null;
       case 1:
         return true;
-      case 2:
-        if (!draft.name.trim()) return false;
-        if (draft.type === "email")
-          return draft.subject.trim().length > 0 && draft.bodyHtml.trim().length > 0;
-        return draft.bodyText.trim().length > 0;
+      case 2: {
+        const errors = validateCampaignContent(draft);
+        return Object.keys(errors).length === 0;
+      }
       case 3:
         if (!draft.sendNow && !draft.scheduledDate) return false;
         return true;
       default:
         return false;
     }
+  }
+
+  function handleNextStep() {
+    if (currentStep === 2) {
+      const errors = validateCampaignContent(draft);
+      setContentErrors(errors);
+      if (Object.keys(errors).length > 0) return;
+    }
+    setContentErrors({});
+    setCurrentStep((s) => s + 1);
   }
 
   const estimatedRecipients = draft.audience.allContacts
@@ -884,7 +969,7 @@ export default function NewCampaignPage() {
           />
         )}
         {currentStep === 2 && (
-          <StepContent draft={draft} onChange={updateDraft} />
+          <StepContent draft={draft} onChange={updateDraft} errors={contentErrors} />
         )}
         {currentStep === 3 && (
           <StepReview
@@ -913,7 +998,7 @@ export default function NewCampaignPage() {
 
         {currentStep < STEPS.length - 1 ? (
           <button
-            onClick={() => setCurrentStep((s) => s + 1)}
+            onClick={handleNextStep}
             disabled={!canProceed()}
             className={cn(
               "flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",

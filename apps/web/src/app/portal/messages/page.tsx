@@ -95,8 +95,8 @@ export default function MessagesPage() {
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             Typically responds in under 5 minutes
           </div>
@@ -104,7 +104,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Message area */}
-      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white">
+      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
@@ -121,14 +121,14 @@ export default function MessagesPage() {
                     "max-w-[85%] rounded-2xl px-4 py-3 sm:max-w-[70%]",
                     msg.sender === "customer"
                       ? "rounded-br-md bg-blue-600 text-white"
-                      : "rounded-bl-md bg-gray-100 text-gray-900"
+                      : "rounded-bl-md bg-muted text-foreground"
                   )}
                 >
                   <p className="text-sm leading-relaxed">{msg.text}</p>
                 </div>
                 <p
                   className={cn(
-                    "mt-1 text-[11px] text-gray-400",
+                    "mt-1 text-[11px] text-muted-foreground/70",
                     msg.sender === "customer" ? "text-right" : "text-left"
                   )}
                 >
@@ -140,7 +140,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-gray-200 p-3">
+        <div className="border-t border-border p-3">
           <div className="flex items-end gap-2">
             <textarea
               value={newMessage}
@@ -148,7 +148,7 @@ export default function MessagesPage() {
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               rows={1}
-              className="min-h-[40px] max-h-[120px] flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition-colors focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
+              className="min-h-[40px] max-h-[120px] flex-1 resize-none rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-ring/20"
             />
             <button
               type="button"
@@ -157,14 +157,14 @@ export default function MessagesPage() {
               className={cn(
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors",
                 newMessage.trim()
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-gray-100 text-gray-300"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted text-muted-foreground/50"
               )}
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
-          <p className="mt-2 text-[11px] text-gray-400">
+          <p className="mt-2 text-[11px] text-muted-foreground/70">
             Press Enter to send, Shift+Enter for new line
           </p>
         </div>

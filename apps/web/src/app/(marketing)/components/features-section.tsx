@@ -62,7 +62,7 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <RevealSection>
           <div className="mx-auto max-w-2xl text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/5 px-4 py-1.5 text-sm font-medium text-green-600">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/5 px-4 py-1.5 text-sm font-medium text-green-500 dark:text-green-400">
               <CheckCircle2 className="h-3.5 w-3.5" />
               The solution
             </div>
@@ -87,7 +87,7 @@ export function FeaturesSection() {
                   delay={i * 80}
                   className={isLarge ? "sm:col-span-2" : ""}
                 >
-                  <div className={`card-hover group relative overflow-hidden rounded-2xl border border-border/40 bg-white p-7 shadow-sm ${isLarge ? "min-h-[200px]" : ""}`}>
+                  <div className={`card-hover group relative overflow-hidden rounded-2xl border border-border/40 bg-card p-7 shadow-sm ${isLarge ? "min-h-[200px]" : ""}`}>
                     {/* Gradient glow on hover — top corner */}
                     <div className={`pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-gradient-to-br ${f.gradient} opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10`} />
 

@@ -71,6 +71,14 @@ export declare function reviewRequestHtml(businessName: string, contactName: str
  */
 export declare function invoiceSentHtml(businessName: string, contactName: string, amount: string, dueDate: string, paymentLink: string): string;
 /**
+ * Password reset email template.
+ */
+export declare function passwordResetHtml(resetUrl: string): string;
+/**
+ * Email verification template (sent during registration).
+ */
+export declare function emailVerificationHtml(verifyUrl: string): string;
+/**
  * Welcome email template (sent when a new contact/user is created).
  */
 export declare function welcomeHtml(businessName: string, userName: string): string;

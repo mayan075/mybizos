@@ -89,22 +89,22 @@ const statusConfig: Record<
 > = {
   confirmed: {
     label: "Confirmed",
-    className: "bg-green-50 text-green-700",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
     icon: CheckCircle2,
   },
   pending: {
     label: "Pending",
-    className: "bg-yellow-50 text-yellow-700",
+    className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
     icon: AlertCircle,
   },
   completed: {
     label: "Completed",
-    className: "bg-gray-100 text-gray-600",
+    className: "bg-muted text-muted-foreground",
     icon: CheckCircle2,
   },
   cancelled: {
     label: "Cancelled",
-    className: "bg-red-50 text-red-600",
+    className: "bg-red-500/10 text-red-600 dark:text-red-400",
     icon: XIcon,
   },
 };
@@ -123,14 +123,14 @@ export default function AppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage your service appointments
           </p>
         </div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
           Book New Appointment
@@ -138,7 +138,7 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         {(["upcoming", "past"] as const).map((tab) => (
           <button
             key={tab}
@@ -147,8 +147,8 @@ export default function AppointmentsPage() {
             className={cn(
               "flex-1 rounded-md px-4 py-2 text-sm font-medium capitalize transition-colors",
               activeTab === tab
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {tab} (
@@ -166,12 +166,12 @@ export default function AppointmentsPage() {
           return (
             <div
               key={apt.id}
-              className="rounded-xl border border-gray-200 bg-white p-4"
+              className="rounded-xl border border-border bg-card p-4"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">
+                    <h3 className="text-sm font-semibold text-foreground">
                       {apt.service}
                     </h3>
                     <span
@@ -184,7 +184,7 @@ export default function AppointmentsPage() {
                       {config.label}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarDays className="h-3.5 w-3.5" />
                       {apt.date}
@@ -205,7 +205,7 @@ export default function AppointmentsPage() {
                   {apt.isPast ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       Book Again
@@ -214,13 +214,13 @@ export default function AppointmentsPage() {
                     <>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50"
                       >
                         Reschedule
                       </button>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/5"
                       >
                         Cancel
                       </button>
@@ -235,8 +235,8 @@ export default function AppointmentsPage() {
 
       {filteredAppointments.length === 0 && (
         <div className="py-12 text-center">
-          <CalendarDays className="mx-auto h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-500">
+          <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground/50" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             No {activeTab} appointments
           </p>
         </div>

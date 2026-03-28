@@ -282,6 +282,36 @@ export function invoiceSentHtml(businessName, contactName, amount, dueDate, paym
     return emailLayout(businessName, `You have a new invoice for ${amount} from ${businessName}, due ${dueDate}.`, body);
 }
 /**
+ * Password reset email template.
+ */
+export function passwordResetHtml(resetUrl) {
+    const body = `
+    <h2>Reset Your Password</h2>
+    <p>We received a request to reset your password. Click the button below to choose a new password:</p>
+    <div class="cta-wrapper">
+      <a href="${resetUrl}" class="cta-button" style="color: #ffffff;">Reset Password</a>
+    </div>
+    <p style="text-align: center; color: #64748b; font-size: 13px;">This link will expire in 1 hour.</p>
+    <p>If you didn&rsquo;t request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+  `;
+    return emailLayout('MyBizOS', 'Reset your MyBizOS password', body);
+}
+/**
+ * Email verification template (sent during registration).
+ */
+export function emailVerificationHtml(verifyUrl) {
+    const body = `
+    <h2>Verify Your Email Address</h2>
+    <p>Thanks for signing up for MyBizOS! Please verify your email address by clicking the button below:</p>
+    <div class="cta-wrapper">
+      <a href="${verifyUrl}" class="cta-button" style="color: #ffffff;">Verify Email</a>
+    </div>
+    <p style="text-align: center; color: #64748b; font-size: 13px;">This link will expire in 24 hours.</p>
+    <p>If you didn&rsquo;t create a MyBizOS account, you can safely ignore this email.</p>
+  `;
+    return emailLayout('MyBizOS', 'Verify your email address to get started with MyBizOS', body);
+}
+/**
  * Welcome email template (sent when a new contact/user is created).
  */
 export function welcomeHtml(businessName, userName) {

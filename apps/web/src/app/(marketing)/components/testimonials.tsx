@@ -42,7 +42,7 @@ export function Testimonials() {
         <div className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
           {testimonials.map((t, i) => (
             <RevealSection key={t.name} delay={i * 120}>
-              <div className="card-hover flex h-full flex-col rounded-2xl border border-border/40 bg-white p-8 shadow-sm">
+              <div className="card-hover flex h-full flex-col rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
                 {/* Large decorative quote */}
                 <div className="mb-4 text-5xl font-serif leading-none text-indigo-500/15">&ldquo;</div>
                 {/* Stars with glow */}
@@ -60,7 +60,7 @@ export function Testimonials() {
                 <div className="mt-6 flex items-center gap-3">
                   {/* Avatar with gradient ring */}
                   <div className="rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-bold text-indigo-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-sm font-bold text-indigo-600">
                       {t.name[0]}
                     </div>
                   </div>

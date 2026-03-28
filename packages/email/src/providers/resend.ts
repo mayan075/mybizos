@@ -432,6 +432,29 @@ export function passwordResetHtml(
 }
 
 /**
+ * Email verification template (sent during registration).
+ */
+export function emailVerificationHtml(
+  verifyUrl: string,
+): string {
+  const body = `
+    <h2>Verify Your Email Address</h2>
+    <p>Thanks for signing up for MyBizOS! Please verify your email address by clicking the button below:</p>
+    <div class="cta-wrapper">
+      <a href="${verifyUrl}" class="cta-button" style="color: #ffffff;">Verify Email</a>
+    </div>
+    <p style="text-align: center; color: #64748b; font-size: 13px;">This link will expire in 24 hours.</p>
+    <p>If you didn&rsquo;t create a MyBizOS account, you can safely ignore this email.</p>
+  `;
+
+  return emailLayout(
+    'MyBizOS',
+    'Verify your email address to get started with MyBizOS',
+    body,
+  );
+}
+
+/**
  * Welcome email template (sent when a new contact/user is created).
  */
 export function welcomeHtml(

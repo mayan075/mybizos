@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { X, Mail, Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { FloatingDialer } from "@/components/dialer/floating-dialer";
 import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
 import { isOnboardingComplete } from "@/lib/onboarding";
+import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -20,6 +22,9 @@ export default function DashboardLayout({
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [ready, setReady] = useState(false);
+  const [showVerificationBanner, setShowVerificationBanner] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [verificationBannerMessage, setVerificationBannerMessage] = useState("");
 
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
@@ -82,6 +87,29 @@ export default function DashboardLayout({
     setReady(true);
   }, [router]);
 
+  // Check email verification status
+  useEffect(() => {
+    if (!ready) return;
+
+    interface MeResponse {
+      data: {
+        user: { id: string; email: string; name: string; avatarUrl: string | null; emailVerified: boolean; role: string };
+        org: { id: string; name: string; slug: string; vertical: string };
+      };
+    }
+
+    apiClient
+      .get<MeResponse>("/auth/me")
+      .then((res) => {
+        if (!res.data.user.emailVerified) {
+          setShowVerificationBanner(true);
+        }
+      })
+      .catch(() => {
+        // Silently fail — don't block dashboard for this check
+      });
+  }, [ready]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       // Ctrl/Cmd+K — command palette
@@ -108,6 +136,26 @@ export default function DashboardLayout({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [router]);
+
+  const handleResendVerification = useCallback(async () => {
+    setIsResendingVerification(true);
+    setVerificationBannerMessage("");
+    try {
+      await apiClient.post<{ data: { message: string } }>(
+        "/auth/resend-verification",
+        {},
+      );
+      setVerificationBannerMessage("Verification email sent!");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setVerificationBannerMessage(err.message);
+      } else {
+        setVerificationBannerMessage("Failed to resend. Please try again.");
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
+  }, []);
 
   // Show spinner while checking onboarding status
   if (!ready) {
@@ -147,6 +195,38 @@ export default function DashboardLayout({
           onOpenCommandPalette={openCommandPalette}
           onToggleMobileSidebar={toggleMobileSidebar}
         />
+        {showVerificationBanner && (
+          <div className="relative flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 shrink-0" />
+              <span>
+                Please verify your email address. Check your inbox or{" "}
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={isResendingVerification}
+                  className="font-medium underline underline-offset-2 hover:no-underline disabled:opacity-50"
+                >
+                  {isResendingVerification ? "sending..." : "resend verification email"}
+                </button>
+                .
+                {verificationBannerMessage && (
+                  <span className="ml-2 font-medium">
+                    {verificationBannerMessage}
+                  </span>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVerificationBanner(false)}
+              className="shrink-0 rounded-md p-1 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
           {children}
         </main>

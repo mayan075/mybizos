@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
 import {
   ArrowLeft,
   Plus,
@@ -13,6 +14,7 @@ import {
   Receipt,
   ChevronDown,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
@@ -44,6 +46,61 @@ interface InvoiceDraft {
   terms: string;
 }
 
+// ── Zod Validation ──
+
+const invoiceLineItemSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1"),
+  rate: z.number().min(0.01, "Rate must be greater than 0"),
+});
+
+const invoiceFormSchema = z.object({
+  customerName: z.string().min(1, "Customer must be selected"),
+  lineItems: z
+    .array(invoiceLineItemSchema)
+    .min(1, "At least one line item is required")
+    .refine(
+      (items) => items.some((li) => li.description.trim().length > 0 && li.rate > 0),
+      "At least one line item must have a description and rate > 0",
+    ),
+  dueDate: z.string().min(1, "Due date is required").refine(
+    (val) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(val + "T00:00:00");
+      return due >= today;
+    },
+    "Due date must be today or in the future",
+  ),
+});
+
+interface InvoiceFormErrors {
+  customer?: string;
+  lineItems?: string;
+  dueDate?: string;
+}
+
+function validateInvoiceForm(draft: InvoiceDraft): InvoiceFormErrors {
+  const result = invoiceFormSchema.safeParse({
+    customerName: draft.customerName.trim(),
+    lineItems: draft.lineItems,
+    dueDate: draft.dueDate,
+  });
+  if (result.success) return {};
+  const errors: InvoiceFormErrors = {};
+  for (const issue of result.error.issues) {
+    const path = issue.path[0];
+    if (path === "customerName" && !errors.customer) {
+      errors.customer = issue.message;
+    } else if (path === "lineItems" && !errors.lineItems) {
+      errors.lineItems = issue.message;
+    } else if (path === "dueDate" && !errors.dueDate) {
+      errors.dueDate = issue.message;
+    }
+  }
+  return errors;
+}
+
 // ── Helpers ──
 
 function generateId(): string {
@@ -58,6 +115,7 @@ export default function NewInvoicePage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [formErrors, setFormErrors] = useState<InvoiceFormErrors>({});
 
   // API hooks
   const { data: contacts, isLoading: contactsLoading } = useContacts({ search: customerSearch });
@@ -161,6 +219,12 @@ export default function NewInvoicePage() {
   }, [draft]);
 
   const handleSaveDraft = useCallback(async () => {
+    const errors = validateInvoiceForm(draft);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the errors below");
+      return;
+    }
     const payload = buildPayload();
     const result = await createInvoice(payload);
     if (result) {
@@ -169,9 +233,15 @@ export default function NewInvoicePage() {
     } else {
       toast.error("Failed to save invoice. Please try again.");
     }
-  }, [buildPayload, createInvoice, router]);
+  }, [buildPayload, createInvoice, router, draft]);
 
   const handleSend = useCallback(async () => {
+    const errors = validateInvoiceForm(draft);
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the errors below");
+      return;
+    }
     const payload = buildPayload();
     const result = await createInvoice(payload);
     if (result) {
@@ -185,7 +255,7 @@ export default function NewInvoicePage() {
     } else {
       toast.error("Failed to create invoice. Please try again.");
     }
-  }, [buildPayload, createInvoice, router, draft.customerEmail]);
+  }, [buildPayload, createInvoice, router, draft]);
 
   const invoiceNumber = "New";
   const today = new Date().toLocaleDateString("en-US", {
@@ -319,6 +389,13 @@ export default function NewInvoicePage() {
               )}
             </div>
 
+            {formErrors.customer && (
+              <p className="flex items-center gap-1 text-xs text-destructive mt-2">
+                <AlertCircle className="h-3 w-3" />
+                {formErrors.customer}
+              </p>
+            )}
+
             {draft.customerName && (
               <div className="mt-3 rounded-lg bg-muted/30 p-3 space-y-1">
                 <p className="text-sm font-medium text-foreground">{draft.customerName}</p>
@@ -331,7 +408,15 @@ export default function NewInvoicePage() {
 
           {/* Line Items */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Line Items</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-foreground">Line Items</h2>
+              {formErrors.lineItems && (
+                <p className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertCircle className="h-3 w-3" />
+                  {formErrors.lineItems}
+                </p>
+              )}
+            </div>
             <div className="space-y-3">
               {/* Header */}
               <div className="grid grid-cols-[1fr_80px_100px_100px_40px] gap-3 px-1">
@@ -438,9 +523,23 @@ export default function NewInvoicePage() {
                 <input
                   type="date"
                   value={draft.dueDate}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, dueDate: e.target.value }))}
-                  className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  onChange={(e) => {
+                    setDraft((prev) => ({ ...prev, dueDate: e.target.value }));
+                    if (formErrors.dueDate) setFormErrors((prev) => ({ ...prev, dueDate: undefined }));
+                  }}
+                  className={cn(
+                    "h-10 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 transition-colors",
+                    formErrors.dueDate
+                      ? "border-destructive focus:ring-destructive/30"
+                      : "border-input focus:ring-ring",
+                  )}
                 />
+                {formErrors.dueDate && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {formErrors.dueDate}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Invoice Number</label>
@@ -475,7 +574,7 @@ export default function NewInvoicePage() {
 
         {/* Preview Panel */}
         {showPreview && (
-          <div className="rounded-xl border border-border bg-white p-8 shadow-sm sticky top-6 self-start">
+          <div className="rounded-xl border border-border bg-white dark:bg-white dark:border-gray-200 p-8 shadow-sm sticky top-6 self-start">
             <InvoicePreview
               draft={draft}
               invoiceNumber={invoiceNumber}

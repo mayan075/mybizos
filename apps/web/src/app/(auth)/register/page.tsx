@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Loader2,
   Play,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
@@ -41,6 +42,7 @@ interface RegisterResponse {
       email: string;
       name: string;
       role: string;
+      emailVerified: boolean;
     };
     org: {
       id: string;
@@ -66,6 +68,10 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showVerification, setShowVerification] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
   const [form, setForm] = useState({
     name: "",
     businessName: "",
@@ -99,7 +105,39 @@ export default function RegisterPage() {
     );
 
     storeToken(response.data.token);
-    // Send new users to onboarding; returning users go straight to dashboard
+
+    // If email is already verified (dev mode / auto-verify), go straight to onboarding
+    if (response.data.user.emailVerified) {
+      router.push(isOnboardingComplete() ? "/dashboard" : "/onboarding");
+      return;
+    }
+
+    // Show verification screen
+    setRegisteredEmail(data.email);
+    setShowVerification(true);
+  }
+
+  async function handleResendVerification() {
+    setIsResending(true);
+    setResendMessage("");
+    try {
+      await apiClient.post<{ data: { message: string } }>(
+        "/auth/resend-verification",
+        {},
+      );
+      setResendMessage("Verification email sent! Check your inbox.");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setResendMessage(err.message);
+      } else {
+        setResendMessage("Failed to resend. Please try again.");
+      }
+    } finally {
+      setIsResending(false);
+    }
+  }
+
+  function handleContinueToOnboarding() {
     router.push(isOnboardingComplete() ? "/dashboard" : "/onboarding");
   }
 
@@ -137,6 +175,94 @@ export default function RegisterPage() {
     setForm(DEMO_FORM);
     setError("");
     setFieldErrors({});
+  }
+
+  // Show verification screen after successful registration
+  if (showVerification) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-8">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Mail className="h-8 w-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Check your email
+            </h2>
+            <p className="text-muted-foreground">
+              We&apos;ve sent a verification email to{" "}
+              <span className="font-medium text-foreground">
+                {registeredEmail}
+              </span>
+              . Click the link to verify your account.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            Didn&apos;t receive the email? Check your spam folder or click below
+            to resend.
+          </div>
+
+          {resendMessage && (
+            <div
+              className={cn(
+                "rounded-lg border px-4 py-3 text-sm",
+                resendMessage.includes("sent")
+                  ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                  : "border-destructive/50 bg-destructive/10 text-destructive",
+              )}
+            >
+              {resendMessage}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={isResending}
+              className={cn(
+                "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
+                "border border-border bg-background font-medium text-sm text-foreground",
+                "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                "transition-all duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              )}
+            >
+              {isResending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Resend verification email
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleContinueToOnboarding}
+              className={cn(
+                "flex h-11 w-full items-center justify-center gap-2 rounded-lg",
+                "bg-primary text-primary-foreground font-medium text-sm",
+                "hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                "transition-all duration-200",
+              )}
+            >
+              Continue to setup
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            You can verify your email later, but some features may be limited.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

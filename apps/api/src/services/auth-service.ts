@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
@@ -19,6 +20,7 @@ export interface AuthResult {
     email: string;
     name: string;
     role: 'owner' | 'admin' | 'manager' | 'member';
+    emailVerified: boolean;
   };
   org: {
     id: string;
@@ -64,10 +66,26 @@ export async function register(
 
     const passwordHash = await bcrypt.hash(_password, 12);
 
+    // Generate email verification token
+    const verificationToken = crypto.randomUUID();
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Determine if we should auto-verify (dev mode without Resend key)
+    const hasResendKey = Boolean(config.RESEND_API_KEY);
+    const autoVerify = !hasResendKey;
+
     const [newUser] = await db
       .insert(users)
-      .values({ email, passwordHash, name, emailVerified: false, isActive: true })
-      .returning({ id: users.id, email: users.email, name: users.name });
+      .values({
+        email,
+        passwordHash,
+        name,
+        emailVerified: autoVerify,
+        emailVerificationToken: autoVerify ? null : verificationToken,
+        emailVerificationExpiry: autoVerify ? null : verificationExpiry,
+        isActive: true,
+      })
+      .returning({ id: users.id, email: users.email, name: users.name, emailVerified: users.emailVerified });
 
     if (!newUser) throw new AuthError('Failed to create user', 'INTERNAL_ERROR', 500);
 
@@ -85,6 +103,35 @@ export async function register(
 
     await db.insert(orgMembers).values({ orgId: newOrg.id, userId: newUser.id, role: 'owner', isActive: true });
 
+    // Send verification email if Resend is configured
+    if (!autoVerify) {
+      try {
+        const verifyUrl = `${config.APP_URL}/auth/verify-email?token=${verificationToken}`;
+        const { ResendProvider, emailVerificationHtml } = await import('@mybizos/email');
+        const emailProvider = new ResendProvider({
+          apiKey: config.RESEND_API_KEY,
+          defaultFrom: config.RESEND_DEFAULT_FROM,
+        });
+        await emailProvider.sendEmail(
+          undefined,
+          email,
+          'Verify Your Email — MyBizOS',
+          emailVerificationHtml(verifyUrl),
+          undefined,
+          'email-verification',
+        );
+        logger.info('Verification email sent', { userId: newUser.id, email });
+      } catch (emailErr) {
+        // Email sending failed — don't block registration
+        logger.error('Failed to send verification email', {
+          userId: newUser.id,
+          error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+        });
+      }
+    } else {
+      logger.info('Auto-verified email (Resend not configured)', { userId: newUser.id });
+    }
+
     const token = generateToken({ userId: newUser.id, orgId: newOrg.id, email: newUser.email, role: 'owner', name: newUser.name, orgName: newOrg.name });
 
     const expiresAt = new Date();
@@ -92,7 +139,7 @@ export async function register(
     await db.insert(sessions).values({ userId: newUser.id, token, expiresAt });
 
     logger.info('User registered via REAL DATABASE', { userId: newUser.id, orgId: newOrg.id });
-    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner' }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, vertical: newOrg.vertical }, token };
+    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner', emailVerified: newUser.emailVerified }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, vertical: newOrg.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for registration', {
@@ -118,7 +165,7 @@ export async function login(
     const { eq } = await import('drizzle-orm');
 
     const [user] = await db
-      .select({ id: users.id, email: users.email, name: users.name, passwordHash: users.passwordHash, isActive: users.isActive })
+      .select({ id: users.id, email: users.email, name: users.name, passwordHash: users.passwordHash, isActive: users.isActive, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
@@ -143,7 +190,7 @@ export async function login(
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via REAL DATABASE', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for login', {
@@ -165,14 +212,14 @@ export async function logout(_token: string): Promise<void> {
 }
 
 export async function getMe(_userId: string): Promise<{
-  user: { id: string; email: string; name: string; avatarUrl: string | null; role: 'owner' | 'admin' | 'manager' | 'member' };
+  user: { id: string; email: string; name: string; avatarUrl: string | null; emailVerified: boolean; role: 'owner' | 'admin' | 'manager' | 'member' };
   org: { id: string; name: string; slug: string; vertical: string };
 }> {
   try {
     const { db, users, organizations, orgMembers } = await import('@mybizos/db');
     const { eq } = await import('drizzle-orm');
 
-    const [user] = await db.select({ id: users.id, email: users.email, name: users.name, avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, _userId)).limit(1);
+    const [user] = await db.select({ id: users.id, email: users.email, name: users.name, avatarUrl: users.avatarUrl, emailVerified: users.emailVerified }).from(users).where(eq(users.id, _userId)).limit(1);
     if (!user) throw new AuthError('User not found', 'NOT_FOUND', 404);
 
     const [membership] = await db.select({ orgId: orgMembers.orgId, role: orgMembers.role }).from(orgMembers).where(eq(orgMembers.userId, _userId)).limit(1);
@@ -304,10 +351,147 @@ export async function loginOrCreateWithGoogle(
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via Google OAuth', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: true }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Google OAuth login failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Verify an email address using a verification token.
+ * Returns the redirect URL for the frontend.
+ */
+export async function verifyEmail(verificationToken: string): Promise<string> {
+  try {
+    const { db, users } = await import('@mybizos/db');
+    const { eq, and, gte } = await import('drizzle-orm');
+
+    const [user] = await db
+      .select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.emailVerificationToken, verificationToken))
+      .limit(1);
+
+    if (!user) {
+      throw new AuthError('Invalid or expired verification token', 'INVALID_TOKEN', 400);
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+      return `${frontendUrl}/login?verified=true`;
+    }
+
+    // Check expiry by querying with expiry condition
+    const [validUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.emailVerificationToken, verificationToken),
+          gte(users.emailVerificationExpiry, new Date()),
+        ),
+      )
+      .limit(1);
+
+    if (!validUser) {
+      throw new AuthError('Verification link has expired. Please request a new one.', 'TOKEN_EXPIRED', 400);
+    }
+
+    // Mark email as verified and clear the token
+    await db
+      .update(users)
+      .set({
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    logger.info('Email verified successfully', { userId: user.id, email: user.email });
+
+    const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+    return `${frontendUrl}/login?verified=true`;
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    logger.error('Email verification failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Resend verification email for the given user.
+ * Rate limited to 1 per 60 seconds (enforced at route level).
+ */
+export async function resendVerificationEmail(userId: string): Promise<void> {
+  try {
+    const { db, users } = await import('@mybizos/db');
+    const { eq } = await import('drizzle-orm');
+
+    const [user] = await db
+      .select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new AuthError('User not found', 'NOT_FOUND', 404);
+    }
+
+    if (user.emailVerified) {
+      throw new AuthError('Email is already verified', 'ALREADY_VERIFIED', 400);
+    }
+
+    if (!config.RESEND_API_KEY) {
+      // Auto-verify in dev mode
+      await db
+        .update(users)
+        .set({ emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      logger.info('Auto-verified email (Resend not configured)', { userId });
+      return;
+    }
+
+    // Generate new token
+    const newToken = crypto.randomUUID();
+    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await db
+      .update(users)
+      .set({
+        emailVerificationToken: newToken,
+        emailVerificationExpiry: newExpiry,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    // Send email
+    const verifyUrl = `${config.APP_URL}/auth/verify-email?token=${newToken}`;
+    const { ResendProvider, emailVerificationHtml } = await import('@mybizos/email');
+    const emailProvider = new ResendProvider({
+      apiKey: config.RESEND_API_KEY,
+      defaultFrom: config.RESEND_DEFAULT_FROM,
+    });
+    await emailProvider.sendEmail(
+      undefined,
+      user.email,
+      'Verify Your Email — MyBizOS',
+      emailVerificationHtml(verifyUrl),
+      undefined,
+      'email-verification',
+    );
+
+    logger.info('Verification email resent', { userId, email: user.email });
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    logger.error('Failed to resend verification email', {
       error: err instanceof Error ? err.message : String(err),
     });
     throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);

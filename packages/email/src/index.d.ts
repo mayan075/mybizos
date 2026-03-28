@@ -1,2 +1,2 @@
-export { ResendProvider, type ResendConfig, type SendEmailOptions, type SendEmailResult, type BatchMessage, type BatchSendResult, appointmentConfirmationHtml, appointmentReminderHtml, reviewRequestHtml, invoiceSentHtml, welcomeHtml, } from "./providers/resend.js";
+export { ResendProvider, type ResendConfig, type SendEmailOptions, type SendEmailResult, type BatchMessage, type BatchSendResult, appointmentConfirmationHtml, appointmentReminderHtml, reviewRequestHtml, invoiceSentHtml, welcomeHtml, passwordResetHtml, emailVerificationHtml, } from "./providers/resend.js";
 //# sourceMappingURL=index.d.ts.map

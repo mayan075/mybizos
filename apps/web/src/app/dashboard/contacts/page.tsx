@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { z } from "zod";
 import {
   Search,
   Plus,
@@ -30,7 +31,7 @@ import { useToast } from "@/components/ui/toast";
 import type { MockContact } from "@/lib/mock-data";
 
 /* -------------------------------------------------------------------------- */
-/*  Validation helpers                                                         */
+/*  Validation helpers (Zod-based)                                             */
 /* -------------------------------------------------------------------------- */
 
 interface ContactFormErrors {
@@ -39,27 +40,31 @@ interface ContactFormErrors {
   phone?: string;
 }
 
-function validateEmail(email: string): boolean {
-  if (!email) return true; // email is optional
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function validatePhone(phone: string): boolean {
-  if (!phone) return true; // phone is optional
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15;
-}
+const contactFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z
+    .string()
+    .email("Please enter a valid email address")
+    .or(z.literal("")),
+  phone: z
+    .string()
+    .regex(/^\+?[\d\s()\-]{7,15}$/, "Please enter a valid phone number (at least 7 digits)")
+    .or(z.literal("")),
+});
 
 function validateContactForm(name: string, email: string, phone: string): ContactFormErrors {
+  const result = contactFormSchema.safeParse({
+    name: name.trim(),
+    email: email.trim(),
+    phone: phone.trim(),
+  });
+  if (result.success) return {};
   const errors: ContactFormErrors = {};
-  if (!name.trim()) {
-    errors.name = "Name is required";
-  }
-  if (email && !validateEmail(email)) {
-    errors.email = "Please enter a valid email address";
-  }
-  if (phone && !validatePhone(phone)) {
-    errors.phone = "Please enter a valid phone number (at least 7 digits)";
+  for (const issue of result.error.issues) {
+    const field = issue.path[0] as keyof ContactFormErrors;
+    if (!errors[field]) {
+      errors[field] = issue.message;
+    }
   }
   return errors;
 }

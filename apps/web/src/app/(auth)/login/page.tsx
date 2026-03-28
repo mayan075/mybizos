@@ -13,6 +13,7 @@ import {
   Phone,
   Loader2,
   Play,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
@@ -47,13 +48,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
 
-  // Pick up error from OAuth redirect
+  // Pick up error from OAuth redirect and verified status
   useEffect(() => {
     const oauthError = searchParams.get("error");
     if (oauthError) setError(oauthError);
+
+    const verified = searchParams.get("verified");
+    if (verified === "true") {
+      setSuccessMessage("Email verified! You can now sign in.");
+    }
   }, [searchParams]);
 
   async function doLogin(loginEmail: string, loginPassword: string) {
@@ -176,6 +183,13 @@ export default function LoginPage() {
               Sign in to your account to continue
             </p>
           </div>
+
+          {successMessage && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              {successMessage}
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">

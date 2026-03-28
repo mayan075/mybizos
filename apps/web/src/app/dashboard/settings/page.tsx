@@ -354,8 +354,48 @@ async function saveSettingsToApi(settings: AllSettings): Promise<boolean> {
   }
 }
 
+import { z } from "zod";
+
+const generalSettingsSchema = z.object({
+  businessName: z.string().min(1, "Business name is required"),
+  email: z.string().email("Please enter a valid email address"),
+  phone: z.string().regex(/^\+?[\d\s()\-]{10,}$/, "Phone number must be at least 10 digits"),
+});
+
+const profileSettingsSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  email: z.string().email("Please enter a valid email address"),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().optional(),
+  confirmPassword: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.currentPassword || data.newPassword || data.confirmPassword) {
+      return !!data.currentPassword;
+    }
+    return true;
+  },
+  { message: "Current password is required", path: ["currentPassword"] },
+).refine(
+  (data) => {
+    if (data.currentPassword || data.newPassword || data.confirmPassword) {
+      return (data.newPassword ?? "").length >= 8;
+    }
+    return true;
+  },
+  { message: "New password must be at least 8 characters", path: ["newPassword"] },
+).refine(
+  (data) => {
+    if (data.currentPassword || data.newPassword || data.confirmPassword) {
+      return data.newPassword === data.confirmPassword;
+    }
+    return true;
+  },
+  { message: "Passwords do not match", path: ["confirmPassword"] },
+);
+
 function validateEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return z.string().email().safeParse(email).success;
 }
 
 function validatePhone(phone: string): boolean {
@@ -607,45 +647,47 @@ function SettingsContent() {
     }
   }
 
-  // --- Validation ---
+  // --- Validation (Zod-based) ---
   function validateGeneral(): boolean {
+    const result = generalSettingsSchema.safeParse({
+      businessName: settings.general.businessName.trim(),
+      email: settings.general.email.trim(),
+      phone: settings.general.phone.trim(),
+    });
+    if (result.success) {
+      setErrors({});
+      return true;
+    }
     const errs: ValidationErrors = {};
-    if (!validateEmail(settings.general.email)) {
-      errs["general.email"] = "Please enter a valid email address";
-    }
-    if (!validatePhone(settings.general.phone)) {
-      errs["general.phone"] = "Phone number must be at least 10 digits";
-    }
-    if (!settings.general.businessName.trim()) {
-      errs["general.businessName"] = "Business name is required";
+    for (const issue of result.error.issues) {
+      const field = issue.path[0] as string;
+      const key = `general.${field}`;
+      if (!errs[key]) errs[key] = issue.message;
     }
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return false;
   }
 
   function validateProfileForm(): boolean {
+    const result = profileSettingsSchema.safeParse({
+      fullName: settings.profile.fullName.trim(),
+      email: settings.profile.email.trim(),
+      currentPassword: currentPassword || undefined,
+      newPassword: newPassword || undefined,
+      confirmPassword: confirmPassword || undefined,
+    });
+    if (result.success) {
+      setErrors({});
+      return true;
+    }
     const errs: ValidationErrors = {};
-    if (!settings.profile.fullName.trim()) {
-      errs["profile.fullName"] = "Full name is required";
-    }
-    if (!validateEmail(settings.profile.email)) {
-      errs["profile.email"] = "Please enter a valid email address";
-    }
-    // Only validate passwords if any field is filled
-    if (currentPassword || newPassword || confirmPassword) {
-      if (!currentPassword) {
-        errs["profile.currentPassword"] = "Current password is required";
-      }
-      if (newPassword.length < 8) {
-        errs["profile.newPassword"] =
-          "New password must be at least 8 characters";
-      }
-      if (newPassword !== confirmPassword) {
-        errs["profile.confirmPassword"] = "Passwords do not match";
-      }
+    for (const issue of result.error.issues) {
+      const field = issue.path[0] as string;
+      const key = `profile.${field}`;
+      if (!errs[key]) errs[key] = issue.message;
     }
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return false;
   }
 
   // --- Save Handlers (with loading state) ---

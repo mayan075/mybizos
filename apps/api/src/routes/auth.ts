@@ -8,6 +8,8 @@ import {
   logout,
   getMe,
   loginOrCreateWithGoogle,
+  verifyEmail,
+  resendVerificationEmail,
   AuthError,
 } from '../services/auth-service.js';
 import { config } from '../config.js';
@@ -19,6 +21,7 @@ const auth = new Hono();
 const loginLimiter = rateLimit(5, 60 * 1000);    // 5 attempts per minute
 const registerLimiter = rateLimit(3, 60 * 1000);  // 3 attempts per minute
 const resetLimiter = rateLimit(3, 60 * 1000);     // 3 attempts per minute
+const resendVerificationLimiter = rateLimit(1, 60 * 1000); // 1 per minute
 
 // Password reset tokens are stored in the database (password_reset_tokens table)
 // to survive Railway redeploys and scale across instances.
@@ -61,6 +64,10 @@ const forgotPasswordSchema = z.object({
 const resetPasswordSchema = z.object({
   token: z.string().uuid('Invalid reset token'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+const verifyEmailSchema = z.object({
+  token: z.string().uuid('Invalid verification token'),
 });
 
 // ── Routes ──
@@ -327,6 +334,51 @@ auth.post('/reset-password', async (c) => {
       .where(eq(resetTokensTable.id, tokenRow.id));
 
     return c.json({ data: { message: 'Password has been reset successfully.' } });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return c.json(
+        { error: err.message, code: err.code, status: err.status },
+        err.status as 400 | 401 | 403 | 404 | 409 | 500 | 503,
+      );
+    }
+    throw err;
+  }
+});
+
+/**
+ * GET /auth/verify-email?token=<token> — verify email address
+ * Redirects to the login page with ?verified=true on success.
+ */
+auth.get('/verify-email', async (c) => {
+  try {
+    const tokenParam = c.req.query('token');
+    const parsed = verifyEmailSchema.safeParse({ token: tokenParam });
+
+    if (!parsed.success) {
+      const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Invalid verification link')}`);
+    }
+
+    const redirectUrl = await verifyEmail(parsed.data.token);
+    return c.redirect(redirectUrl);
+  } catch (err) {
+    const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+    if (err instanceof AuthError) {
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+    }
+    return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Verification failed. Please try again.')}`);
+  }
+});
+
+/**
+ * POST /auth/resend-verification — resend verification email
+ * Requires authentication. Rate limited to 1 per 60 seconds.
+ */
+auth.post('/resend-verification', authMiddleware, resendVerificationLimiter, async (c) => {
+  try {
+    const user = c.get('user');
+    await resendVerificationEmail(user.id);
+    return c.json({ data: { message: 'Verification email sent. Please check your inbox.' } });
   } catch (err) {
     if (err instanceof AuthError) {
       return c.json(

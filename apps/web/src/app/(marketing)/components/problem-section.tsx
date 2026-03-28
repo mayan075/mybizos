@@ -55,7 +55,7 @@ export function ProblemSection() {
         <div className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
           {problems.map((p, i) => (
             <RevealSection key={p.title} delay={i * 120}>
-              <div className={`card-hover group relative overflow-hidden rounded-2xl bg-white p-8 shadow-xl ${p.glowColor}`}>
+              <div className={`card-hover group relative overflow-hidden rounded-2xl bg-card p-8 shadow-xl ${p.glowColor}`}>
                 {/* Gradient accent bar at top */}
                 <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${p.gradient}`} />
                 <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${p.iconBg} ${p.iconColor}`}>

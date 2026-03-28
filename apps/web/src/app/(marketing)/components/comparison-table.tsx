@@ -45,7 +45,7 @@ export function ComparisonTable() {
       );
     }
     return (
-      <span className={`text-sm font-medium ${isMyBizOS ? "font-bold text-green-600" : "text-muted-foreground"}`}>
+      <span className={`text-sm font-medium ${isMyBizOS ? "font-bold text-green-500 dark:text-green-400" : "text-muted-foreground"}`}>
         {value}
       </span>
     );
@@ -71,18 +71,18 @@ export function ComparisonTable() {
         <RevealSection delay={200}>
           <div className="mx-auto mt-14 max-w-4xl overflow-x-auto">
             <div className="min-w-[600px]">
-              <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-2xl bg-white text-sm shadow-xl shadow-black/5">
+              <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-2xl bg-card text-sm shadow-xl shadow-black/5">
                 <thead>
                   <tr>
                     <th className="border-b border-border/30 bg-accent/20 px-5 py-4 text-left text-sm font-medium text-muted-foreground">
                       Feature
                     </th>
-                    <th className="border-b border-indigo-200/50 bg-indigo-50 px-4 py-4 text-center">
+                    <th className="border-b border-primary/20 bg-primary/10 px-4 py-4 text-center">
                       <div className="flex flex-col items-center">
                         <div className="glow-sm mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
                           <Zap className="h-3.5 w-3.5" />
                         </div>
-                        <span className="text-sm font-bold text-indigo-600">MyBizOS</span>
+                        <span className="text-sm font-bold text-primary">MyBizOS</span>
                       </div>
                     </th>
                     <th className="border-b border-border/30 bg-accent/20 px-4 py-4 text-center text-sm font-medium text-muted-foreground">GoHighLevel</th>
@@ -96,7 +96,7 @@ export function ComparisonTable() {
                       <td className={`border-b border-border/10 px-5 py-3.5 font-medium text-foreground ${i % 2 !== 0 ? "bg-accent/5" : ""}`}>
                         {row.feature}
                       </td>
-                      <td className="border-b border-indigo-100/30 bg-indigo-50/30 px-4 py-3.5 text-center">
+                      <td className="border-b border-primary/10 bg-primary/5 px-4 py-3.5 text-center">
                         {renderCell(row.mybizos, true)}
                       </td>
                       <td className={`border-b border-border/10 px-4 py-3.5 text-center ${i % 2 !== 0 ? "bg-accent/5" : ""}`}>

@@ -11,7 +11,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
     <div className="border-b border-border/30 last:border-b-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-indigo-600"
+        className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-primary"
       >
         <span className="text-[15px] font-medium text-foreground">{question}</span>
         <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/50 transition-all duration-300 ${isOpen ? "rotate-180 bg-indigo-500 border-indigo-500" : "bg-transparent"}`}>
@@ -80,7 +80,7 @@ export function FAQSection() {
         </RevealSection>
 
         <RevealSection delay={200}>
-          <div className="mx-auto mt-14 max-w-2xl rounded-3xl border border-border/40 bg-white px-6 shadow-xl shadow-black/5 sm:px-8">
+          <div className="mx-auto mt-14 max-w-2xl rounded-3xl border border-border/40 bg-card px-6 shadow-xl shadow-black/5 sm:px-8">
             {faqs.map((faq) => (
               <FAQItem key={faq.question} {...faq} />
             ))}

@@ -62,17 +62,17 @@ const statusConfig: Record<
 > = {
   paid: {
     label: "Paid",
-    className: "bg-green-50 text-green-700",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
     icon: CheckCircle2,
   },
   unpaid: {
     label: "Unpaid",
-    className: "bg-yellow-50 text-yellow-700",
+    className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
     icon: AlertCircle,
   },
   overdue: {
     label: "Overdue",
-    className: "bg-red-50 text-red-700",
+    className: "bg-red-500/10 text-red-700 dark:text-red-400",
     icon: AlertTriangle,
   },
 };
@@ -86,23 +86,23 @@ export default function InvoicesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           View and pay your service invoices
         </p>
       </div>
 
       {/* Outstanding balance card */}
       {totalOutstanding > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-            <CreditCard className="h-5 w-5 text-amber-600" />
+        <div className="flex items-center gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+            <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-sm font-semibold text-foreground">
               Outstanding Balance
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-muted-foreground">
               You have{" "}
               {invoices.filter((i) => i.status !== "paid").length} unpaid{" "}
               {invoices.filter((i) => i.status !== "paid").length === 1
@@ -125,16 +125,16 @@ export default function InvoicesPage() {
             <div
               key={inv.id}
               className={cn(
-                "rounded-xl border bg-white p-4",
+                "rounded-xl border bg-card p-4",
                 inv.status === "overdue"
-                  ? "border-red-200"
-                  : "border-gray-200"
+                  ? "border-red-500/30"
+                  : "border-border"
               )}
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-bold text-gray-900">
+                    <h3 className="text-sm font-bold text-foreground">
                       {inv.id}
                     </h3>
                     <span
@@ -147,21 +147,21 @@ export default function InvoicesPage() {
                       {config.label}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700">{inv.service}</p>
-                  <div className="flex gap-3 text-xs text-gray-400">
+                  <p className="text-sm text-foreground/80">{inv.service}</p>
+                  <div className="flex gap-3 text-xs text-muted-foreground/70">
                     <span>Issued: {inv.date}</span>
                     <span>Due: {inv.dueDate}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <p className="text-lg font-bold text-gray-900">
+                  <p className="text-lg font-bold text-foreground">
                     ${inv.amount.toFixed(2)}
                   </p>
                   {inv.status === "paid" ? (
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50"
                     >
                       <Download className="h-3.5 w-3.5" />
                       Download Receipt
@@ -188,8 +188,8 @@ export default function InvoicesPage() {
 
       {invoices.length === 0 && (
         <div className="py-12 text-center">
-          <FileText className="mx-auto h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-500">
+          <FileText className="mx-auto h-10 w-10 text-muted-foreground/50" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             No invoices yet
           </p>
         </div>

@@ -44,7 +44,7 @@ export function IndustryShowcase() {
             <Link
               key={ind.slug}
               href={`/book/demo-${ind.slug}`}
-              className="gradient-border card-hover flex w-40 shrink-0 snap-start flex-col items-center rounded-2xl border border-border/40 bg-white p-5 text-center shadow-sm"
+              className="gradient-border card-hover flex w-40 shrink-0 snap-start flex-col items-center rounded-2xl border border-border/40 bg-card p-5 text-center shadow-sm"
             >
               <div className={`mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${ind.gradient} text-white shadow-lg`}>
                 {ind.icon}
@@ -60,7 +60,7 @@ export function IndustryShowcase() {
             <RevealSection key={ind.slug} delay={i * 80}>
               <Link
                 href={`/book/demo-${ind.slug}`}
-                className="gradient-border card-hover group flex flex-col items-center rounded-2xl border border-border/40 bg-white p-6 text-center shadow-sm"
+                className="gradient-border card-hover group flex flex-col items-center rounded-2xl border border-border/40 bg-card p-6 text-center shadow-sm"
               >
                 <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${ind.gradient} text-white shadow-lg transition-transform group-hover:scale-110`}>
                   {ind.icon}

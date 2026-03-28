@@ -29,9 +29,13 @@ import {
   ArrowRight,
   Clock,
   User,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getRecentlyViewed, type RecentlyViewedItem } from "@/lib/recently-viewed";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
+import type { Contact, Deal } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Command definitions
@@ -104,6 +108,101 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // ----- Real-time search state -----
+  interface SearchResults {
+    contacts: Contact[];
+    deals: Deal[];
+  }
+  const [searchResults, setSearchResults] = useState<SearchResults>({ contacts: [], deals: [] });
+  const [isSearching, setIsSearching] = useState(false);
+  const searchQueryRef = useRef("");
+
+  // Debounced API search when query >= 2 chars
+  useEffect(() => {
+    if (query.length < 2) {
+      setSearchResults({ contacts: [], deals: [] });
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchQueryRef.current = query;
+
+    const timer = setTimeout(async () => {
+      try {
+        const orgId = getOrgId();
+        const [contactsRes, dealsRes] = await Promise.all([
+          tryFetch(() =>
+            apiClient.get<{ data: Contact[] }>(`/orgs/${orgId}/contacts`, {
+              params: { search: query, limit: "5" },
+            }),
+          ),
+          tryFetch(() =>
+            apiClient.get<{ data: Deal[] }>(`/orgs/${orgId}/deals`, {
+              params: { search: query, limit: "5" },
+            }),
+          ),
+        ]);
+
+        // Only update if query hasn't changed while we were fetching
+        if (searchQueryRef.current === query) {
+          const contacts = contactsRes
+            ? Array.isArray(contactsRes) ? contactsRes : (contactsRes.data ?? [])
+            : [];
+          const deals = dealsRes
+            ? Array.isArray(dealsRes) ? dealsRes : (dealsRes.data ?? [])
+            : [];
+          setSearchResults({ contacts, deals });
+        }
+      } catch {
+        // Silently handle errors — search is best-effort
+        if (searchQueryRef.current === query) {
+          setSearchResults({ contacts: [], deals: [] });
+        }
+      }
+      if (searchQueryRef.current === query) {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Build dynamic commands from search results
+  const searchCommands: Command[] = useMemo(() => {
+    const cmds: Command[] = [];
+
+    for (const contact of searchResults.contacts) {
+      const subtitle = contact.email || contact.phone || "";
+      cmds.push({
+        id: `search-contact-${contact.id}`,
+        label: contact.name,
+        icon: User,
+        section: "Contacts",
+        action: "search",
+        href: `/dashboard/contacts/${contact.id}`,
+        description: subtitle,
+      });
+    }
+
+    for (const deal of searchResults.deals) {
+      const valueFmt = deal.value
+        ? `$${deal.value.toLocaleString()}`
+        : "";
+      cmds.push({
+        id: `search-deal-${deal.id}`,
+        label: deal.title,
+        icon: Kanban,
+        section: "Deals",
+        action: "search",
+        href: `/dashboard/pipeline?deal=${deal.id}`,
+        description: [valueFmt, deal.contact].filter(Boolean).join(" · "),
+      });
+    }
+
+    return cmds;
+  }, [searchResults]);
+
   // Load recently viewed items when palette opens
   const [recentItems, setRecentItems] = useState<RecentlyViewedItem[]>([]);
   useEffect(() => {
@@ -145,20 +244,25 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     );
   }, [query, allCommands]);
 
+  // Combine static filtered + dynamic search results
+  const allFiltered = useMemo(() => {
+    return [...filtered, ...searchCommands];
+  }, [filtered, searchCommands]);
+
   // Group filtered commands by section
   const grouped = useMemo(() => {
     const sections: { title: string; items: Command[] }[] = [];
-    const sectionOrder = ["Recent", "Create", "Actions", "Search", "Navigation"];
+    const sectionOrder = ["Recent", "Contacts", "Deals", "Create", "Actions", "Search", "Navigation"];
 
     for (const section of sectionOrder) {
-      const items = filtered.filter((c) => c.section === section);
+      const items = allFiltered.filter((c) => c.section === section);
       if (items.length > 0) {
         sections.push({ title: section, items });
       }
     }
 
     return sections;
-  }, [filtered]);
+  }, [allFiltered]);
 
   const flatFiltered = useMemo(
     () => grouped.flatMap((g) => g.items),
@@ -176,6 +280,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (open) {
       setQuery("");
       setSelectedIndex(0);
+      setSearchResults({ contacts: [], deals: [] });
+      setIsSearching(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -258,9 +364,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
         {/* Results */}
         <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
-          {flatFiltered.length === 0 && (
+          {flatFiltered.length === 0 && !isSearching && (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               No results found.
+            </p>
+          )}
+          {isSearching && (
+            <div className="flex items-center justify-center gap-2 px-3 py-3">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Searching contacts &amp; deals&hellip;</span>
+            </div>
+          )}
+          {!isSearching && query.length >= 2 && searchResults.contacts.length === 0 && searchResults.deals.length === 0 && (
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              No contacts or deals found for &ldquo;{query}&rdquo;
             </p>
           )}
           {grouped.map((group) => (

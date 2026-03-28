@@ -38,6 +38,7 @@ import {
   PhoneCall,
   Loader2,
 } from "lucide-react";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getUser } from "@/lib/auth";
@@ -105,6 +106,18 @@ const DAYS: { key: DayOfWeek; label: string; short: string }[] = [
 ];
 
 const ROLES = ["Owner", "Manager", "Admin"] as const;
+
+// ── Zod Validation Schemas for Onboarding ──
+
+const onboardingStep0Schema = z.object({
+  businessName: z.string().min(1, "Business name is required"),
+  vertical: z.string().min(1, "Please select a business type"),
+});
+
+const onboardingStep1Schema = z.object({
+  country: z.string().min(1, "Country is required"),
+  city: z.string().min(1, "City is required"),
+});
 
 // ---------------------------------------------------------------------------
 // Component
@@ -184,9 +197,15 @@ export default function OnboardingPage() {
   const canAdvance = useCallback((): boolean => {
     switch (step) {
       case 0:
-        return businessName.trim().length > 0 && vertical.length > 0;
+        return onboardingStep0Schema.safeParse({
+          businessName: businessName.trim(),
+          vertical,
+        }).success;
       case 1:
-        return country.length > 0 && city.trim().length > 0;
+        return onboardingStep1Schema.safeParse({
+          country,
+          city: city.trim(),
+        }).success;
       case 2:
         return services.some((s) => s.enabled);
       case 3:

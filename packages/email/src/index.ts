@@ -11,4 +11,5 @@ export {
   invoiceSentHtml,
   welcomeHtml,
   passwordResetHtml,
+  emailVerificationHtml,
 } from "./providers/resend.js";

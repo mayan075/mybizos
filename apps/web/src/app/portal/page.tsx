@@ -40,21 +40,21 @@ const quickActions = [
     description: "Schedule your next service visit",
     href: "/portal/appointments",
     icon: CalendarDays,
-    color: "bg-blue-50 text-blue-600",
+    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   },
   {
     title: "Pay Invoice",
     description: "View and pay outstanding invoices",
     href: "/portal/invoices",
     icon: FileText,
-    color: "bg-green-50 text-green-600",
+    color: "bg-green-500/10 text-green-600 dark:text-green-400",
   },
   {
     title: "Message Us",
     description: "Chat with our team directly",
     href: "/portal/messages",
     icon: MessageSquare,
-    color: "bg-purple-50 text-purple-600",
+    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   },
 ] as const;
 
@@ -64,10 +64,10 @@ function StatusBadge({
   status: "confirmed" | "pending" | "paid" | "unpaid";
 }) {
   const styles: Record<string, string> = {
-    confirmed: "bg-green-50 text-green-700",
-    pending: "bg-yellow-50 text-yellow-700",
-    paid: "bg-green-50 text-green-700",
-    unpaid: "bg-red-50 text-red-700",
+    confirmed: "bg-green-500/10 text-green-700 dark:text-green-400",
+    pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    paid: "bg-green-500/10 text-green-700 dark:text-green-400",
+    unpaid: "bg-red-500/10 text-red-700 dark:text-red-400",
   };
   return (
     <span
@@ -119,7 +119,7 @@ export default function PortalDashboard() {
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -128,10 +128,10 @@ export default function PortalDashboard() {
     <div className="space-y-8">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Welcome back{userName ? `, ${userName}` : ""}!
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Here&apos;s a quick overview of your account.
         </p>
       </div>
@@ -144,7 +144,7 @@ export default function PortalDashboard() {
             <Link
               key={action.href}
               href={action.href}
-              className="group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-gray-300 hover:shadow-sm"
+              className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-border hover:shadow-sm"
             >
               <div
                 className={cn(
@@ -155,27 +155,27 @@ export default function PortalDashboard() {
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-foreground">
                   {action.title}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {action.description}
                 </p>
               </div>
-              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-gray-500" />
+              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground" />
             </Link>
           );
         })}
       </div>
 
       {/* Loyalty Points */}
-      <div className="flex items-center gap-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100">
-          <Gift className="h-6 w-6 text-amber-600" />
+      <div className="flex items-center gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
+          <Gift className="h-6 w-6 text-amber-600 dark:text-amber-400" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-sm font-semibold text-foreground">
               Loyalty Rewards
             </p>
             <div className="flex items-center gap-0.5">
@@ -188,7 +188,7 @@ export default function PortalDashboard() {
               <Star className="h-3 w-3 text-amber-300" />
             </div>
           </div>
-          <p className="mt-0.5 text-sm text-gray-700">
+          <p className="mt-0.5 text-sm text-foreground/80">
             You have{" "}
             <span className="font-bold text-amber-700">450 points</span> —{" "}
             <span className="font-semibold text-green-700">
@@ -201,21 +201,21 @@ export default function PortalDashboard() {
       {/* Upcoming Appointments */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Upcoming Appointments
           </h2>
           <Link
             href="/portal/appointments"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="text-sm font-medium text-primary hover:text-primary/80"
           >
             View all
           </Link>
         </div>
         <div className="space-y-3">
           {appointments.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <Clock className="mx-auto h-8 w-8 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">
+            <div className="rounded-xl border border-border bg-card p-6 text-center">
+              <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-2 text-sm text-muted-foreground">
                 No upcoming appointments
               </p>
             </div>
@@ -223,20 +223,20 @@ export default function PortalDashboard() {
             appointments.map((apt) => (
               <div
                 key={apt.id}
-                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
                     <Clock className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {apt.service}
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {apt.date} &middot; {apt.time}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Technician: {apt.technician}
                     </p>
                   </div>
@@ -251,40 +251,40 @@ export default function PortalDashboard() {
       {/* Recent Invoices */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Recent Invoices
           </h2>
           <Link
             href="/portal/invoices"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="text-sm font-medium text-primary hover:text-primary/80"
           >
             View all
           </Link>
         </div>
         <div className="space-y-3">
           {invoices.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <FileText className="mx-auto h-8 w-8 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">No invoices</p>
+            <div className="rounded-xl border border-border bg-card p-6 text-center">
+              <FileText className="mx-auto h-8 w-8 text-muted-foreground/50" />
+              <p className="mt-2 text-sm text-muted-foreground">No invoices</p>
             </div>
           ) : (
             invoices.map((inv) => (
               <div
                 key={inv.id}
-                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {inv.id}
                     </p>
                     <StatusBadge status={inv.status} />
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-500">{inv.service}</p>
-                  <p className="text-xs text-gray-400">{inv.date}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{inv.service}</p>
+                  <p className="text-xs text-muted-foreground/70">{inv.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-sm font-bold text-gray-900">
+                  <p className="text-sm font-bold text-foreground">
                     {formatCurrency(inv.amount)}
                   </p>
                   {inv.status === "unpaid" && (

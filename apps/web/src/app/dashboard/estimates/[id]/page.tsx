@@ -649,7 +649,7 @@ function EstimateView({
       </div>
 
       {/* Estimate Preview Card */}
-      <div className="rounded-xl border border-border bg-white p-8 shadow-sm relative overflow-hidden">
+      <div className="rounded-xl border border-border bg-white dark:bg-white dark:border-gray-200 p-8 shadow-sm relative overflow-hidden dark:text-gray-900">
         {/* ACCEPTED Stamp */}
         {estimate.status === "accepted" && (
           <div className="absolute top-12 right-8 rotate-[-15deg] pointer-events-none">
