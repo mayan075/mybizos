@@ -400,6 +400,7 @@ export async function runSequenceProcessor(): Promise<{
             contact.id,
             currentStep.config as SendSmsStepConfig,
             templateCtx,
+            (org.settings ?? {}) as Record<string, unknown>,
           );
           break;
         }
