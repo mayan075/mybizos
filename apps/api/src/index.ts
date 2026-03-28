@@ -68,6 +68,15 @@ app.use('*', cors({
 
 app.use('*', requestLogger);
 
+// Security headers
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('X-XSS-Protection', '1; mode=block');
+});
+
 app.onError(errorHandler);
 
 // ── Health Check ──
@@ -102,14 +111,17 @@ app.get('/health', async (c) => {
 
   const allConfigured = Object.values(services).every((v) => v !== 'missing' && v !== 'disconnected');
 
+  const isHealthy = dbStatus === 'connected';
+  const statusCode = isHealthy ? 200 : 503;
+
   return c.json({
-    status: dbStatus === 'connected' ? (allConfigured ? 'ok' : 'degraded') : 'down',
+    status: isHealthy ? (allConfigured ? 'ok' : 'degraded') : 'down',
     timestamp: new Date().toISOString(),
     version: '0.1.0',
     environment: config.NODE_ENV,
     services,
     ...(dbError ? { dbError } : {}),
-  });
+  }, statusCode);
 });
 
 // ── API Routes ──

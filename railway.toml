@@ -1,8 +1,8 @@
 [build]
-buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@mybizos/api"
+buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@mybizos/api && cd packages/db && npx drizzle-kit migrate"
 
 [deploy]
-startCommand = "cd apps/api && npx tsx src/index.ts"
+startCommand = "node apps/api/dist/apps/api/src/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"

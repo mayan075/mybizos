@@ -8,8 +8,49 @@ import {
   withOrgScope,
 } from '@mybizos/db';
 import { eq, and, desc, count, sum, sql, gte } from 'drizzle-orm';
+import { VapiClient, VAPI_TOOL_SCHEMAS } from '@mybizos/integrations';
+import type { VapiAssistantConfig } from '@mybizos/integrations';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
+import { config } from '../config.js';
+
+// ─── Vapi Helper ──────────────────────────────────────────────────────────────
+
+function getVapiClient(): VapiClient | null {
+  if (!config.VAPI_API_KEY) {
+    return null;
+  }
+  return new VapiClient({ apiKey: config.VAPI_API_KEY });
+}
+
+function buildVapiAssistantConfig(data: {
+  name: string;
+  systemPrompt: string;
+}): VapiAssistantConfig {
+  return {
+    name: data.name,
+    firstMessage:
+      "Hi, this is your business's AI assistant. This call may be recorded. How can I help you today?",
+    model: {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-20250514',
+      systemPrompt: data.systemPrompt,
+      tools: [
+        VAPI_TOOL_SCHEMAS['bookAppointment']!,
+        VAPI_TOOL_SCHEMAS['checkAvailability']!,
+        VAPI_TOOL_SCHEMAS['transferToHuman']!,
+        VAPI_TOOL_SCHEMAS['endCall']!,
+      ],
+    },
+    voice: {
+      provider: '11labs',
+      voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel — professional female voice
+    },
+    serverUrl: config.APP_URL,
+    recordingEnabled: true,
+    maxDurationSeconds: 600,
+  };
+}
 
 export const aiService = {
   // ── AI Agents CRUD ──
@@ -68,6 +109,39 @@ export const aiService = {
       throw Errors.internal('Failed to create AI agent');
     }
 
+    // Sync with Vapi — create a corresponding voice assistant
+    const vapiClient = getVapiClient();
+    if (vapiClient) {
+      try {
+        const vapiConfig = buildVapiAssistantConfig({
+          name: data.name,
+          systemPrompt: data.systemPrompt,
+        });
+        const vapiAssistant = await vapiClient.createAssistant(vapiConfig);
+
+        const [synced] = await db
+          .update(aiAgents)
+          .set({ vapiAssistantId: vapiAssistant.id })
+          .where(eq(aiAgents.id, created.id))
+          .returning();
+
+        if (synced) {
+          logger.info('Vapi assistant created', {
+            orgId,
+            agentId: created.id,
+            vapiAssistantId: vapiAssistant.id,
+          });
+          return synced;
+        }
+      } catch (err) {
+        logger.error('Failed to create Vapi assistant — agent saved without voice', {
+          orgId,
+          agentId: created.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     logger.info('AI Agent created', { orgId, agentId: created.id, type: data.type });
     return created;
   },
@@ -98,22 +172,115 @@ export const aiService = {
       throw Errors.notFound('AI Agent');
     }
 
+    // Sync changes to Vapi assistant
+    const vapiClient = getVapiClient();
+    if (vapiClient && updated.vapiAssistantId) {
+      try {
+        const vapiUpdates: Partial<VapiAssistantConfig> = {};
+        if (data.name) {
+          vapiUpdates.name = data.name;
+        }
+        if (data.systemPrompt) {
+          vapiUpdates.model = {
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-20250514',
+            systemPrompt: data.systemPrompt,
+            tools: [
+              VAPI_TOOL_SCHEMAS['bookAppointment']!,
+              VAPI_TOOL_SCHEMAS['checkAvailability']!,
+              VAPI_TOOL_SCHEMAS['transferToHuman']!,
+              VAPI_TOOL_SCHEMAS['endCall']!,
+            ],
+          };
+        }
+
+        if (Object.keys(vapiUpdates).length > 0) {
+          await vapiClient.updateAssistant(updated.vapiAssistantId, vapiUpdates);
+          logger.info('Vapi assistant updated', {
+            orgId,
+            agentId,
+            vapiAssistantId: updated.vapiAssistantId,
+          });
+        }
+      } catch (err) {
+        logger.error('Failed to update Vapi assistant', {
+          orgId,
+          agentId,
+          vapiAssistantId: updated.vapiAssistantId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     logger.info('AI Agent updated', { orgId, agentId });
     return updated;
   },
 
   async deleteAgent(orgId: string, agentId: string) {
-    const result = await db
+    // Look up the agent first to get Vapi IDs before deletion
+    const [agent] = await db
+      .select({
+        id: aiAgents.id,
+        vapiAssistantId: aiAgents.vapiAssistantId,
+        vapiPhoneNumberId: aiAgents.vapiPhoneNumberId,
+      })
+      .from(aiAgents)
+      .where(and(
+        withOrgScope(aiAgents.orgId, orgId),
+        eq(aiAgents.id, agentId),
+      ));
+
+    if (!agent) {
+      throw Errors.notFound('AI Agent');
+    }
+
+    // Clean up Vapi resources before DB deletion
+    const vapiClient = getVapiClient();
+    if (vapiClient) {
+      if (agent.vapiPhoneNumberId) {
+        try {
+          await vapiClient.deletePhoneNumber(agent.vapiPhoneNumberId);
+          logger.info('Vapi phone number deleted', {
+            orgId,
+            agentId,
+            vapiPhoneNumberId: agent.vapiPhoneNumberId,
+          });
+        } catch (err) {
+          logger.error('Failed to delete Vapi phone number', {
+            orgId,
+            agentId,
+            vapiPhoneNumberId: agent.vapiPhoneNumberId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      if (agent.vapiAssistantId) {
+        try {
+          await vapiClient.deleteAssistant(agent.vapiAssistantId);
+          logger.info('Vapi assistant deleted', {
+            orgId,
+            agentId,
+            vapiAssistantId: agent.vapiAssistantId,
+          });
+        } catch (err) {
+          logger.error('Failed to delete Vapi assistant', {
+            orgId,
+            agentId,
+            vapiAssistantId: agent.vapiAssistantId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    // Delete from DB
+    await db
       .delete(aiAgents)
       .where(and(
         withOrgScope(aiAgents.orgId, orgId),
         eq(aiAgents.id, agentId),
-      ))
-      .returning({ id: aiAgents.id });
-
-    if (result.length === 0) {
-      throw Errors.notFound('AI Agent');
-    }
+      ));
 
     logger.info('AI Agent deleted', { orgId, agentId });
   },

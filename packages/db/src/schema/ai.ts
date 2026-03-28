@@ -45,6 +45,8 @@ export const aiAgents = pgTable(
     systemPrompt: text("system_prompt").notNull(),
     vertical: verticalEnum("vertical").notNull(),
     settings: jsonb("settings").default({}).notNull(),
+    vapiAssistantId: text("vapi_assistant_id"),
+    vapiPhoneNumberId: text("vapi_phone_number_id"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -53,6 +55,7 @@ export const aiAgents = pgTable(
     index("ai_agents_org_id_idx").on(table.orgId),
     index("ai_agents_type_idx").on(table.orgId, table.type),
     index("ai_agents_active_idx").on(table.orgId, table.isActive),
+    index("ai_agents_vapi_assistant_idx").on(table.vapiAssistantId),
   ],
 );
 
