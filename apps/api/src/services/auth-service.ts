@@ -125,6 +125,7 @@ export async function login(
 
     if (!user) throw new AuthError('Invalid email or password', 'UNAUTHORIZED', 401);
     if (!user.isActive) throw new AuthError('Account is deactivated', 'FORBIDDEN', 403);
+    if (!user.passwordHash) throw new AuthError('This account uses Google sign-in. Please sign in with Google.', 'OAUTH_ONLY', 401);
 
     const isValid = await bcrypt.compare(_password, user.passwordHash);
     if (!isValid) throw new AuthError('Invalid email or password', 'UNAUTHORIZED', 401);

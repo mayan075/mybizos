@@ -13,6 +13,7 @@ import {
   CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
 import { type MockAppointment } from "@/lib/mock-data";
@@ -88,7 +89,7 @@ function getCurrentTimePosition(): { hourIndex: number; minuteFraction: number }
 export default function SchedulingPage() {
   usePageTitle("Scheduling");
   const [weekOffset, setWeekOffset] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [showBooking, setShowBooking] = useState<{ dayIndex: number; hour: number } | null>(null);
   const [newTitle, setNewTitle] = useState("General Service");
   const [newCustomer, setNewCustomer] = useState("");
@@ -119,11 +120,6 @@ export default function SchedulingPage() {
   const todayIndex = getTodayIndex(weekOffset);
   const weekLabel = useMemo(() => getWeekLabel(weekOffset), [weekOffset]);
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
-
   const goToToday = useCallback(() => setWeekOffset(0), []);
 
   function handleSlotClick(dayIndex: number, hour: number) {
@@ -131,7 +127,7 @@ export default function SchedulingPage() {
       (a) => a.dayIndex === dayIndex && a.hourStart === hour,
     );
     if (existing) {
-      showToast(`${existing.title} with ${existing.customer} \u2014 ${existing.status}`);
+      toast.info(`${existing.title} with ${existing.customer} \u2014 ${existing.status}`);
       return;
     }
     setShowBooking({ dayIndex, hour });
@@ -192,7 +188,7 @@ export default function SchedulingPage() {
     setShowBooking(null);
     setNewCustomer("");
     setNewTitle("General Service");
-    showToast(`Appointment booked: ${newApt.title} with ${newApt.customer}`);
+    toast.success(`Appointment booked: ${newApt.title} with ${newApt.customer}`);
   }
 
   // Loading state — show skeleton while initial fetch is in progress
@@ -202,13 +198,6 @@ export default function SchedulingPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
       {/* Booking Modal */}
       {showBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -434,7 +423,7 @@ export default function SchedulingPage() {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            showToast(`${apt.title} \u2014 ${apt.customer} \u2014 ${apt.location}`);
+                            toast.info(`${apt.title} \u2014 ${apt.customer} \u2014 ${apt.location}`);
                           }}
                         >
                           <div className="flex items-center gap-1">

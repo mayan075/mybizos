@@ -19,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useCreateSequence, type SequenceStep } from "@/lib/hooks/use-sequences";
 
 type TriggerType =
@@ -82,14 +83,9 @@ export default function NewAutomationPage() {
   const [description, setDescription] = useState("");
   const [trigger, setTrigger] = useState<TriggerType>("contact_created");
   const [actions, setActions] = useState<AutomationAction[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
 
   const { mutate: createSequence, isLoading: isSaving, error: saveError } = useCreateSequence();
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   function addAction(type: ActionType) {
     const cfg = actionConfig[type];
@@ -108,7 +104,7 @@ export default function NewAutomationPage() {
 
   async function handleSave() {
     if (!name.trim()) {
-      showToast("Please enter an automation name");
+      toast.error("Please enter an automation name");
       return;
     }
 
@@ -123,24 +119,17 @@ export default function NewAutomationPage() {
     });
 
     if (result) {
-      showToast("Automation created successfully");
+      toast.success("Automation created successfully");
       setTimeout(() => router.push("/dashboard/automations"), 1500);
     } else if (saveError) {
-      showToast(`Error: ${saveError}`);
+      toast.error(saveError);
     } else {
-      showToast("Failed to create automation. Please try again.");
+      toast.error("Failed to create automation. Please try again.");
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
       {/* Back link + header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

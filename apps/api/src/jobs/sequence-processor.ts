@@ -101,6 +101,7 @@ async function executeSendSms(
   contactId: string,
   stepConfig: SendSmsStepConfig,
   ctx: TemplateContext,
+  orgSettings: Record<string, unknown>,
 ): Promise<void> {
   if (!ctx.contact.phone) {
     logger.warn('Skipping send_sms: contact has no phone', { orgId, contactId });
@@ -109,11 +110,11 @@ async function executeSendSms(
 
   const body = interpolateTemplate(stepConfig.body, ctx);
 
-  // Use the org's Twilio settings from org settings, or fall back to global config
-  const orgSettings = ctx.business as Record<string, unknown>;
-  const twilioSid = (orgSettings['twilio_account_sid'] as string) || config.TWILIO_ACCOUNT_SID;
-  const twilioToken = (orgSettings['twilio_auth_token'] as string) || config.TWILIO_AUTH_TOKEN;
-  const twilioFrom = (orgSettings['twilio_phone_number'] as string) || config.TWILIO_PHONE_NUMBER;
+  // Extract Twilio credentials from org settings JSONB (phone or mybizosPhone key)
+  const phoneSettings = (orgSettings['phone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
+  const twilioSid = phoneSettings['subaccountSid'] || phoneSettings['accountSid'] || config.TWILIO_ACCOUNT_SID;
+  const twilioToken = phoneSettings['subaccountAuthToken'] || phoneSettings['authToken'] || config.TWILIO_AUTH_TOKEN;
+  const twilioFrom = phoneSettings['phoneNumber'] || config.TWILIO_PHONE_NUMBER;
 
   const twilio = new TwilioClient({
     accountSid: twilioSid,

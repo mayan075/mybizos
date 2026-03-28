@@ -26,6 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useTeamMember, useUpdateTeamMember, useRemoveTeamMember } from "@/lib/hooks/use-team";
 import type { TeamMember } from "@/lib/hooks/use-team";
 
@@ -105,7 +106,7 @@ export default function TeamMemberDetailPage({
   const { mutate: updateMember } = useUpdateTeamMember(id);
   const { mutate: removeMember } = useRemoveTeamMember(id);
 
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [showConfirmModal, setShowConfirmModal] = useState<"deactivate" | "remove" | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -149,11 +150,6 @@ export default function TeamMemberDetailPage({
     activityLog: memberFromApi.activityLog ?? [],
     schedule: memberFromApi.schedule ?? makeDefaultSchedule(),
   } : null;
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   function togglePermission(key: string) {
     setPermissions((prev) => {
@@ -215,14 +211,6 @@ export default function TeamMemberDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 className="h-4 w-4" />
-          {toast}
-        </div>
-      )}
-
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -261,21 +249,21 @@ export default function TeamMemberDetailPage({
                   if (showConfirmModal === "deactivate") {
                     const result = await updateMember({ isActive: false });
                     if (result) {
-                      showToast(`${memberData.name} has been deactivated`);
+                      toast.success(`${memberData.name} has been deactivated`);
                       refetch();
                     } else {
-                      showToast("Failed to deactivate member. Please try again.");
+                      toast.error("Failed to deactivate member. Please try again.");
                     }
                   } else {
                     const result = await removeMember(undefined as unknown as void);
                     if (result) {
-                      showToast(`${memberData.name} has been removed`);
+                      toast.success(`${memberData.name} has been removed`);
                       // Redirect back to team list after removal
                       setTimeout(() => {
                         window.location.href = "/dashboard/team";
                       }, 1000);
                     } else {
-                      showToast("Failed to remove member. Please try again.");
+                      toast.error("Failed to remove member. Please try again.");
                     }
                   }
                   setShowConfirmModal(null);
@@ -429,10 +417,10 @@ export default function TeamMemberDetailPage({
                 onClick={async () => {
                   const result = await updateMember({ name, email, phone, role: role.toLowerCase() });
                   if (result) {
-                    showToast("Profile updated successfully");
+                    toast.success("Profile updated successfully");
                     refetch();
                   } else {
-                    showToast("Failed to update profile. Please try again.");
+                    toast.error("Failed to update profile. Please try again.");
                   }
                 }}
                 className={cn(
@@ -487,10 +475,10 @@ export default function TeamMemberDetailPage({
                   onClick={async () => {
                     const result = await updateMember({ permissions: Array.from(permissions) });
                     if (result) {
-                      showToast("Permissions updated");
+                      toast.success("Permissions updated");
                       refetch();
                     } else {
-                      showToast("Failed to update permissions. Please try again.");
+                      toast.error("Failed to update permissions. Please try again.");
                     }
                   }}
                   className={cn(
@@ -561,10 +549,10 @@ export default function TeamMemberDetailPage({
                 onClick={async () => {
                   const result = await updateMember({ schedule });
                   if (result) {
-                    showToast("Schedule saved");
+                    toast.success("Schedule saved");
                     refetch();
                   } else {
-                    showToast("Failed to save schedule. Please try again.");
+                    toast.error("Failed to save schedule. Please try again.");
                   }
                 }}
                 className={cn(

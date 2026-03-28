@@ -12,7 +12,7 @@ export interface RecentlyViewedItem {
   /** Human-readable label, e.g. "Sarah Johnson" */
   label: string;
   /** Type category for display, e.g. "Contact", "Deal", "Invoice" */
-  type: "Contact" | "Deal" | "Invoice" | "Appointment" | "Page";
+  type: "Contact" | "Deal" | "Invoice" | "Estimate" | "Appointment" | "Page";
   /** Timestamp of last visit */
   visitedAt: number;
 }

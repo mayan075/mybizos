@@ -19,6 +19,7 @@ import {
   ToggleLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useCreateForm } from "@/lib/hooks/use-forms";
 
 type FieldType = "text" | "email" | "phone" | "textarea" | "select" | "date" | "number" | "checkbox";
@@ -50,14 +51,9 @@ export default function NewFormPage() {
     { id: "f2", type: "email", label: "Email", placeholder: "john@example.com", required: true },
     { id: "f3", type: "phone", label: "Phone", placeholder: "(555) 000-0000", required: false },
   ]);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   const { mutate: createForm } = useCreateForm();
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   function addField(type: FieldType) {
     const cfg = fieldTypeConfig[type];
@@ -81,11 +77,11 @@ export default function NewFormPage() {
 
   async function handleSave() {
     if (!formName.trim()) {
-      showToast("Please enter a form name");
+      toast.error("Please enter a form name");
       return;
     }
     if (fields.length === 0) {
-      showToast("Please add at least one field");
+      toast.error("Please add at least one field");
       return;
     }
     setSaving(true);
@@ -96,22 +92,15 @@ export default function NewFormPage() {
     });
     setSaving(false);
     if (result) {
-      showToast("Form created successfully");
+      toast.success("Form created successfully");
       setTimeout(() => router.push("/dashboard/forms"), 1000);
     } else {
-      showToast("Failed to create form. Please try again.");
+      toast.error("Failed to create form. Please try again.");
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
       {/* Back link + header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

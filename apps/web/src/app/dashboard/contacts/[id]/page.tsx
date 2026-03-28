@@ -31,6 +31,7 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useContact } from "@/lib/hooks/use-contacts";
 import { useApiQuery, useApiMutation } from "@/lib/hooks/use-api";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
+import { useToast } from "@/components/ui/toast";
 import { trackPageVisit } from "@/lib/recently-viewed";
 import type { LucideIcon } from "lucide-react";
 import type { MockTimelineEntry, MockChatMessage } from "@/lib/mock-data";
@@ -247,11 +248,7 @@ export default function ContactDetailPage({
   }, [selectedConvId, convMessages]);
 
   // Toast
-  const [toast, setToast] = useState<string | null>(null);
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
+  const toast = useToast();
 
   // Merged timeline
   const timeline: TimelineEntryWithIcon[] = [
@@ -276,7 +273,7 @@ export default function ContactDetailPage({
     setLocalTimeline((prev) => [newEntry, ...prev]);
     setNoteText("");
     setShowNoteInput(false);
-    showToast("Note added to timeline");
+    toast.success("Note added to timeline");
   }
 
   // Send reply in conversation
@@ -319,7 +316,7 @@ export default function ContactDetailPage({
     }
 
     setReplyText("");
-    showToast(`Message sent via ${replyChannel.toUpperCase()}`);
+    toast.success(`Message sent via ${replyChannel.toUpperCase()}`);
 
     // Simulate delivered status
     setTimeout(() => {
@@ -346,7 +343,7 @@ export default function ContactDetailPage({
       detail: { phone: contact?.phone, name: contact?.name },
     });
     window.dispatchEvent(event);
-    showToast(`Calling ${contact?.name ?? "contact"}...`);
+    toast.info(`Calling ${contact?.name ?? "contact"}...`);
   }
 
   // SMS quick action - switch to conversations and compose
@@ -396,14 +393,6 @@ export default function ContactDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          <Check className="h-4 w-4" />
-          {toast}
-        </div>
-      )}
-
       {/* Breadcrumbs */}
       <Breadcrumbs currentLabel={contact.name} />
 
@@ -446,7 +435,7 @@ export default function ContactDetailPage({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => showToast("Edit mode coming soon")}
+            onClick={() => toast.info("Edit mode coming soon")}
             className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
             <Edit className="h-4 w-4" />
@@ -540,7 +529,7 @@ export default function ContactDetailPage({
               <button
                 onClick={() => {
                   switchTab("appointments");
-                  showToast("Opening scheduler...");
+                  toast.info("Opening scheduler...");
                 }}
                 className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm hover:bg-muted transition-colors"
               >
@@ -1025,7 +1014,7 @@ export default function ContactDetailPage({
                     Deals ({deals.length})
                   </h2>
                   <button
-                    onClick={() => showToast("Create deal coming soon")}
+                    onClick={() => toast.info("Create deal coming soon")}
                     className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1043,7 +1032,7 @@ export default function ContactDetailPage({
                       Create a deal to track revenue opportunities with {contact.name}.
                     </p>
                     <button
-                      onClick={() => showToast("Create deal coming soon")}
+                      onClick={() => toast.info("Create deal coming soon")}
                       className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
@@ -1107,7 +1096,7 @@ export default function ContactDetailPage({
                     Appointments ({appointments.length})
                   </h2>
                   <button
-                    onClick={() => showToast("Book appointment coming soon")}
+                    onClick={() => toast.info("Book appointment coming soon")}
                     className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1125,7 +1114,7 @@ export default function ContactDetailPage({
                       Schedule a service appointment for {contact.name}.
                     </p>
                     <button
-                      onClick={() => showToast("Book appointment coming soon")}
+                      onClick={() => toast.info("Book appointment coming soon")}
                       className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                       <Plus className="h-4 w-4" />

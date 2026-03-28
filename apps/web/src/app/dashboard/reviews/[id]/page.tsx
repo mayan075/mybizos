@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useReview, useGenerateResponse, usePostResponse } from "@/lib/hooks/use-reviews";
 import type { Review } from "@/lib/hooks/use-reviews";
 
@@ -83,12 +84,7 @@ export default function ReviewDetailPage() {
   const [aiDraft, setAiDraft] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosted, setIsPosted] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
+  const toast = useToast();
 
   async function handleGenerateResponse() {
     setIsGenerating(true);
@@ -96,7 +92,7 @@ export default function ReviewDetailPage() {
     if (result && "response" in result) {
       setAiDraft(result.response);
     } else {
-      showToast("Failed to generate response. Please try again.");
+      toast.error("Failed to generate response. Please try again.");
     }
     setIsGenerating(false);
   }
@@ -105,10 +101,10 @@ export default function ReviewDetailPage() {
     const result = await postResponse({ response: aiDraft });
     if (result) {
       setIsPosted(true);
-      showToast("Response posted successfully!");
+      toast.success("Response posted successfully!");
       refetch();
     } else {
-      showToast("Failed to post response. Please try again.");
+      toast.error("Failed to post response. Please try again.");
     }
   }
 
@@ -154,14 +150,6 @@ export default function ReviewDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg">
-          <Check className="h-4 w-4" />
-          {toast}
-        </div>
-      )}
-
       {/* Back link */}
       <Link
         href="/dashboard/reviews"

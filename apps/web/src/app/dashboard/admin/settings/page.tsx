@@ -28,6 +28,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { env } from "@/lib/env";
@@ -229,7 +230,7 @@ export default function AdminSettingsPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
 
   const stats: PlatformStats = {
     totalOrgs: 1,
@@ -244,11 +245,6 @@ export default function AdminSettingsPage() {
     setStatuses(loadStatuses());
     setHydrated(true);
   }, []);
-
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }
 
   // ── Save handler ──
 
@@ -267,7 +263,7 @@ export default function AdminSettingsPage() {
 
     setTimeout(() => {
       setSaving(null);
-      showToast(`${section} settings saved`);
+      toast.success(`${section} settings saved`);
     }, 500);
   }
 
@@ -275,7 +271,7 @@ export default function AdminSettingsPage() {
 
   async function handleTestTwilio() {
     if (!settings.twilio.accountSid || !settings.twilio.authToken) {
-      showToast("Please enter Twilio credentials first", "error");
+      toast.error("Please enter Twilio credentials first");
       return;
     }
     setTesting("twilio");
@@ -297,7 +293,7 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, twilio: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast(status.connected ? "Twilio connected!" : "Twilio test failed", status.connected ? "success" : "error");
+      status.connected ? toast.success("Twilio connected!") : toast.error("Twilio test failed");
     } catch {
       const status: ConnectionStatus = {
         connected: false,
@@ -307,14 +303,14 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, twilio: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast("API offline — credentials saved locally", "error");
+      toast.error("API offline \u2014 credentials saved locally");
     }
     setTesting(null);
   }
 
   async function handleTestResend() {
     if (!settings.resend.apiKey) {
-      showToast("Please enter Resend API key first", "error");
+      toast.error("Please enter Resend API key first");
       return;
     }
     setTesting("resend");
@@ -333,7 +329,7 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, resend: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast(status.connected ? "Resend connected!" : "Resend test failed", status.connected ? "success" : "error");
+      status.connected ? toast.success("Resend connected!") : toast.error("Resend test failed");
     } catch {
       const status: ConnectionStatus = {
         connected: false,
@@ -343,14 +339,14 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, resend: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast("API offline — credentials saved locally", "error");
+      toast.error("API offline \u2014 credentials saved locally");
     }
     setTesting(null);
   }
 
   async function handleTestAnthropic() {
     if (!settings.anthropic.apiKey) {
-      showToast("Please enter Anthropic API key first", "error");
+      toast.error("Please enter Anthropic API key first");
       return;
     }
     setTesting("anthropic");
@@ -369,7 +365,7 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, anthropic: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast(status.connected ? "Anthropic connected!" : "Anthropic test failed", status.connected ? "success" : "error");
+      status.connected ? toast.success("Anthropic connected!") : toast.error("Anthropic test failed");
     } catch {
       const status: ConnectionStatus = {
         connected: false,
@@ -379,7 +375,7 @@ export default function AdminSettingsPage() {
       const updated = { ...statuses, anthropic: status };
       setStatuses(updated);
       saveStatuses(updated);
-      showToast("API offline — credentials saved locally", "error");
+      toast.error("API offline \u2014 credentials saved locally");
     }
     setTesting(null);
   }
@@ -396,7 +392,7 @@ export default function AdminSettingsPage() {
     localStorage.removeItem(ADMIN_STATUS_KEY);
     setSettings(defaultSettings);
     setStatuses({});
-    showToast("All demo data cleared");
+    toast.success("All demo data cleared");
   }
 
   function handleClearSettings() {
@@ -407,7 +403,7 @@ export default function AdminSettingsPage() {
     localStorage.removeItem(ADMIN_STATUS_KEY);
     setSettings(defaultSettings);
     setStatuses({});
-    showToast("Platform settings cleared");
+    toast.success("Platform settings cleared");
   }
 
   if (!hydrated) {
@@ -423,23 +419,6 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-8 max-w-4xl">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={cn(
-            "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2",
-            toast.type === "success" ? "bg-emerald-600" : "bg-destructive",
-          )}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <XCircle className="h-4 w-4" />
-          )}
-          {toast.message}
-        </div>
-      )}
-
       {/* Header */}
       <div>
         <div className="flex items-center gap-3">
@@ -742,7 +721,7 @@ export default function AdminSettingsPage() {
                   }),
                 );
               } catch { /* API offline — saved locally */ }
-              showToast("Meta credentials saved!");
+              toast.success("Meta credentials saved!");
             }}
             className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
@@ -821,7 +800,7 @@ export default function AdminSettingsPage() {
                   }),
                 );
               } catch { /* API offline — saved locally */ }
-              showToast("Google credentials saved!");
+              toast.success("Google credentials saved!");
             }}
             className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
@@ -899,7 +878,7 @@ export default function AdminSettingsPage() {
                   }),
                 );
               } catch { /* API offline — saved locally */ }
-              showToast("QuickBooks credentials saved!");
+              toast.success("QuickBooks credentials saved!");
             }}
             className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >

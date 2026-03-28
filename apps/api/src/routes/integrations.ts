@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requirePlatformAdmin } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
@@ -334,7 +334,7 @@ const adminCredentialsBatchSchema = z.object({
 });
 
 // GET /admin/credentials — List configured credential keys (values masked)
-integrations.get('/admin/credentials', (c) => {
+integrations.get('/admin/credentials', requirePlatformAdmin(), (c) => {
   const credentialKeys = [
     'FACEBOOK_APP_ID',
     'FACEBOOK_APP_SECRET',
@@ -359,7 +359,7 @@ integrations.get('/admin/credentials', (c) => {
 });
 
 // POST /admin/credentials — Set OAuth credentials
-integrations.post('/admin/credentials', async (c) => {
+integrations.post('/admin/credentials', requirePlatformAdmin(), async (c) => {
   const body = await c.req.json();
   const parsed = adminCredentialsBatchSchema.safeParse(body);
 
@@ -390,7 +390,7 @@ integrations.post('/admin/credentials', async (c) => {
 });
 
 // DELETE /admin/credentials/:key — Remove a specific credential
-integrations.delete('/admin/credentials/:key', (c) => {
+integrations.delete('/admin/credentials/:key', requirePlatformAdmin(), (c) => {
   const key = c.req.param('key');
   adminCredentialStore.delete(key);
 

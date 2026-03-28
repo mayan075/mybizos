@@ -19,6 +19,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useEstimates, type Estimate } from "@/lib/hooks/use-estimates";
 
@@ -101,15 +102,10 @@ export default function EstimatesPage() {
   usePageTitle("Estimates");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
 
   const { data: estimatesData, isLoading } = useEstimates();
   const estimates = Array.isArray(estimatesData) ? estimatesData : [];
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   const filtered = useMemo(() => {
     let result = estimates;
@@ -168,13 +164,6 @@ export default function EstimatesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -183,8 +172,8 @@ export default function EstimatesPage() {
             Create estimates and convert approved ones to invoices
           </p>
         </div>
-        <button
-          onClick={() => showToast("Estimate builder coming soon")}
+        <Link
+          href="/dashboard/estimates/new"
           className={cn(
             "flex h-9 items-center gap-2 rounded-lg px-4",
             "bg-primary text-primary-foreground text-sm font-medium",
@@ -193,7 +182,7 @@ export default function EstimatesPage() {
         >
           <Plus className="h-4 w-4" />
           Create Estimate
-        </button>
+        </Link>
       </div>
 
       {/* Summary Stats */}
@@ -302,7 +291,8 @@ export default function EstimatesPage() {
                 return (
                   <tr
                     key={estimate.id}
-                    className="hover:bg-muted/20 transition-colors"
+                    onClick={() => window.location.href = `/dashboard/estimates/${estimate.id}`}
+                    className="hover:bg-muted/20 transition-colors cursor-pointer"
                   >
                     <td className="px-5 py-3">
                       <p className="text-sm font-semibold text-primary">
@@ -350,7 +340,7 @@ export default function EstimatesPage() {
                       <div className="flex items-center justify-end gap-1">
                         {estimate.status === "accepted" && (
                           <button
-                            onClick={() => showToast(`Converting ${estimate.estimateNumber} to invoice...`)}
+                            onClick={() => toast.info(`Converting ${estimate.estimateNumber} to invoice...`)}
                             className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors"
                             title="Convert to Invoice"
                           >
@@ -380,13 +370,13 @@ export default function EstimatesPage() {
                         ? `No results matching "${search}"`
                         : "No estimates yet. Create an estimate for a potential job."}
                     </p>
-                    <button
-                      onClick={() => showToast("Estimate builder coming soon")}
+                    <Link
+                      href="/dashboard/estimates/new"
                       className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       Create Estimate
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               )}

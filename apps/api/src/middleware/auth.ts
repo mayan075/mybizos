@@ -17,16 +17,11 @@ declare module 'hono' {
   }
 }
 
-// Cache the dev user so we only query the DB once per process
-let cachedDevUser: AuthUser | null = null;
-
 /**
- * In dev mode, try to find a real user + org from the database.
+ * In dev mode (with explicit DEV_AUTH_BYPASS=true), try to find a real user + org from the database.
  * Returns null if DB is unavailable — caller must handle 401.
  */
 async function getDevUser(): Promise<AuthUser | null> {
-  if (cachedDevUser) return cachedDevUser;
-
   try {
     const { db, users, orgMembers } = await import('@mybizos/db');
     const { eq } = await import('drizzle-orm');
@@ -44,13 +39,12 @@ async function getDevUser(): Promise<AuthUser | null> {
 
     if (result.length > 0 && result[0]) {
       const row = result[0];
-      cachedDevUser = {
+      return {
         id: row.userId,
         email: row.email,
         orgId: row.orgId,
         role: row.role as AuthUser['role'],
       };
-      return cachedDevUser;
     }
   } catch {
     // DB not available — return null so caller returns 401
@@ -70,8 +64,9 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authorization = c.req.header('Authorization');
 
   if (!authorization) {
-    // In dev mode, allow token-less requests if we can find a real user in the DB
-    if (config.NODE_ENV === 'development') {
+    // Dev bypass requires BOTH NODE_ENV=development AND explicit DEV_AUTH_BYPASS=true
+    if (config.NODE_ENV === 'development' && process.env['DEV_AUTH_BYPASS'] === 'true') {
+      logger.warn('[AUTH] DEV AUTH BYPASS ACTIVE — never use in production');
       const devUser = await getDevUser();
       if (devUser) {
         c.set('user', devUser);
@@ -79,7 +74,6 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
         await next();
         return;
       }
-      logger.warn('Dev mode: no auth token and no user found in database');
     }
     return c.json(
       { error: 'Authorization header is required', code: 'UNAUTHORIZED', status: 401 },
@@ -130,5 +124,37 @@ export function requireRole(...roles: AuthUser['role'][]): MiddlewareHandler {
       );
     }
     await next();
+  };
+}
+
+/**
+ * Require platform-level admin access.
+ * Only emails listed in PLATFORM_ADMIN_EMAILS env var can access these routes.
+ * Falls back to owner role check if no admin emails are configured.
+ */
+export function requirePlatformAdmin(): MiddlewareHandler {
+  return async (c, next) => {
+    const user = c.get('user');
+    const adminEmails = config.PLATFORM_ADMIN_EMAILS
+      .split(',')
+      .map((e: string) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (adminEmails.length === 0) {
+      // If no admin emails configured, fall back to owner role check
+      if (user.role !== 'owner') {
+        return c.json(
+          { error: 'Platform admin access required', code: 'FORBIDDEN', status: 403 },
+          403,
+        );
+      }
+    } else if (!adminEmails.includes(user.email.toLowerCase())) {
+      return c.json(
+        { error: 'Platform admin access required', code: 'FORBIDDEN', status: 403 },
+        403,
+      );
+    }
+
+    return next();
   };
 }

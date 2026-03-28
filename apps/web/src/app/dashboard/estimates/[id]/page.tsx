@@ -1,41 +1,37 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Send,
   CheckCircle2,
-  AlertTriangle,
   FileEdit,
-  Receipt,
-  MessageSquare,
-  CreditCard,
+  FileText,
   Clock,
   Plus,
   Trash2,
   Save,
-  Bell,
-  Smartphone,
-  DollarSign,
-  ChevronDown,
+  ArrowRightLeft,
+  Trash,
+  Eye,
+  ThumbsDown,
+  XCircle,
   Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { getUser } from "@/lib/auth";
-import { getOnboardingData } from "@/lib/onboarding";
 import { trackPageVisit } from "@/lib/recently-viewed";
-import { useEffect } from "react";
 import {
-  useInvoice,
-  useUpdateInvoice,
-  useSendInvoice,
-  useMarkInvoicePaid,
-} from "@/lib/hooks/use-invoices";
-import type { Invoice } from "@/lib/hooks/use-invoices";
+  useEstimate,
+  useUpdateEstimate,
+  useSendEstimate,
+  useConvertToInvoice,
+  useDeleteEstimate,
+} from "@/lib/hooks/use-estimates";
+import type { Estimate } from "@/lib/hooks/use-estimates";
 
 // ── Types ──
 
@@ -46,14 +42,7 @@ interface LineItem {
   rate: number;
 }
 
-interface PaymentRecord {
-  id: string;
-  date: string;
-  amount: number;
-  method: string;
-}
-
-interface InvoiceData {
+interface EstimateData {
   id: string;
   number: string;
   customerName: string;
@@ -61,47 +50,41 @@ interface InvoiceData {
   customerPhone: string;
   customerAddress: string;
   service: string;
-  status: "draft" | "sent" | "paid" | "overdue";
+  status: Estimate["status"];
   lineItems: LineItem[];
   taxRate: number;
   issueDate: string;
-  dueDate: string;
-  paidDate: string | null;
+  validUntil: string;
+  acceptedAt: string | null;
+  sentAt: string | null;
+  convertedToInvoiceId: string | null;
   notes: string;
-  terms: string;
-  isRecurring: boolean;
-  recurringInterval: string | null;
-  payments: PaymentRecord[];
 }
 
-/** Map an API Invoice to the local InvoiceData shape used by the UI */
-function mapApiInvoice(inv: Invoice): InvoiceData {
+/** Map an API Estimate to the local EstimateData shape used by the UI */
+function mapApiEstimate(est: Estimate): EstimateData {
   return {
-    id: inv.id,
-    number: inv.invoiceNumber,
-    customerName: inv.contactName ?? "Unknown Customer",
-    customerEmail: inv.contactEmail ?? "",
+    id: est.id,
+    number: est.estimateNumber,
+    customerName: est.contactName ?? "Unknown Customer",
+    customerEmail: est.contactEmail ?? "",
     customerPhone: "",
     customerAddress: "",
-    service: inv.lineItems?.[0]?.description ?? "Service",
-    status: (inv.status === "viewed" || inv.status === "cancelled") ? "sent" : inv.status as InvoiceData["status"],
-    lineItems: (inv.lineItems ?? []).map((li, idx) => ({
+    service: est.lineItems?.[0]?.description ?? "Service",
+    status: est.status,
+    lineItems: (est.lineItems ?? []).map((li, idx) => ({
       id: `li-${idx}`,
       description: li.description,
       quantity: li.quantity,
       rate: li.unitPrice,
     })),
-    taxRate: parseFloat(inv.taxRate) || 0,
-    issueDate: inv.createdAt ? inv.createdAt.split("T")[0] ?? "" : "",
-    dueDate: inv.dueDate ? inv.dueDate.split("T")[0] ?? "" : "",
-    paidDate: inv.paidAt ? inv.paidAt.split("T")[0] ?? null : null,
-    notes: inv.notes ?? "",
-    terms: "",
-    isRecurring: false,
-    recurringInterval: null,
-    payments: inv.paidAt
-      ? [{ id: "p1", date: inv.paidAt.split("T")[0] ?? "", amount: parseFloat(inv.total) || 0, method: "Payment" }]
-      : [],
+    taxRate: parseFloat(est.taxRate) || 0,
+    issueDate: est.issueDate ? est.issueDate.split("T")[0] ?? "" : "",
+    validUntil: est.validUntil ? est.validUntil.split("T")[0] ?? "" : "",
+    acceptedAt: est.acceptedAt ? est.acceptedAt.split("T")[0] ?? null : null,
+    sentAt: est.sentAt ? est.sentAt.split("T")[0] ?? null : null,
+    convertedToInvoiceId: est.convertedToInvoiceId,
+    notes: est.notes ?? "",
   };
 }
 
@@ -119,47 +102,75 @@ function generateId(): string {
   return `li-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 }
 
+const statusConfig: Record<
+  string,
+  { label: string; icon: React.ElementType; className: string }
+> = {
+  draft: {
+    label: "Draft",
+    icon: FileEdit,
+    className: "bg-muted text-muted-foreground",
+  },
+  sent: {
+    label: "Sent",
+    icon: Send,
+    className: "bg-info/10 text-info",
+  },
+  viewed: {
+    label: "Viewed",
+    icon: Eye,
+    className: "bg-info/10 text-info",
+  },
+  accepted: {
+    label: "Accepted",
+    icon: CheckCircle2,
+    className: "bg-success/10 text-success",
+  },
+  declined: {
+    label: "Declined",
+    icon: ThumbsDown,
+    className: "bg-destructive/10 text-destructive",
+  },
+  expired: {
+    label: "Expired",
+    icon: XCircle,
+    className: "bg-muted text-muted-foreground",
+  },
+};
+
 // ── Page ──
 
-export default function InvoiceDetailPage() {
+export default function EstimateDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const invoiceId = params.id as string;
+  const estimateId = params.id as string;
   const toast = useToast();
 
-  // Fetch invoice from API
-  const { data: apiInvoice, isLoading, refetch } = useInvoice(invoiceId);
+  // Fetch estimate from API
+  const { data: apiEstimate, isLoading, refetch } = useEstimate(estimateId);
 
-  // Business info for preview
-  const user = useMemo(() => getUser(), []);
-  const onboarding = useMemo(() => getOnboardingData(), []);
-  const businessName = user?.orgName || onboarding?.businessName || "My Business";
-  const businessEmail = user?.email || "";
-  const businessPhone = onboarding?.phoneSetup?.existingNumber || "";
-
-  const invoiceData = useMemo(() => {
-    if (!apiInvoice) return null;
-    return mapApiInvoice(apiInvoice);
-  }, [apiInvoice]);
+  const estimateData = useMemo(() => {
+    if (!apiEstimate) return null;
+    return mapApiEstimate(apiEstimate);
+  }, [apiEstimate]);
 
   // Track page visit for recently viewed
   useEffect(() => {
-    if (invoiceData) {
+    if (estimateData) {
       trackPageVisit({
-        path: `/dashboard/invoices/${invoiceId}`,
-        label: invoiceData.number,
-        type: "Invoice",
+        path: `/dashboard/estimates/${estimateId}`,
+        label: estimateData.number,
+        type: "Estimate",
       });
     }
-  }, [invoiceId, invoiceData]);
-
+  }, [estimateId, estimateData]);
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -173,44 +184,44 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  if (!invoiceData) {
+  if (!estimateData) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Invoice Not Found</h1>
+          <h1 className="text-2xl font-bold text-foreground">Estimate Not Found</h1>
         </div>
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-          <Receipt className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+          <FileText className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
           <p className="text-sm font-medium text-foreground mb-1">
-            Invoice not found
+            Estimate not found
           </p>
           <p className="text-xs text-muted-foreground mb-4">
-            The invoice you&apos;re looking for doesn&apos;t exist.
+            The estimate you&apos;re looking for doesn&apos;t exist.
           </p>
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            Back to Invoices
+            Back to Estimates
           </Link>
         </div>
       </div>
     );
   }
 
-  if (invoiceData.status === "draft") {
+  if (estimateData.status === "draft") {
     return (
       <div className="space-y-4">
-        <Breadcrumbs currentLabel={invoiceData.number} />
-        <DraftInvoiceView
-          invoice={invoiceData}
-          invoiceId={invoiceId}
+        <Breadcrumbs currentLabel={estimateData.number} />
+        <DraftEstimateView
+          estimate={estimateData}
+          estimateId={estimateId}
           router={router}
           onRefetch={refetch}
         />
@@ -220,14 +231,12 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumbs currentLabel={invoiceData.number} />
-      <InvoiceView
-        invoice={invoiceData}
-        invoiceId={invoiceId}
+      <Breadcrumbs currentLabel={estimateData.number} />
+      <EstimateView
+        estimate={estimateData}
+        estimateId={estimateId}
+        router={router}
         onRefetch={refetch}
-        businessName={businessName}
-        businessEmail={businessEmail}
-        businessPhone={businessPhone}
       />
     </div>
   );
@@ -235,26 +244,26 @@ export default function InvoiceDetailPage() {
 
 // ── Draft View (Editable) ──
 
-function DraftInvoiceView({
-  invoice,
-  invoiceId,
+function DraftEstimateView({
+  estimate,
+  estimateId,
   router,
   onRefetch,
 }: {
-  invoice: InvoiceData;
-  invoiceId: string;
+  estimate: EstimateData;
+  estimateId: string;
   router: ReturnType<typeof useRouter>;
   onRefetch: () => void;
 }) {
   const toast = useToast();
-  const [lineItems, setLineItems] = useState<LineItem[]>(invoice.lineItems);
-  const [taxRate, setTaxRate] = useState(invoice.taxRate);
-  const [notes, setNotes] = useState(invoice.notes);
-  const [terms, setTerms] = useState(invoice.terms);
-  const [dueDate, setDueDate] = useState(invoice.dueDate);
+  const [lineItems, setLineItems] = useState<LineItem[]>(estimate.lineItems);
+  const [taxRate, setTaxRate] = useState(estimate.taxRate);
+  const [notes, setNotes] = useState(estimate.notes);
+  const [validUntil, setValidUntil] = useState(estimate.validUntil);
 
-  const { mutate: updateInvoice, isLoading: isUpdating } = useUpdateInvoice(invoiceId);
-  const { mutate: sendInvoice, isLoading: isSending } = useSendInvoice(invoiceId);
+  const { mutate: updateEstimate, isLoading: isUpdating } = useUpdateEstimate(estimateId);
+  const { mutate: sendEstimate, isLoading: isSending } = useSendEstimate(estimateId);
+  const { mutate: deleteEstimate, isLoading: isDeleting } = useDeleteEstimate(estimateId);
 
   const subtotal = useMemo(
     () => lineItems.reduce((sum, li) => sum + li.quantity * li.rate, 0),
@@ -286,29 +295,45 @@ function DraftInvoiceView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{invoice.number}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{estimate.number}</h1>
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                 <FileEdit className="h-3 w-3" />
                 Draft
               </span>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {invoice.customerName} &middot; {invoice.service}
+              {estimate.customerName} &middot; {estimate.service}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
+              const result = await deleteEstimate();
+              if (result) {
+                toast.success("Estimate deleted");
+                setTimeout(() => router.push("/dashboard/estimates"), 1500);
+              } else {
+                toast.error("Failed to delete estimate");
+              }
+            }}
+            disabled={isUpdating || isSending || isDeleting}
+            className="flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-4 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash className="h-4 w-4" />}
+            Delete
+          </button>
+          <button
+            onClick={async () => {
               const payload = {
-                dueDate,
+                validUntil,
                 lineItems: lineItems
                   .filter((li) => li.description.trim() || li.rate > 0)
                   .map((li) => ({
@@ -320,15 +345,15 @@ function DraftInvoiceView({
                 taxRate,
                 notes: notes || undefined,
               };
-              const result = await updateInvoice(payload);
+              const result = await updateEstimate(payload);
               if (result) {
-                toast.success("Invoice saved");
+                toast.success("Estimate saved");
                 onRefetch();
               } else {
-                toast.error("Failed to save invoice");
+                toast.error("Failed to save estimate");
               }
             }}
-            disabled={isUpdating || isSending}
+            disabled={isUpdating || isSending || isDeleting}
             className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -336,9 +361,8 @@ function DraftInvoiceView({
           </button>
           <button
             onClick={async () => {
-              // Save first, then send
               const payload = {
-                dueDate,
+                validUntil,
                 lineItems: lineItems
                   .filter((li) => li.description.trim() || li.rate > 0)
                   .map((li) => ({
@@ -350,32 +374,32 @@ function DraftInvoiceView({
                 taxRate,
                 notes: notes || undefined,
               };
-              await updateInvoice(payload);
-              const result = await sendInvoice({});
+              await updateEstimate(payload);
+              const result = await sendEstimate();
               if (result) {
-                toast.success(`Invoice sent to ${invoice.customerEmail}`);
-                setTimeout(() => router.push("/dashboard/invoices"), 1500);
+                toast.success(`Estimate sent to ${estimate.customerEmail}`);
+                setTimeout(() => router.push("/dashboard/estimates"), 1500);
               } else {
-                toast.error("Failed to send invoice");
+                toast.error("Failed to send estimate");
               }
             }}
-            disabled={isUpdating || isSending}
+            disabled={isUpdating || isSending || isDeleting}
             className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send Invoice
+            Send Estimate
           </button>
         </div>
       </div>
 
       {/* Customer Info */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold text-foreground mb-3">Bill To</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">Estimate For</h2>
         <div className="rounded-lg bg-muted/30 p-3 space-y-1">
-          <p className="text-sm font-medium text-foreground">{invoice.customerName}</p>
-          <p className="text-xs text-muted-foreground">{invoice.customerEmail}</p>
-          <p className="text-xs text-muted-foreground">{invoice.customerPhone}</p>
-          <p className="text-xs text-muted-foreground">{invoice.customerAddress}</p>
+          <p className="text-sm font-medium text-foreground">{estimate.customerName}</p>
+          <p className="text-xs text-muted-foreground">{estimate.customerEmail}</p>
+          <p className="text-xs text-muted-foreground">{estimate.customerPhone}</p>
+          <p className="text-xs text-muted-foreground">{estimate.customerAddress}</p>
         </div>
       </div>
 
@@ -475,14 +499,14 @@ function DraftInvoiceView({
         </div>
       </div>
 
-      {/* Due Date & Notes */}
+      {/* Valid Until & Notes */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Due Date</label>
+          <label className="text-sm font-medium text-foreground">Valid Until</label>
           <input
             type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
             className="h-10 w-full max-w-xs rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
@@ -495,74 +519,37 @@ function DraftInvoiceView({
             className="w-full rounded-lg border border-input bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
           />
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Terms &amp; Conditions</label>
-          <textarea
-            value={terms}
-            onChange={(e) => setTerms(e.target.value)}
-            rows={2}
-            className="w-full rounded-lg border border-input bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
-          />
-        </div>
       </div>
     </div>
   );
 }
 
-// ── Sent/Paid/Overdue View ──
+// ── Sent/Accepted/Viewed/Declined/Expired View ──
 
-function InvoiceView({
-  invoice,
-  invoiceId,
+function EstimateView({
+  estimate,
+  estimateId,
+  router,
   onRefetch,
-  businessName,
-  businessEmail,
-  businessPhone,
 }: {
-  invoice: InvoiceData;
-  invoiceId: string;
+  estimate: EstimateData;
+  estimateId: string;
+  router: ReturnType<typeof useRouter>;
   onRefetch: () => void;
-  businessName: string;
-  businessEmail: string;
-  businessPhone: string;
 }) {
   const toast = useToast();
-  const { mutate: markPaid, isLoading: isMarkingPaid } = useMarkInvoicePaid(invoiceId);
-  const { mutate: sendInvoice, isLoading: isSendingReminder } = useSendInvoice(invoiceId);
-  const subtotal = invoice.lineItems.reduce(
+  const { mutate: sendEstimate, isLoading: isSending } = useSendEstimate(estimateId);
+  const { mutate: convertToInvoice, isLoading: isConverting } = useConvertToInvoice(estimateId);
+  const { mutate: deleteEstimate, isLoading: isDeleting } = useDeleteEstimate(estimateId);
+
+  const subtotal = estimate.lineItems.reduce(
     (sum, li) => sum + li.quantity * li.rate,
     0,
   );
-  const taxAmount = subtotal * (invoice.taxRate / 100);
+  const taxAmount = subtotal * (estimate.taxRate / 100);
   const total = subtotal + taxAmount;
-  const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-  const balanceDue = total - totalPaid;
 
-  const statusConfig: Record<
-    string,
-    { label: string; icon: React.ElementType; className: string; stampClass: string }
-  > = {
-    sent: {
-      label: "Sent",
-      icon: Send,
-      className: "bg-info/10 text-info",
-      stampClass: "",
-    },
-    paid: {
-      label: "Paid",
-      icon: CheckCircle2,
-      className: "bg-success/10 text-success",
-      stampClass: "border-success text-success",
-    },
-    overdue: {
-      label: "Overdue",
-      icon: AlertTriangle,
-      className: "bg-destructive/10 text-destructive",
-      stampClass: "border-destructive text-destructive",
-    },
-  };
-
-  const cfg = statusConfig[invoice.status] ?? statusConfig.sent;
+  const cfg = statusConfig[estimate.status] ?? statusConfig.draft;
   const StatusIcon = cfg.icon;
 
   return (
@@ -571,14 +558,14 @@ function InvoiceView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{invoice.number}</h1>
+              <h1 className="text-2xl font-bold text-foreground">{estimate.number}</h1>
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
@@ -590,68 +577,93 @@ function InvoiceView({
               </span>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {invoice.customerName} &middot; {invoice.service}
+              {estimate.customerName} &middot; {estimate.service}
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {invoice.status === "overdue" && (
+          {(estimate.status === "sent" || estimate.status === "viewed") && (
             <button
               onClick={async () => {
-                const result = await sendInvoice({});
+                const result = await sendEstimate();
                 if (result) {
-                  toast.success(`Reminder sent to ${invoice.customerEmail}`);
+                  toast.success(`Estimate resent to ${estimate.customerEmail}`);
                   onRefetch();
                 } else {
-                  toast.error("Failed to send reminder");
+                  toast.error("Failed to resend estimate");
                 }
               }}
-              disabled={isSendingReminder}
-              className="flex h-9 items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 text-sm font-medium text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
+              disabled={isSending}
+              className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
             >
-              {isSendingReminder ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-              Send Reminder
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Resend
             </button>
           )}
-          {(invoice.status === "sent" || invoice.status === "overdue") && (
-            <>
-              <button
-                onClick={() => toast.success(`Payment link texted to ${invoice.customerPhone}`)}
-                className="flex h-9 items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                <Smartphone className="h-4 w-4" />
-                Text Payment Link
-              </button>
-              <button
-                onClick={async () => {
-                  const result = await markPaid({});
-                  if (result) {
-                    toast.success("Invoice marked as paid");
-                    onRefetch();
-                  } else {
-                    toast.error("Failed to mark invoice as paid");
-                  }
-                }}
-                disabled={isMarkingPaid}
-                className="flex h-9 items-center gap-2 rounded-lg bg-success px-4 text-sm font-medium text-white hover:bg-success/90 transition-colors disabled:opacity-50"
-              >
-                {isMarkingPaid ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
-                Mark as Paid
-              </button>
-            </>
+          {estimate.status === "accepted" && !estimate.convertedToInvoiceId && (
+            <button
+              onClick={async () => {
+                const result = await convertToInvoice();
+                if (result) {
+                  toast.success("Estimate converted to invoice");
+                  onRefetch();
+                } else {
+                  toast.error("Failed to convert estimate");
+                }
+              }}
+              disabled={isConverting}
+              className="flex h-9 items-center gap-2 rounded-lg bg-success px-4 text-sm font-medium text-white hover:bg-success/90 transition-colors disabled:opacity-50"
+            >
+              {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+              Convert to Invoice
+            </button>
           )}
+          {estimate.convertedToInvoiceId && (
+            <Link
+              href={`/dashboard/invoices/${estimate.convertedToInvoiceId}`}
+              className="flex h-9 items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 text-sm font-medium text-success hover:bg-success/10 transition-colors"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              View Invoice
+            </Link>
+          )}
+          <button
+            onClick={async () => {
+              const result = await deleteEstimate();
+              if (result) {
+                toast.success("Estimate deleted");
+                setTimeout(() => router.push("/dashboard/estimates"), 1500);
+              } else {
+                toast.error("Failed to delete estimate");
+              }
+            }}
+            disabled={isDeleting}
+            className="flex h-9 items-center gap-2 rounded-lg border border-destructive/30 px-4 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash className="h-4 w-4" />}
+            Delete
+          </button>
         </div>
       </div>
 
-      {/* Invoice Preview Card */}
+      {/* Estimate Preview Card */}
       <div className="rounded-xl border border-border bg-white p-8 shadow-sm relative overflow-hidden">
-        {/* PAID Stamp */}
-        {invoice.status === "paid" && (
+        {/* ACCEPTED Stamp */}
+        {estimate.status === "accepted" && (
           <div className="absolute top-12 right-8 rotate-[-15deg] pointer-events-none">
             <div className="border-4 border-green-500 rounded-lg px-6 py-2 opacity-20">
-              <p className="text-4xl font-black text-green-500 tracking-widest">PAID</p>
+              <p className="text-4xl font-black text-green-500 tracking-widest">ACCEPTED</p>
+            </div>
+          </div>
+        )}
+
+        {/* DECLINED Stamp */}
+        {estimate.status === "declined" && (
+          <div className="absolute top-12 right-8 rotate-[-15deg] pointer-events-none">
+            <div className="border-4 border-red-500 rounded-lg px-6 py-2 opacity-20">
+              <p className="text-4xl font-black text-red-500 tracking-widest">DECLINED</p>
             </div>
           </div>
         )}
@@ -661,38 +673,45 @@ function InvoiceView({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
-                <Receipt className="h-5 w-5 text-white" />
+                <FileText className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">{businessName}</h3>
+                <h3 className="text-lg font-bold text-gray-900">Jim&apos;s Plumbing &amp; HVAC</h3>
+                <p className="text-xs text-gray-500">Licensed &amp; Insured</p>
               </div>
             </div>
             <div className="mt-2 space-y-0.5">
-              {businessPhone && <p className="text-xs text-gray-500">{businessPhone}</p>}
-              {businessEmail && <p className="text-xs text-gray-500">{businessEmail}</p>}
+              <p className="text-xs text-gray-500">123 Main Street, Denver, CO 80201</p>
+              <p className="text-xs text-gray-500">(555) 123-4567 &middot; mayan@northernremovals.com.au</p>
             </div>
           </div>
           <div className="text-right">
-            <h2 className="text-3xl font-bold text-gray-900">INVOICE</h2>
-            <p className="text-sm font-medium text-gray-600 mt-1">{invoice.number}</p>
+            <h2 className="text-3xl font-bold text-gray-900">ESTIMATE</h2>
+            <p className="text-sm font-medium text-gray-600 mt-1">{estimate.number}</p>
             <div className="mt-3 space-y-1">
               <div className="flex justify-end gap-4 text-xs">
                 <span className="text-gray-400">Issue Date:</span>
-                <span className="text-gray-700 font-medium">{formatDate(invoice.issueDate)}</span>
+                <span className="text-gray-700 font-medium">{formatDate(estimate.issueDate)}</span>
               </div>
               <div className="flex justify-end gap-4 text-xs">
-                <span className="text-gray-400">Due Date:</span>
+                <span className="text-gray-400">Valid Until:</span>
                 <span className={cn(
                   "font-medium",
-                  invoice.status === "overdue" ? "text-red-600" : "text-gray-700",
+                  estimate.status === "expired" ? "text-red-600" : "text-gray-700",
                 )}>
-                  {formatDate(invoice.dueDate)}
+                  {formatDate(estimate.validUntil)}
                 </span>
               </div>
-              {invoice.paidDate && (
+              {estimate.acceptedAt && (
                 <div className="flex justify-end gap-4 text-xs">
-                  <span className="text-gray-400">Paid Date:</span>
-                  <span className="text-green-600 font-medium">{formatDate(invoice.paidDate)}</span>
+                  <span className="text-gray-400">Accepted:</span>
+                  <span className="text-green-600 font-medium">{formatDate(estimate.acceptedAt)}</span>
+                </div>
+              )}
+              {estimate.sentAt && (
+                <div className="flex justify-end gap-4 text-xs">
+                  <span className="text-gray-400">Sent:</span>
+                  <span className="text-gray-700 font-medium">{formatDate(estimate.sentAt)}</span>
                 </div>
               )}
             </div>
@@ -701,13 +720,13 @@ function InvoiceView({
 
         <div className="h-px bg-gray-200 mb-6" />
 
-        {/* Bill To */}
+        {/* Estimate For */}
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Bill To</p>
-          <p className="text-sm font-medium text-gray-900">{invoice.customerName}</p>
-          <p className="text-xs text-gray-500">{invoice.customerEmail}</p>
-          <p className="text-xs text-gray-500">{invoice.customerPhone}</p>
-          <p className="text-xs text-gray-500">{invoice.customerAddress}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Estimate For</p>
+          <p className="text-sm font-medium text-gray-900">{estimate.customerName}</p>
+          <p className="text-xs text-gray-500">{estimate.customerEmail}</p>
+          <p className="text-xs text-gray-500">{estimate.customerPhone}</p>
+          <p className="text-xs text-gray-500">{estimate.customerAddress}</p>
         </div>
 
         {/* Line Items Table */}
@@ -721,7 +740,7 @@ function InvoiceView({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {invoice.lineItems.map((item) => (
+            {estimate.lineItems.map((item) => (
               <tr key={item.id}>
                 <td className="py-3 text-sm text-gray-900">{item.description}</td>
                 <td className="py-3 text-sm text-gray-600 text-center">{item.quantity}</td>
@@ -743,7 +762,7 @@ function InvoiceView({
             </div>
             {taxAmount > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tax ({invoice.taxRate}%)</span>
+                <span className="text-gray-500">Tax ({estimate.taxRate}%)</span>
                 <span className="text-gray-900">{formatCurrency(taxAmount)}</span>
               </div>
             )}
@@ -751,76 +770,84 @@ function InvoiceView({
               <span className="font-bold text-gray-900">Total</span>
               <span className="font-bold text-gray-900">{formatCurrency(total)}</span>
             </div>
-            {invoice.payments.length > 0 && balanceDue > 0 && (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Amount Paid</span>
-                  <span className="text-green-600">-{formatCurrency(totalPaid)}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
-                  <span className="font-bold text-gray-900">Balance Due</span>
-                  <span className="font-bold text-red-600">{formatCurrency(balanceDue)}</span>
-                </div>
-              </>
-            )}
-            {invoice.status === "paid" && (
-              <div className="flex justify-between text-sm border-t border-gray-200 pt-2">
-                <span className="font-bold text-green-600">Balance Due</span>
-                <span className="font-bold text-green-600">{formatCurrency(0)}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Notes & Terms */}
-        {(invoice.notes || invoice.terms) && (
-          <div className="mt-8 border-t border-gray-200 pt-6 space-y-4">
-            {invoice.notes && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Notes</p>
-                <p className="text-xs text-gray-600 whitespace-pre-wrap">{invoice.notes}</p>
-              </div>
-            )}
-            {invoice.terms && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Terms &amp; Conditions</p>
-                <p className="text-xs text-gray-500 whitespace-pre-wrap">{invoice.terms}</p>
-              </div>
-            )}
+        {/* Notes */}
+        {estimate.notes && (
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Notes</p>
+            <p className="text-xs text-gray-600 whitespace-pre-wrap">{estimate.notes}</p>
           </div>
         )}
       </div>
 
-      {/* Payment History */}
-      {invoice.payments.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Payment History
-          </h2>
-          <div className="space-y-3">
-            {invoice.payments.map((payment) => (
-              <div
-                key={payment.id}
-                className="flex items-center justify-between rounded-lg bg-muted/30 p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-success/10">
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {formatCurrency(payment.amount)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{payment.method}</p>
-                  </div>
+      {/* Timeline / Activity */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Activity
+        </h2>
+        <div className="space-y-3">
+          {estimate.acceptedAt && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-success/10">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 </div>
-                <p className="text-xs text-muted-foreground">{formatDate(payment.date)}</p>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Estimate accepted</p>
+                  <p className="text-xs text-muted-foreground">Customer accepted the estimate</p>
+                </div>
               </div>
-            ))}
+              <p className="text-xs text-muted-foreground">{formatDate(estimate.acceptedAt)}</p>
+            </div>
+          )}
+          {estimate.sentAt && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-info/10">
+                  <Send className="h-4 w-4 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Estimate sent</p>
+                  <p className="text-xs text-muted-foreground">Sent to {estimate.customerEmail}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{formatDate(estimate.sentAt)}</p>
+            </div>
+          )}
+          {estimate.convertedToInvoiceId && (
+            <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-success/10">
+                  <ArrowRightLeft className="h-4 w-4 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Converted to invoice</p>
+                  <p className="text-xs text-muted-foreground">
+                    <Link href={`/dashboard/invoices/${estimate.convertedToInvoiceId}`} className="text-primary hover:underline">
+                      View invoice
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Estimate created</p>
+                <p className="text-xs text-muted-foreground">For {estimate.customerName}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{formatDate(estimate.issueDate)}</p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

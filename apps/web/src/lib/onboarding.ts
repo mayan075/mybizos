@@ -271,10 +271,41 @@ export function isOnboardingComplete(): boolean {
   return data !== null && Boolean(data.completedAt);
 }
 
-/** Persist onboarding data to localStorage (and optionally to API). */
+/** Persist onboarding data to localStorage and API. */
 export function saveOnboardingData(data: OnboardingData): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+  // Also persist to API so data survives device switches
+  persistOnboardingToApi(data).catch(() => {
+    // Silently fail — localStorage is the primary store during onboarding,
+    // and the final "complete" call will retry API persistence.
+  });
+}
+
+/** Fire-and-forget POST of onboarding data to the API. */
+async function persistOnboardingToApi(data: OnboardingData): Promise<void> {
+  const API_BASE = env.NEXT_PUBLIC_API_URL;
+  const token = localStorage.getItem("mybizos_token");
+  if (!token || !API_BASE) return;
+
+  // Decode orgId from token
+  try {
+    const parts = token.split(".");
+    const payload = JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { orgId?: string };
+    if (!payload.orgId) return;
+
+    await fetch(`${API_BASE}/orgs/${payload.orgId}/onboarding`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    // API unavailable — data is still safe in localStorage
+  }
 }
 
 /**

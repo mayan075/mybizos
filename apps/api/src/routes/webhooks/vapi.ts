@@ -523,6 +523,17 @@ vapiWebhooks.post('/call-ended', async (c) => {
       });
     }
 
+    // Trigger AI lead scoring in background (fire-and-forget)
+    if (contactId) {
+      import('../../services/lead-scoring-service.js').then(({ leadScoringService }) => {
+        leadScoringService.scoreContactInBackground(orgId, contactId);
+      }).catch(err => {
+        logger.error('[Vapi] Failed to import lead scoring service', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+
     // Send notification to business owner about the call
     await db.insert(notifications).values({
       orgId,

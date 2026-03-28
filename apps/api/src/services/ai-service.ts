@@ -285,6 +285,99 @@ export const aiService = {
     logger.info('AI Agent deleted', { orgId, agentId });
   },
 
+  // ── Phone Number Linking ──
+
+  async linkPhone(
+    orgId: string,
+    agentId: string,
+    data: { vapiAssistantId: string; twilioPhoneNumber: string },
+  ) {
+    const vapiClient = getVapiClient();
+    if (!vapiClient) {
+      throw Errors.internal('Vapi API key not configured');
+    }
+
+    try {
+      const vapiPhoneNumber = await vapiClient.createPhoneNumber({
+        provider: 'twilio',
+        twilioAccountSid: config.TWILIO_ACCOUNT_SID,
+        twilioAuthToken: config.TWILIO_AUTH_TOKEN,
+        twilioPhoneNumber: data.twilioPhoneNumber,
+        assistantId: data.vapiAssistantId,
+      });
+
+      const [updated] = await db
+        .update(aiAgents)
+        .set({ vapiPhoneNumberId: vapiPhoneNumber.id, updatedAt: new Date() })
+        .where(and(
+          withOrgScope(aiAgents.orgId, orgId),
+          eq(aiAgents.id, agentId),
+        ))
+        .returning();
+
+      if (!updated) {
+        throw Errors.notFound('AI Agent');
+      }
+
+      logger.info('Phone number linked to AI agent', {
+        orgId,
+        agentId,
+        vapiPhoneNumberId: vapiPhoneNumber.id,
+        phoneNumber: data.twilioPhoneNumber,
+      });
+
+      return { phoneNumberId: vapiPhoneNumber.id };
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Vapi API error')) {
+        logger.error('Vapi API error linking phone number', {
+          orgId,
+          agentId,
+          error: err.message,
+        });
+        throw Errors.internal(`Failed to link phone number: ${err.message}`);
+      }
+      throw err;
+    }
+  },
+
+  async unlinkPhone(orgId: string, agentId: string, vapiPhoneNumberId: string) {
+    const vapiClient = getVapiClient();
+    if (!vapiClient) {
+      throw Errors.internal('Vapi API key not configured');
+    }
+
+    try {
+      await vapiClient.deletePhoneNumber(vapiPhoneNumberId);
+    } catch (err) {
+      logger.error('Failed to delete Vapi phone number during unlink', {
+        orgId,
+        agentId,
+        vapiPhoneNumberId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Continue to clear the DB even if Vapi deletion fails
+    }
+
+    const [updated] = await db
+      .update(aiAgents)
+      .set({ vapiPhoneNumberId: null, updatedAt: new Date() })
+      .where(and(
+        withOrgScope(aiAgents.orgId, orgId),
+        eq(aiAgents.id, agentId),
+      ))
+      .returning();
+
+    if (!updated) {
+      throw Errors.notFound('AI Agent');
+    }
+
+    logger.info('Phone number unlinked from AI agent', {
+      orgId,
+      agentId,
+      vapiPhoneNumberId,
+    });
+  },
+
   // ── AI Call Logs ──
 
   async logCall(

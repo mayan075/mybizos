@@ -10,17 +10,15 @@ import {
   Eye,
   Save,
   Send,
-  Receipt,
+  FileText,
   ChevronDown,
   Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { useContacts } from "@/lib/hooks/use-contacts";
-import { useCreateInvoice } from "@/lib/hooks/use-invoices";
-import { getUser } from "@/lib/auth";
-import { getOnboardingData } from "@/lib/onboarding";
-import type { CreateInvoiceInput } from "@/lib/hooks/use-invoices";
+import { useCreateEstimate } from "@/lib/hooks/use-estimates";
+import type { CreateEstimateInput } from "@/lib/hooks/use-estimates";
 
 // ── Types ──
 
@@ -31,7 +29,7 @@ interface LineItem {
   rate: number;
 }
 
-interface InvoiceDraft {
+interface EstimateDraft {
   customerId: string;
   customerName: string;
   customerEmail: string;
@@ -39,9 +37,8 @@ interface InvoiceDraft {
   customerAddress: string;
   lineItems: LineItem[];
   taxRate: number;
-  dueDate: string;
+  validUntil: string;
   notes: string;
-  terms: string;
 }
 
 // ── Helpers ──
@@ -52,7 +49,7 @@ function generateId(): string {
 
 // ── Page ──
 
-export default function NewInvoicePage() {
+export default function NewEstimatePage() {
   const router = useRouter();
   const toast = useToast();
   const [showPreview, setShowPreview] = useState(false);
@@ -61,16 +58,9 @@ export default function NewInvoicePage() {
 
   // API hooks
   const { data: contacts, isLoading: contactsLoading } = useContacts({ search: customerSearch });
-  const { mutate: createInvoice, isLoading: isSaving } = useCreateInvoice();
+  const { mutate: createEstimate, isLoading: isSaving } = useCreateEstimate();
 
-  // Business info for preview
-  const user = useMemo(() => getUser(), []);
-  const onboarding = useMemo(() => getOnboardingData(), []);
-  const businessName = user?.orgName || onboarding?.businessName || "My Business";
-  const businessEmail = user?.email || "";
-  const businessPhone = onboarding?.phoneSetup?.existingNumber || "";
-
-  const [draft, setDraft] = useState<InvoiceDraft>({
+  const [draft, setDraft] = useState<EstimateDraft>({
     customerId: "",
     customerName: "",
     customerEmail: "",
@@ -80,9 +70,8 @@ export default function NewInvoicePage() {
       { id: generateId(), description: "", quantity: 1, rate: 0 },
     ],
     taxRate: 0,
-    dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] as string,
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] as string,
     notes: "",
-    terms: "Payment is due within 15 days of invoice date. Late payments may be subject to a 1.5% monthly finance charge.",
   });
 
   function selectCustomer(contact: { id: string; name: string; email: string; phone: string }) {
@@ -137,16 +126,15 @@ export default function NewInvoicePage() {
   }, [subtotal, taxAmount]);
 
   const filteredContacts = useMemo(() => {
-    // The useContacts hook already handles server-side search filtering
     return contacts;
   }, [contacts]);
 
   const canSave = draft.customerName.trim().length > 0 && draft.lineItems.some((li) => li.description.trim().length > 0 && li.rate > 0);
 
-  const buildPayload = useCallback((): CreateInvoiceInput => {
+  const buildPayload = useCallback((): CreateEstimateInput => {
     return {
       contactId: draft.customerId || undefined,
-      dueDate: draft.dueDate,
+      validUntil: draft.validUntil,
       lineItems: draft.lineItems
         .filter((li) => li.description.trim() || li.rate > 0)
         .map((li) => ({
@@ -162,32 +150,31 @@ export default function NewInvoicePage() {
 
   const handleSaveDraft = useCallback(async () => {
     const payload = buildPayload();
-    const result = await createInvoice(payload);
+    const result = await createEstimate(payload);
     if (result) {
-      toast.success("Invoice saved as draft");
-      setTimeout(() => router.push("/dashboard/invoices"), 1500);
+      toast.success("Estimate saved as draft");
+      setTimeout(() => router.push("/dashboard/estimates"), 1500);
     } else {
-      toast.error("Failed to save invoice. Please try again.");
+      toast.error("Failed to save estimate. Please try again.");
     }
-  }, [buildPayload, createInvoice, router]);
+  }, [buildPayload, createEstimate, router]);
 
   const handleSend = useCallback(async () => {
     const payload = buildPayload();
-    const result = await createInvoice(payload);
+    const result = await createEstimate(payload);
     if (result) {
-      // After creating, send it via the send endpoint
       const { apiClient, tryFetch } = await import("@/lib/api-client");
       const { buildPath } = await import("@/lib/hooks/use-api");
-      const sendPath = buildPath(`/orgs/:orgId/invoices/${result.id}/send`);
+      const sendPath = buildPath(`/orgs/:orgId/estimates/${result.id}/send`);
       await tryFetch(() => apiClient.post(sendPath, {}));
-      toast.success(`Invoice sent to ${draft.customerEmail}`);
-      setTimeout(() => router.push("/dashboard/invoices"), 1500);
+      toast.success(`Estimate sent to ${draft.customerEmail}`);
+      setTimeout(() => router.push("/dashboard/estimates"), 1500);
     } else {
-      toast.error("Failed to create invoice. Please try again.");
+      toast.error("Failed to create estimate. Please try again.");
     }
-  }, [buildPayload, createInvoice, router, draft.customerEmail]);
+  }, [buildPayload, createEstimate, router, draft.customerEmail]);
 
-  const invoiceNumber = "New";
+  const estimateNumber = "New";
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -200,17 +187,17 @@ export default function NewInvoicePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard/invoices"
+            href="/dashboard/estimates"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              New Invoice
+              New Estimate
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {invoiceNumber} &middot; {today}
+              {estimateNumber} &middot; {today}
             </p>
           </div>
         </div>
@@ -251,17 +238,17 @@ export default function NewInvoicePage() {
             )}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send Invoice
+            Send Estimate
           </button>
         </div>
       </div>
 
       <div className={cn("grid gap-6", showPreview ? "grid-cols-2" : "grid-cols-1")}>
-        {/* Invoice Form */}
+        {/* Estimate Form */}
         <div className="space-y-6">
           {/* Customer Selection */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Bill To</h2>
+            <h2 className="text-sm font-semibold text-foreground mb-4">Estimate For</h2>
             <div className="relative">
               <button
                 onClick={() => setShowCustomerDropdown(!showCustomerDropdown)}
@@ -430,22 +417,22 @@ export default function NewInvoicePage() {
             </div>
           </div>
 
-          {/* Due Date & Notes */}
+          {/* Valid Until & Notes */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Due Date</label>
+                <label className="text-sm font-medium text-foreground">Valid Until</label>
                 <input
                   type="date"
-                  value={draft.dueDate}
-                  onChange={(e) => setDraft((prev) => ({ ...prev, dueDate: e.target.value }))}
+                  value={draft.validUntil}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, validUntil: e.target.value }))}
                   className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Invoice Number</label>
+                <label className="text-sm font-medium text-foreground">Estimate Number</label>
                 <input
-                  value={invoiceNumber}
+                  value={estimateNumber}
                   readOnly
                   className="h-10 w-full rounded-lg border border-input bg-muted/50 px-3 text-sm text-muted-foreground cursor-not-allowed"
                 />
@@ -461,30 +448,18 @@ export default function NewInvoicePage() {
                 className="w-full rounded-lg border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Terms &amp; Conditions</label>
-              <textarea
-                value={draft.terms}
-                onChange={(e) => setDraft((prev) => ({ ...prev, terms: e.target.value }))}
-                rows={2}
-                className="w-full rounded-lg border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
-              />
-            </div>
           </div>
         </div>
 
         {/* Preview Panel */}
         {showPreview && (
           <div className="rounded-xl border border-border bg-white p-8 shadow-sm sticky top-6 self-start">
-            <InvoicePreview
+            <EstimatePreview
               draft={draft}
-              invoiceNumber={invoiceNumber}
+              estimateNumber={estimateNumber}
               subtotal={subtotal}
               taxAmount={taxAmount}
               total={total}
-              businessName={businessName}
-              businessEmail={businessEmail}
-              businessPhone={businessPhone}
             />
           </div>
         )}
@@ -493,26 +468,20 @@ export default function NewInvoicePage() {
   );
 }
 
-// ── Invoice Preview Component ──
+// ── Estimate Preview Component ──
 
-function InvoicePreview({
+function EstimatePreview({
   draft,
-  invoiceNumber,
+  estimateNumber,
   subtotal,
   taxAmount,
   total,
-  businessName,
-  businessEmail,
-  businessPhone,
 }: {
-  draft: InvoiceDraft;
-  invoiceNumber: string;
+  draft: EstimateDraft;
+  estimateNumber: string;
   subtotal: number;
   taxAmount: number;
   total: number;
-  businessName: string;
-  businessEmail: string;
-  businessPhone: string;
 }) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -520,8 +489,8 @@ function InvoicePreview({
     year: "numeric",
   });
 
-  const dueDate = draft.dueDate
-    ? new Date(draft.dueDate + "T00:00:00").toLocaleDateString("en-US", {
+  const validUntil = draft.validUntil
+    ? new Date(draft.validUntil + "T00:00:00").toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
@@ -535,26 +504,27 @@ function InvoicePreview({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <Receipt className="h-4 w-4 text-white" />
+              <FileText className="h-4 w-4 text-white" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">{businessName}</h3>
+            <h3 className="text-lg font-bold text-gray-900">Jim&apos;s Plumbing &amp; HVAC</h3>
           </div>
-          {businessPhone && <p className="text-xs text-gray-500">{businessPhone}</p>}
-          {businessEmail && <p className="text-xs text-gray-500">{businessEmail}</p>}
+          <p className="text-xs text-gray-500">123 Main Street, Denver, CO 80201</p>
+          <p className="text-xs text-gray-500">(555) 123-4567</p>
+          <p className="text-xs text-gray-500">mayan@northernremovals.com.au</p>
         </div>
         <div className="text-right">
-          <h2 className="text-2xl font-bold text-gray-900">INVOICE</h2>
-          <p className="text-sm text-gray-500 mt-1">{invoiceNumber}</p>
+          <h2 className="text-2xl font-bold text-gray-900">ESTIMATE</h2>
+          <p className="text-sm text-gray-500 mt-1">{estimateNumber}</p>
           <p className="text-xs text-gray-500 mt-0.5">Date: {today}</p>
-          <p className="text-xs text-gray-500">Due: {dueDate}</p>
+          <p className="text-xs text-gray-500">Valid Until: {validUntil}</p>
         </div>
       </div>
 
       <div className="h-px bg-gray-200" />
 
-      {/* Bill To */}
+      {/* Estimate For */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Bill To</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Estimate For</p>
         {draft.customerName ? (
           <div>
             <p className="text-sm font-medium text-gray-900">{draft.customerName}</p>
@@ -630,14 +600,6 @@ function InvoicePreview({
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Notes</p>
           <p className="text-xs text-gray-600 whitespace-pre-wrap">{draft.notes}</p>
-        </div>
-      )}
-
-      {/* Terms */}
-      {draft.terms && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Terms &amp; Conditions</p>
-          <p className="text-xs text-gray-500 whitespace-pre-wrap">{draft.terms}</p>
         </div>
       )}
     </div>

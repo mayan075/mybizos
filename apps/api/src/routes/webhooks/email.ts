@@ -71,7 +71,17 @@ emailWebhooks.post('/inbound', async (c) => {
   // e.g., inbox+org_01@inbound.mybizos.com -> org_01
   const toAddress = parsed.to;
   const mailboxHash = toAddress.includes('+') ? toAddress.split('+')[1]?.split('@')[0] ?? '' : '';
-  const orgId = mailboxHash || 'org_01'; // Fallback for development
+  if (!mailboxHash) {
+    logger.warn('Inbound email could not resolve org — no mailbox hash in address', {
+      to: toAddress,
+      from: fromEmail,
+    });
+    return c.json(
+      { error: 'Could not determine target organization', code: 'NO_ORG_RESOLVED', status: 400 },
+      400,
+    );
+  }
+  const orgId = mailboxHash;
 
   // Check for emergency keywords in subject or body
   const emergencyKeywords = ['flooding', 'gas leak', 'fire', 'emergency', 'burst pipe', 'urgent'];

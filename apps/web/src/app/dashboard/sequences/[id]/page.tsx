@@ -28,6 +28,7 @@ import {
   Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import {
   useSequence,
   useUpdateSequence,
@@ -330,7 +331,7 @@ export default function SequenceDetailPage() {
   const [editLabel, setEditLabel] = useState("");
   const [editConfig, setEditConfig] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
 
   // Sync API data into local state when it arrives
   useEffect(() => {
@@ -340,11 +341,6 @@ export default function SequenceDetailPage() {
       setHasUnsavedChanges(false);
     }
   }, [apiSequence]);
-
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }
 
   // Loading state
   if (isLoading) {
@@ -398,19 +394,19 @@ export default function SequenceDetailPage() {
       const result = await deactivateSequence(undefined as never);
       if (result) {
         setIsActive(false);
-        showToast("Sequence deactivated");
+        toast.success("Sequence deactivated");
         refetch();
       } else {
-        showToast("Failed to deactivate sequence", "error");
+        toast.error("Failed to deactivate sequence");
       }
     } else {
       const result = await activateSequence(undefined as never);
       if (result) {
         setIsActive(true);
-        showToast("Sequence activated");
+        toast.success("Sequence activated");
         refetch();
       } else {
-        showToast("Failed to activate sequence", "error");
+        toast.error("Failed to activate sequence");
       }
     }
   }
@@ -461,11 +457,11 @@ export default function SequenceDetailPage() {
     const apiSteps = steps.map(toApiStep);
     const result = await updateSequence({ steps: apiSteps });
     if (result) {
-      showToast("Changes saved successfully");
+      toast.success("Changes saved successfully");
       setHasUnsavedChanges(false);
       refetch();
     } else {
-      showToast("Failed to save changes", "error");
+      toast.error("Failed to save changes");
     }
   }
 
@@ -473,16 +469,6 @@ export default function SequenceDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className={cn(
-          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
-          toast.type === "error" ? "bg-destructive" : "bg-success",
-        )}>
-          {toast.message}
-        </div>
-      )}
-
       {/* Back link */}
       <Link
         href="/dashboard/sequences"

@@ -12,6 +12,7 @@ import {
   withOrgScope,
 } from '@mybizos/db';
 import { logger } from '../../middleware/logger.js';
+import { authMiddleware, requirePlatformAdmin } from '../../middleware/auth.js';
 import { config } from '../../config.js';
 import { ClaudeClient } from '@mybizos/ai';
 import type { ClaudeMessage } from '@mybizos/ai';
@@ -1118,7 +1119,7 @@ async function processPostCallActions(
 //  GET /call-logs — View recent call logs (for debugging/admin)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.get('/call-logs', async (c) => {
+twilioWebhooks.get('/call-logs', authMiddleware, requirePlatformAdmin(), async (c) => {
   return c.json({
     count: callLogs.length,
     logs: callLogs.slice(-20).reverse().map((log) => ({
@@ -1141,12 +1142,10 @@ twilioWebhooks.get('/call-logs', async (c) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const configureNumbersSchema = z.object({
-  accountSid: z.string().startsWith('AC').optional(),
-  authToken: z.string().min(1).optional(),
   numberSids: z.array(z.string()).optional(),
 });
 
-twilioWebhooks.post('/configure-numbers', async (c) => {
+twilioWebhooks.post('/configure-numbers', authMiddleware, requirePlatformAdmin(), async (c) => {
   const rawBody = await c.req.json();
   const parsed = configureNumbersSchema.safeParse(rawBody);
 
@@ -1157,9 +1156,9 @@ twilioWebhooks.post('/configure-numbers', async (c) => {
     );
   }
 
-  // Use provided credentials or fall back to env vars
-  const accountSid = parsed.data.accountSid ?? config.TWILIO_ACCOUNT_SID;
-  const authToken = parsed.data.authToken ?? config.TWILIO_AUTH_TOKEN;
+  // Always use server-side credentials — never accept credentials from the client
+  const accountSid = config.TWILIO_ACCOUNT_SID;
+  const authToken = config.TWILIO_AUTH_TOKEN;
 
   if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
     return c.json(
@@ -1225,15 +1224,9 @@ twilioWebhooks.get('/health', async (c) => {
   const hasTwilioCredentials = Boolean(config.TWILIO_ACCOUNT_SID && config.TWILIO_AUTH_TOKEN);
 
   return c.json({
-    status: hasAnthropicKey ? 'ready' : 'missing_anthropic_key',
+    status: hasAnthropicKey && hasTwilioCredentials ? 'ready' : 'degraded',
     anthropicConfigured: hasAnthropicKey,
     twilioConfigured: hasTwilioCredentials,
-    appUrl: config.APP_URL,
-    voiceWebhook: `${config.APP_URL}/webhooks/twilio/voice`,
-    smsWebhook: `${config.APP_URL}/webhooks/twilio/sms`,
-    activeVoiceConversations: callConversations.size,
-    activeSmsConversations: smsConversations.size,
-    totalCallLogs: callLogs.length,
   });
 });
 
@@ -1294,7 +1287,7 @@ const outboundCallSchema = z.object({
   from: z.string().min(10).optional(),
 });
 
-twilioWebhooks.post('/outbound-call', async (c) => {
+twilioWebhooks.post('/outbound-call', authMiddleware, async (c) => {
   logger.warn('DEPRECATED: /outbound-call endpoint called. Use Voice SDK (device.connect) instead.');
   const body = await c.req.json();
   const parsed = outboundCallSchema.safeParse(body);
@@ -1491,7 +1484,7 @@ twilioWebhooks.post('/outbound-status', async (c) => {
 //  GET /call-status/:callSid — Frontend polls this to get real call status
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.get('/call-status/:callSid', async (c) => {
+twilioWebhooks.get('/call-status/:callSid', authMiddleware, async (c) => {
   const callSid = c.req.param('callSid');
 
   // Check our in-memory store first (updated by status callbacks)

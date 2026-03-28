@@ -14,7 +14,7 @@ const optionalInDev = (schema: z.ZodString) =>
   isDev ? schema.default('') : schema.min(1);
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: optionalInDev(z.string()),
   REDIS_URL: optionalInDev(z.string()),
@@ -35,6 +35,8 @@ const envSchema = z.object({
   VAPI_WEBHOOK_SECRET: optionalInDev(z.string()),
   GOOGLE_CLIENT_ID: optionalInDev(z.string()),
   GOOGLE_CLIENT_SECRET: optionalInDev(z.string()),
+  PLATFORM_ADMIN_EMAILS: z.string().default(''),
+  ALLOWED_ORIGINS: z.string().default(''),
   ENABLE_SCHEDULER: z.enum(['true', 'false', '']).default('').transform((v) => v === 'true'),
 });
 

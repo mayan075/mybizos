@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useApiQuery, buildPath } from "@/lib/hooks/use-api";
 import { apiClient } from "@/lib/api-client";
@@ -220,7 +221,7 @@ export default function TeamPage() {
   const [invitePermissions, setInvitePermissions] = useState<Set<PermissionKey>>(
     new Set(technicianDefaults),
   );
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [search, setSearch] = useState("");
 
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -234,11 +235,6 @@ export default function TeamPage() {
     const apiMembers = raw.map(mapApiMember);
     return [...apiMembers, ...AI_AGENTS];
   }, [teamData]);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   function handleRoleChange(role: "Manager" | "Technician") {
     setInviteRole(role);
@@ -269,7 +265,7 @@ export default function TeamPage() {
         email: inviteEmail.trim(),
         role: inviteRole.toLowerCase(),
       });
-      showToast(`Invitation sent to ${inviteEmail}`);
+      toast.success(`Invitation sent to ${inviteEmail}`);
       setShowInviteModal(false);
       setInviteEmail("");
       setInviteRole("Technician");
@@ -277,7 +273,7 @@ export default function TeamPage() {
       refetch();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send invitation";
-      showToast(`Error: ${message}`);
+      toast.error(message);
     } finally {
       setInviteLoading(false);
     }
@@ -292,14 +288,6 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 className="h-4 w-4" />
-          {toast}
-        </div>
-      )}
-
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -572,7 +560,7 @@ export default function TeamPage() {
                               </Link>
                               <button
                                 onClick={() =>
-                                  showToast(
+                                  toast.info(
                                     `Remove ${member.name}? This action requires confirmation.`,
                                   )
                                 }

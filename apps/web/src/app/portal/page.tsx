@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -9,8 +10,29 @@ import {
   Clock,
   Gift,
   Star,
+  Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
+import { getUser } from "@/lib/auth";
+
+interface Appointment {
+  id: string;
+  service: string;
+  date: string;
+  time: string;
+  technician: string;
+  status: "confirmed" | "pending";
+}
+
+interface Invoice {
+  id: string;
+  service: string;
+  date: string;
+  amount: number;
+  status: "paid" | "unpaid";
+}
 
 const quickActions = [
   {
@@ -33,49 +55,6 @@ const quickActions = [
     href: "/portal/messages",
     icon: MessageSquare,
     color: "bg-purple-50 text-purple-600",
-  },
-] as const;
-
-const upcomingAppointments = [
-  {
-    id: "apt-1",
-    service: "Full Load Pickup",
-    date: "Mar 28, 2026",
-    time: "10:00 AM - 11:30 AM",
-    technician: "Mike Rodriguez",
-    status: "confirmed" as const,
-  },
-  {
-    id: "apt-2",
-    service: "Single Item Removal",
-    date: "Apr 5, 2026",
-    time: "2:00 PM - 3:00 PM",
-    technician: "James Chen",
-    status: "pending" as const,
-  },
-] as const;
-
-const recentInvoices = [
-  {
-    id: "INV-1042",
-    service: "Partial Load Pickup",
-    date: "Mar 10, 2026",
-    amount: 285,
-    status: "paid" as const,
-  },
-  {
-    id: "INV-1051",
-    service: "Full Load Pickup",
-    date: "Mar 18, 2026",
-    amount: 175,
-    status: "unpaid" as const,
-  },
-  {
-    id: "INV-1038",
-    service: "Skip Bin Hire",
-    date: "Feb 22, 2026",
-    amount: 340,
-    status: "paid" as const,
   },
 ] as const;
 
@@ -103,12 +82,54 @@ function StatusBadge({
 }
 
 export default function PortalDashboard() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    const user = getUser();
+    if (user?.name) {
+      setUserName(user.name);
+    }
+
+    async function load() {
+      try {
+        const orgId = getOrgId();
+        const [aptsRes, invsRes] = await Promise.all([
+          tryFetch(() =>
+            apiClient.get<{ data: Appointment[] }>(
+              `/orgs/${orgId}/appointments`
+            )
+          ),
+          tryFetch(() =>
+            apiClient.get<{ data: Invoice[] }>(`/orgs/${orgId}/invoices`)
+          ),
+        ]);
+        if (aptsRes?.data) setAppointments(aptsRes.data);
+        if (invsRes?.data) setInvoices(invsRes.data);
+      } catch {
+        // Silently handle — empty states will show
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, Sarah!
+          Welcome back{userName ? `, ${userName}` : ""}!
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Here&apos;s a quick overview of your account.
@@ -191,30 +212,39 @@ export default function PortalDashboard() {
           </Link>
         </div>
         <div className="space-y-3">
-          {upcomingAppointments.map((apt) => (
-            <div
-              key={apt.id}
-              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {apt.service}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {apt.date} &middot; {apt.time}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Technician: {apt.technician}
-                  </p>
-                </div>
-              </div>
-              <StatusBadge status={apt.status} />
+          {appointments.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+              <Clock className="mx-auto h-8 w-8 text-gray-300" />
+              <p className="mt-2 text-sm text-gray-500">
+                No upcoming appointments
+              </p>
             </div>
-          ))}
+          ) : (
+            appointments.map((apt) => (
+              <div
+                key={apt.id}
+                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {apt.service}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {apt.date} &middot; {apt.time}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Technician: {apt.technician}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={apt.status} />
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -232,36 +262,43 @@ export default function PortalDashboard() {
           </Link>
         </div>
         <div className="space-y-3">
-          {recentInvoices.map((inv) => (
-            <div
-              key={inv.id}
-              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {inv.id}
-                  </p>
-                  <StatusBadge status={inv.status} />
-                </div>
-                <p className="mt-0.5 text-xs text-gray-500">{inv.service}</p>
-                <p className="text-xs text-gray-400">{inv.date}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="text-sm font-bold text-gray-900">
-                  ${inv.amount.toFixed(2)}
-                </p>
-                {inv.status === "unpaid" && (
-                  <Link
-                    href="/portal/invoices"
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-                  >
-                    Pay Now
-                  </Link>
-                )}
-              </div>
+          {invoices.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+              <FileText className="mx-auto h-8 w-8 text-gray-300" />
+              <p className="mt-2 text-sm text-gray-500">No invoices</p>
             </div>
-          ))}
+          ) : (
+            invoices.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {inv.id}
+                    </p>
+                    <StatusBadge status={inv.status} />
+                  </div>
+                  <p className="mt-0.5 text-xs text-gray-500">{inv.service}</p>
+                  <p className="text-xs text-gray-400">{inv.date}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-bold text-gray-900">
+                    {formatCurrency(inv.amount)}
+                  </p>
+                  {inv.status === "unpaid" && (
+                    <Link
+                      href="/portal/invoices"
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+                    >
+                      Pay Now
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
     </div>

@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useCreateCampaign } from "@/lib/hooks/use-campaigns";
 import type { CreateCampaignInput } from "@/lib/hooks/use-campaigns";
 
@@ -707,7 +708,7 @@ const STEPS = ["Type", "Audience", "Content", "Review"];
 export default function NewCampaignPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const { mutate: createCampaign, isLoading: isCreating } = useCreateCampaign();
 
   const [draft, setDraft] = useState<CampaignDraft>({
@@ -730,11 +731,6 @@ export default function NewCampaignPage() {
 
   function updateDraft(updates: Partial<CampaignDraft>) {
     setDraft((prev) => ({ ...prev, ...updates }));
-  }
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
   }
 
   function canProceed(): boolean {
@@ -793,7 +789,7 @@ export default function NewCampaignPage() {
     const result = await createCampaign(input);
 
     if (result) {
-      showToast(
+      toast.success(
         draft.sendNow
           ? "Campaign created successfully!"
           : `Campaign scheduled for ${draft.scheduledDate} at ${draft.scheduledTime}`,
@@ -802,19 +798,12 @@ export default function NewCampaignPage() {
         router.push(`/dashboard/campaigns/${result.id}`);
       }, 1500);
     } else {
-      showToast("Failed to create campaign. Please try again.");
+      toast.error("Failed to create campaign. Please try again.");
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
       {/* Page header */}
       <div className="flex items-center gap-4">
         <Link

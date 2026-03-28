@@ -174,7 +174,6 @@ scheduling.get('/public/org/:slug', async (c) => {
         website: organizations.website,
         vertical: organizations.vertical,
         logoUrl: organizations.logoUrl,
-        settings: organizations.settings,
       })
       .from(organizations)
       .where(eq(organizations.slug, slug));

@@ -29,6 +29,13 @@ const updateAgentSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const linkPhoneSchema = z.object({
+  twilioPhoneNumber: z.string().min(1, 'Phone number is required').regex(
+    /^\+[1-9]\d{1,14}$/,
+    'Phone number must be in E.164 format (e.g., +1234567890)',
+  ),
+});
+
 const scoreLeadSchema = z.object({
   contactId: z.string().min(1, 'Contact ID is required'),
 });
@@ -155,7 +162,83 @@ ai.delete('/ai-agents/:id', async (c) => {
 });
 
 /**
+ * POST /orgs/:orgId/ai-agents/:id/link-phone — link a Twilio phone number to an AI agent via Vapi
+ */
+ai.post('/ai-agents/:id/link-phone', async (c) => {
+  const orgId = c.get('orgId');
+  const agentId = c.req.param('id');
+  const body = await c.req.json();
+  const parsed = linkPhoneSchema.safeParse(body);
+
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((issue) => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: errors }, 422);
+  }
+
+  try {
+    const { aiService } = await import('../services/ai-service.js');
+    const agent = await aiService.getAgentById(orgId, agentId);
+
+    if (!agent.vapiAssistantId) {
+      return c.json({
+        error: 'Agent does not have a Vapi assistant. Create the agent as a phone type first.',
+        code: 'PRECONDITION_FAILED',
+        status: 422,
+      }, 422);
+    }
+
+    const result = await aiService.linkPhone(orgId, agentId, {
+      vapiAssistantId: agent.vapiAssistantId,
+      twilioPhoneNumber: parsed.data.twilioPhoneNumber,
+    });
+
+    return c.json({ data: { linked: true, phoneNumberId: result.phoneNumberId } });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to link phone number', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Failed to link phone number', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+});
+
+/**
+ * DELETE /orgs/:orgId/ai-agents/:id/unlink-phone — unlink a phone number from an AI agent
+ */
+ai.delete('/ai-agents/:id/unlink-phone', async (c) => {
+  const orgId = c.get('orgId');
+  const agentId = c.req.param('id');
+
+  try {
+    const { aiService } = await import('../services/ai-service.js');
+    const agent = await aiService.getAgentById(orgId, agentId);
+
+    if (!agent.vapiPhoneNumberId) {
+      return c.json({
+        error: 'Agent does not have a linked phone number',
+        code: 'PRECONDITION_FAILED',
+        status: 422,
+      }, 422);
+    }
+
+    await aiService.unlinkPhone(orgId, agentId, agent.vapiPhoneNumberId);
+
+    return c.json({ data: { unlinked: true } });
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
+    }
+    logger.error('Failed to unlink phone number', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Failed to unlink phone number', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+});
+
+/**
  * POST /orgs/:orgId/ai/score-lead — manually trigger lead scoring
+ * Uses Claude AI when ANTHROPIC_API_KEY is configured, otherwise falls back to rule-based.
  */
 ai.post('/ai/score-lead', async (c) => {
   const orgId = c.get('orgId');
@@ -167,23 +250,9 @@ ai.post('/ai/score-lead', async (c) => {
   }
 
   try {
-    const { contactService } = await import('../services/contact-service.js');
-    const result = await contactService.getById(orgId, parsed.data.contactId);
-    const contact = result.contact;
-
-    // Simple rule-based lead scoring (Claude API scoring can be added later)
-    let score = 50; // base
-    if (contact.email) score += 10;
-    if (contact.phone) score += 10;
-    if (contact.source === 'referral') score += 15;
-    if (contact.source === 'phone') score += 10;
-    if (contact.tags && contact.tags.length > 0) score += 5;
-    score = Math.min(score, 100);
-
-    // Update the contact's lead score
-    await contactService.update(orgId, parsed.data.contactId, { aiScore: score });
-
-    return c.json({ data: { contactId: parsed.data.contactId, score, method: 'rule-based' } });
+    const { leadScoringService } = await import('../services/lead-scoring-service.js');
+    const result = await leadScoringService.scoreContact(orgId, parsed.data.contactId);
+    return c.json({ data: result });
   } catch (err) {
     if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
       return c.json({ error: 'Contact not found', code: 'NOT_FOUND', status: 404 }, 404);

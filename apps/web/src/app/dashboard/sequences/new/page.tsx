@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { useCreateSequence } from "@/lib/hooks/use-sequences";
 import type { SequenceStep as ApiSequenceStep } from "@/lib/hooks/use-sequences";
 
@@ -43,14 +44,9 @@ export default function NewSequencePage() {
   const [description, setDescription] = useState("");
   const [trigger, setTrigger] = useState<TriggerType>("contact_created");
   const [steps, setSteps] = useState<SequenceStep[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
 
   const { mutate: createSequence, isLoading: isSaving, error: saveError } = useCreateSequence();
-
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }
 
   function addStep(type: StepType) {
     const cfg = stepTypeConfig[type];
@@ -100,7 +96,7 @@ export default function NewSequencePage() {
 
   async function handleSave() {
     if (!name.trim()) {
-      showToast("Please enter a sequence name", "error");
+      toast.error("Please enter a sequence name");
       return;
     }
 
@@ -113,25 +109,15 @@ export default function NewSequencePage() {
     });
 
     if (result) {
-      showToast("Sequence created successfully");
+      toast.success("Sequence created successfully");
       setTimeout(() => router.push("/dashboard/sequences"), 1000);
     } else {
-      showToast(saveError ?? "Failed to create sequence. Please try again.", "error");
+      toast.error(saveError ?? "Failed to create sequence. Please try again.");
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className={cn(
-          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
-          toast.type === "error" ? "bg-destructive" : "bg-success",
-        )}>
-          {toast.message}
-        </div>
-      )}
-
       {/* Back link + header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

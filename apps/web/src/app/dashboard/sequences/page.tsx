@@ -21,6 +21,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useSequences, type Sequence, type SequenceStep } from "@/lib/hooks/use-sequences";
 import { apiClient } from "@/lib/api-client";
@@ -114,13 +115,8 @@ export default function SequencesPage() {
   const { data: sequencesData, isLoading, refetch } = useSequences();
   const sequences = Array.isArray(sequencesData) ? sequencesData : [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
   const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }
 
   async function toggleActive(id: string, e: React.MouseEvent) {
     e.preventDefault();
@@ -135,11 +131,11 @@ export default function SequencesPage() {
     try {
       const path = buildPath(`/orgs/:orgId/sequences/${id}`);
       await apiClient.patch(path, { status: newStatus });
-      showToast(`Sequence ${newStatus === "active" ? "activated" : "paused"} successfully`);
+      toast.success(`Sequence ${newStatus === "active" ? "activated" : "paused"} successfully`);
       refetch();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update sequence";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setTogglingId(null);
     }
@@ -151,16 +147,6 @@ export default function SequencesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className={cn(
-          "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2",
-          toast.type === "success" ? "bg-success" : "bg-destructive",
-        )}>
-          {toast.message}
-        </div>
-      )}
-
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>

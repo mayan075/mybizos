@@ -21,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import {
   useCampaign,
   useUpdateCampaign,
@@ -108,7 +109,7 @@ function RateBar({ label, rate, color }: { label: string; rate: number; color: s
 // ── Draft View ──
 
 function DraftView({ campaign, onRefetch }: { campaign: Campaign; onRefetch: () => void }) {
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [name, setName] = useState(campaign.name);
   const [subject, setSubject] = useState(campaign.subject ?? "");
   const [bodyHtml, setBodyHtml] = useState(campaign.bodyHtml ?? "");
@@ -116,11 +117,6 @@ function DraftView({ campaign, onRefetch }: { campaign: Campaign; onRefetch: () 
 
   const { mutate: updateCampaign, isLoading: isSaving } = useUpdateCampaign(campaign.id);
   const { mutate: sendCampaign, isLoading: isSending } = useSendCampaign(campaign.id);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   async function handleSave() {
     const result = await updateCampaign({
@@ -130,30 +126,25 @@ function DraftView({ campaign, onRefetch }: { campaign: Campaign; onRefetch: () 
       bodyText: campaign.type === "sms" ? bodyText : undefined,
     });
     if (result) {
-      showToast("Campaign saved");
+      toast.success("Campaign saved");
       onRefetch();
     } else {
-      showToast("Failed to save campaign");
+      toast.error("Failed to save campaign");
     }
   }
 
   async function handleSend() {
     const result = await sendCampaign(undefined as void);
     if (result) {
-      showToast("Campaign is being sent!");
+      toast.success("Campaign is being sent!");
       onRefetch();
     } else {
-      showToast("Failed to send campaign");
+      toast.error("Failed to send campaign");
     }
   }
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
 
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
@@ -474,21 +465,16 @@ export default function CampaignDetailPage() {
 
   const { data: campaign, isLoading, refetch } = useCampaign(campaignId);
   const { mutate: deleteCampaign, isLoading: isDeleting } = useDeleteCampaign(campaignId);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
+  const toast = useToast();
 
   async function handleDelete() {
     if (!confirm("Are you sure you want to delete this campaign?")) return;
     const result = await deleteCampaign(undefined as void);
     if (result) {
-      showToast("Campaign deleted");
+      toast.success("Campaign deleted");
       setTimeout(() => router.push("/dashboard/campaigns"), 1000);
     } else {
-      showToast("Failed to delete campaign");
+      toast.error("Failed to delete campaign");
     }
   }
 
@@ -521,12 +507,6 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-success px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

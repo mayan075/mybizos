@@ -26,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
 import { env } from "@/lib/env";
@@ -221,17 +222,12 @@ export default function IntegrationsPage() {
   const [statuses, setStatuses] = useState<Record<string, ConnectionStatus>>({});
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<OAuthProvider | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
   // Zapier config (displayed as-is, not OAuth)
   const zapierApiKey = "mbos_demo_zap_key_xxxxxxxx";
   const zapierWebhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/zapier`;
-
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  }
 
   // Check URL params for connection results
   useEffect(() => {
@@ -241,14 +237,13 @@ export default function IntegrationsPage() {
     const errorProvider = searchParams.get("provider");
 
     if (connected && connectedName) {
-      showToast(`${connectedName} connected successfully!`);
+      toast.success(`${connectedName} connected successfully!`);
       // Clean URL
       window.history.replaceState({}, "", "/dashboard/integrations");
     }
     if (error) {
-      showToast(
+      toast.error(
         `Failed to connect ${errorProvider ?? "integration"}: ${error}`,
-        "error",
       );
       window.history.replaceState({}, "", "/dashboard/integrations");
     }
@@ -283,9 +278,8 @@ export default function IntegrationsPage() {
 
     if (status && !status.credentialsConfigured) {
       const card = INTEGRATION_CARDS.find((c) => c.provider === provider);
-      showToast(
+      toast.error(
         `${card?.credentialLabel ?? provider} credentials not configured. Ask your MyBizOS admin to configure them in Admin Settings.`,
-        "error",
       );
       return;
     }
@@ -299,10 +293,10 @@ export default function IntegrationsPage() {
     setDisconnecting(provider);
     try {
       await apiClient.delete(`/orgs/${ORG_ID}/integrations/${provider}`);
-      showToast(`${INTEGRATION_CARDS.find((c) => c.provider === provider)?.name ?? provider} disconnected`);
+      toast.success(`${INTEGRATION_CARDS.find((c) => c.provider === provider)?.name ?? provider} disconnected`);
       await fetchStatuses();
     } catch {
-      showToast("Failed to disconnect. Please try again.", "error");
+      toast.error("Failed to disconnect. Please try again.");
     } finally {
       setDisconnecting(null);
     }
@@ -329,23 +323,6 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={cn(
-            "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 max-w-md",
-            toast.type === "success" ? "bg-emerald-600" : "bg-destructive",
-          )}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-          )}
-          {toast.message}
-        </div>
-      )}
-
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -516,7 +493,7 @@ export default function IntegrationsPage() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(zapierApiKey);
-                        showToast("API key copied!");
+                        toast.success("API key copied!");
                       }}
                       className="flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-xs text-muted-foreground hover:bg-muted transition-colors"
                     >
