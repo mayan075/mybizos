@@ -277,7 +277,7 @@ const twilioStatusPayloadSchema = z.object({
 }).passthrough();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  POST /voice — Initial voice webhook: greeting + first <Gather>
+//  POST /voice — Incoming call webhook: bridge to Gemini Live via Media Stream
 // ═══════════════════════════════════════════════════════════════════════════════
 
 twilioWebhooks.post('/voice', async (c) => {
@@ -301,35 +301,29 @@ twilioWebhooks.post('/voice', async (c) => {
     to: To,
   });
 
-  // Initialize conversation state
-  callConversations.set(CallSid, {
-    messages: [],
-    callerPhone: From,
-    calledNumber: To,
-    startedAt: new Date().toISOString(),
-    turnCount: 0,
+  // Build WebSocket URL using the request's Host header so it matches
+  // the domain Twilio is actually reaching (e.g. mybizos-production.up.railway.app)
+  const RAILWAY_FALLBACK = 'mybizos-production.up.railway.app';
+  const host = c.req.header('host') || RAILWAY_FALLBACK;
+  const streamUrl = `wss://${host}/ws/media-stream`;
+
+  // Return TwiML that opens a bidirectional media stream to Gemini Live
+  const twiml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<Response>',
+    '  <Connect>',
+    `    <Stream url="${escapeXml(streamUrl)}">`,
+    `      <Parameter name="callerPhone" value="${escapeXml(From)}" />`,
+    `      <Parameter name="calledNumber" value="${escapeXml(To)}" />`,
+    '    </Stream>',
+    '  </Connect>',
+    '</Response>',
+  ].join('\n');
+
+  logger.info('Returning Gemini Live media stream TwiML', {
+    callSid: CallSid,
+    streamUrl,
   });
-
-  // Resolve business config dynamically from DB
-  const bizConfig = await getBusinessConfig(To);
-
-  // Build the webhook URL for processing caller's speech
-  const baseUrl = config.APP_URL;
-  const respondUrl = `${baseUrl}/webhooks/twilio/voice/respond`;
-
-  // AI disclosure greeting
-  const greeting = `Hi, this is ${bizConfig.name}'s AI assistant. This call may be recorded. How can I help you today?`;
-
-  const twiml = buildSayAndGatherTwiml(greeting, respondUrl);
-
-  // Store the greeting as the assistant's first message
-  const conversation = callConversations.get(CallSid);
-  if (conversation) {
-    conversation.messages.push({
-      role: 'assistant',
-      content: greeting,
-    });
-  }
 
   return c.text(twiml, 200, { 'Content-Type': 'text/xml' });
 });
