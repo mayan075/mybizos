@@ -1,44 +1,57 @@
 # Things That Need Mayan's Help
 
-These are blockers the army hit that require your input or credentials.
-Everything else is being handled autonomously.
+Last updated: 2026-03-29
 
-## 1. Twilio Master Account (for Model B "MyBizOS Phone")
-- We need YOUR Twilio Account SID + Auth Token to create subaccounts
-- This lets business owners buy phone numbers through MyBizOS
-- Without this: Model B shows "Coming soon / waitlist"
-- With this: Business owners can buy a number in 60 seconds
+## ✅ RESOLVED — Services Connected
 
-## 2. Railway PostgreSQL Database
-- We need a real database for persistent data (not just localStorage)
-- Action: Create a Railway account (free tier) → provision PostgreSQL
-- Then: Give me the DATABASE_URL and I'll run migrations + seed
+| Service | Status | Details |
+|---------|--------|---------|
+| Railway PostgreSQL | ✅ Connected | 30 tables, all migrations applied |
+| Anthropic API | ✅ Working | Claude Haiku responding |
+| Twilio | ✅ Active | "My first Twilio account" |
+| Resend | ✅ Working | Send-only key configured |
+| Railway API | ✅ Deployed | https://mybizos-production.up.railway.app/health |
+| Vercel Frontend | ✅ Deployed | https://mybizos.vercel.app |
+| GitHub | ✅ Pushed | All code up to date |
 
-## 3. Anthropic API Key (for real AI features)
-- The AI assistant, lead scoring, and phone agent all need a Claude API key
-- Without it: AI features use mock/simulated responses
-- With it: Real AI conversations, real scoring, real phone agent
+## 🔧 ACTION NEEDED — Vercel Environment Variable
 
-## 4. Postmark Account (for real email sending)
-- Free tier: 100 emails/month
-- Needed for: appointment confirmations, review requests, campaign emails
+The frontend at `mybizos.vercel.app` needs to know where the API is.
 
-## 5. Vapi.ai Account (for AI phone agent)
-- Free tier available
+**Go to:** https://vercel.com → MyBizOS project → Settings → Environment Variables
+
+**Add this variable:**
+```
+NEXT_PUBLIC_API_URL = https://mybizos-production.up.railway.app
+```
+
+Set it for **Production**, **Preview**, and **Development** environments.
+Then trigger a redeploy (Deployments → latest → Redeploy).
+
+Without this, the frontend talks to `localhost:3001` which doesn't exist in production.
+
+## 🔧 OPTIONAL — Not Yet Configured
+
+### 1. Vapi.ai Account (AI phone agent)
 - Needed for: actual AI phone call handling
+- Add `VAPI_API_KEY` and `VAPI_WEBHOOK_SECRET` to Railway env vars
+- Without it: Phone agent setup wizard works but calls won't connect
 
-## 6. Domain Setup
-- mybizos.com — do you own this domain?
-- If yes: point it to Vercel for app.mybizos.com
-- If no: we can buy it or use mybizos.vercel.app for now
+### 2. Stripe Connect (billing/payments)
+- Needed for: subscription management, invoice payments
+- Add `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO` to Railway
+- Without it: Billing page shows plans but can't process payments
 
-## 7. Your Business Details (for demo/testing)
-- Northern Removals: exact business name, phone, address, service area
-- Moving company: exact business name, phone, address
-- Your personal phone for testing call forwarding
+### 3. Google OAuth (social login)
+- Coded and ready, just needs GCP credentials
+- Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Railway
+- Without it: "Sign in with Google" button won't appear
 
-## Priority Order
-1. Railway DB (unblocks real data persistence)
-2. Twilio Account (unblocks phone features)
-3. Anthropic Key (unblocks AI features)
-4. Everything else can wait
+### 4. Domain Setup
+- hararai.com or mybizos.com — point to Vercel
+- Configure custom domain in Vercel dashboard
+
+### 5. Production JWT Secret
+- Current secret is fine for dev but should be rotated for production
+- Generate new one: `openssl rand -hex 32`
+- Update `JWT_SECRET` in Railway env vars
