@@ -72,9 +72,11 @@ function getCredentials(provider: OAuthProvider): OAuthCredentials | null {
   return { clientId, clientSecret };
 }
 
-function getRedirectUri(orgId: string, provider: OAuthProvider): string {
+function getRedirectUri(_orgId: string, _provider: OAuthProvider): string {
+  // Use a single static callback URL — orgId and provider are recovered from the state param.
+  // This avoids needing to whitelist every org-specific URL in Google Cloud Console.
   const baseUrl = config.APP_URL || 'http://localhost:3001';
-  return `${baseUrl}/orgs/${orgId}/integrations/${provider}/callback`;
+  return `${baseUrl}/integrations/oauth/callback`;
 }
 
 function generateState(orgId: string, provider: OAuthProvider): string {

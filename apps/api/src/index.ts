@@ -170,6 +170,24 @@ app.route('/', publicFormRoutes);
 // Admin routes (no org prefix — platform-level)
 app.route('/admin', adminRoutes);
 
+// OAuth callback — public route that redirects to org-scoped callback
+// Google/etc redirect here; state param carries orgId + provider
+app.get('/integrations/oauth/callback', (c) => {
+  const state = c.req.query('state');
+  if (!state) {
+    return c.json({ error: 'Missing state parameter', code: 'BAD_REQUEST', status: 400 }, 400);
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8')) as { orgId: string; provider: string };
+    if (!payload.orgId || !payload.provider) throw new Error('Invalid state');
+    // Forward all query params to the org-scoped callback
+    const query = c.req.url.split('?')[1] ?? '';
+    return c.redirect(`/orgs/${payload.orgId}/integrations/${payload.provider}/callback?${query}`);
+  } catch {
+    return c.json({ error: 'Invalid state parameter', code: 'BAD_REQUEST', status: 400 }, 400);
+  }
+});
+
 // Webhooks (no auth — called by third-party services)
 app.route('/voice', voiceTwimlRoutes);
 app.route('/webhooks/twilio', twilioWebhookRoutes);
