@@ -65,7 +65,6 @@ export class GeminiLiveSession extends EventEmitter {
             responseModalities: this.sessionConfig.responseModalities,
             ...(this.sessionConfig.speechConfig && { speechConfig: this.sessionConfig.speechConfig }),
             ...(this.sessionConfig.realtimeInputConfig && { realtimeInputConfig: this.sessionConfig.realtimeInputConfig }),
-            ...(this.sessionConfig.generationConfig?.thinkingConfig && { thinkingConfig: this.sessionConfig.generationConfig.thinkingConfig }),
           },
         };
 
@@ -75,19 +74,20 @@ export class GeminiLiveSession extends EventEmitter {
         if (this.sessionConfig.tools) {
           setup.tools = this.sessionConfig.tools;
         }
-        if (this.sessionConfig.inputAudioTranscription) {
-          setup.inputAudioTranscription = this.sessionConfig.inputAudioTranscription;
-        }
-        if (this.sessionConfig.outputAudioTranscription) {
-          setup.outputAudioTranscription = this.sessionConfig.outputAudioTranscription;
-        }
 
-        this.ws!.send(JSON.stringify({ setup }));
+        const payload = JSON.stringify({ setup });
+        console.log('[GeminiSession] Sending setup:', payload.substring(0, 500));
+        this.ws!.send(payload);
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
         try {
-          const message = JSON.parse(data.toString()) as GeminiServerMessage;
+          const raw = data.toString();
+          const message = JSON.parse(raw) as GeminiServerMessage;
+          // Log non-audio messages for debugging
+          if (!('serverContent' in message) || !message.serverContent?.modelTurn?.parts?.some((p: Record<string, unknown>) => p.inlineData)) {
+            console.log('[GeminiSession] Received:', raw.substring(0, 300));
+          }
           this.handleMessage(message, () => {
             clearTimeout(timeout);
             this.connected = true;

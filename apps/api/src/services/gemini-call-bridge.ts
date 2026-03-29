@@ -126,13 +126,6 @@ export class GeminiCallBridge {
           },
         },
       },
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-      generationConfig: {
-        thinkingConfig: {
-          thinkingLevel: 'MINIMAL',
-        },
-      },
     };
 
     this.geminiSession = new GeminiLiveSession(geminiConfig, sessionConfig);
@@ -240,9 +233,11 @@ export class GeminiCallBridge {
     });
 
     // Session closed
-    this.geminiSession.on('close', (_code, _reason) => {
+    this.geminiSession.on('close', (code, reason) => {
       logger.info('[GeminiBridge] Gemini session closed', {
         callSid: this.callSid,
+        closeCode: code,
+        closeReason: reason,
       });
       this.endCall();
     });
