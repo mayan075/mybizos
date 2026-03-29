@@ -43,6 +43,7 @@ import { socialRoutes } from './routes/social.js';
 import { geminiRoutes } from './routes/gemini.js';
 import { handleTwilioMediaStream } from './services/media-stream-handler.js';
 import { startScheduler } from './scheduler.js';
+import { orgRateLimit } from './middleware/rate-limit.js';
 
 const app = new Hono();
 
@@ -90,6 +91,9 @@ app.use('*', async (c, next) => {
 });
 
 app.onError(errorHandler);
+
+// Per-org rate limiting: 200 requests per minute per org
+app.use('/orgs/*', orgRateLimit(200, 60 * 1000));
 
 // ── Health Check ──
 

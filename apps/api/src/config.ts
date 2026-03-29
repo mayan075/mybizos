@@ -31,8 +31,6 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: optionalInDev(z.string()),
   STRIPE_PRICE_STARTER: optionalInDev(z.string()),
   STRIPE_PRICE_PRO: optionalInDev(z.string()),
-  VAPI_API_KEY: optionalInDev(z.string()),
-  VAPI_WEBHOOK_SECRET: optionalInDev(z.string()),
   GOOGLE_AI_API_KEY: optionalInDev(z.string()),
   GEMINI_LIVE_MODEL: z.string().default('gemini-3.1-flash-live-preview'),
   GEMINI_DEFAULT_VOICE: z.string().default('Kore'),
