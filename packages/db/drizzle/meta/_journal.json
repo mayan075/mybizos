@@ -22,6 +22,13 @@
       "when": 1774766332086,
       "tag": "0002_overrated_gateway",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774786605699,
+      "tag": "0003_rare_jack_flag",
+      "breakpoints": true
     }
   ]
 }
