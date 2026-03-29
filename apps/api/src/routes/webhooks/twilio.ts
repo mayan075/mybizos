@@ -25,6 +25,7 @@ import { conversationService } from '../../services/conversation-service.js';
 import { activityService } from '../../services/activity-service.js';
 import { notificationService } from '../../services/notification-service.js';
 import { walletService } from '../../services/wallet-service.js';
+import { handleAIBookingMessage } from '../../services/ai-booking-handler.js';
 
 const twilioWebhooks = new Hono();
 
@@ -608,6 +609,44 @@ twilioWebhooks.post('/sms', async (c) => {
     }
   } else {
     logger.error('[SMS DB] Step 4 SKIPPED: No orgId or conversationId', { orgId, conversationId });
+  }
+
+  // ── Step 4.5: Try AI booking handler for AI-handled conversations ──────
+  if (orgId && conversationId) {
+    try {
+      const aiBookingResponse = await handleAIBookingMessage({
+        conversationId,
+        orgId,
+        messageBody: Body,
+      });
+
+      if (aiBookingResponse !== null) {
+        // AI booking handler handled it — return TwiML with the response
+        // The handler already persisted the outbound message
+        logger.info('AI booking handler processed SMS', { orgId, conversationId });
+
+        // Log activity (fire-and-forget)
+        if (contactId) {
+          activityService.logActivity(orgId, {
+            type: 'sms',
+            title: 'AI booking SMS reply sent',
+            description: `AI replied to inbound SMS from ${From}`,
+            contactId,
+          }).catch(() => {});
+        }
+
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(aiBookingResponse)}</Message></Response>`;
+        return c.text(twiml, 200, { 'Content-Type': 'text/xml' });
+      }
+      // If null, conversation is not AI-handled — fall through to existing Claude logic
+    } catch (err) {
+      logger.error('AI booking handler error, falling back to generic SMS agent', {
+        orgId,
+        conversationId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Fall through to existing Claude SMS logic
+    }
   }
 
   // ── Step 5: Get or initialize in-memory conversation for Claude context ─
