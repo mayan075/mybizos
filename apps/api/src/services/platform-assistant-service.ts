@@ -9,11 +9,16 @@ import {
   conversations,
   contacts,
   aiCallLogs,
+  bookableServices,
+  serviceTeamMembers,
+  users,
+  waitlist,
   withOrgScope,
 } from '@hararai/db';
-import { eq, and, desc, count, sum, sql, gte } from 'drizzle-orm';
+import { eq, and, desc, count, sum, sql, gte, lte, ne } from 'drizzle-orm';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
+import { BOOKING_TOOLS, executeBookingTool } from './ai-booking-tools.js';
 
 // ── Types ──
 
@@ -227,6 +232,197 @@ async function loadBusinessContext(orgId: string): Promise<BusinessContext> {
   };
 }
 
+// ── Booking Context Loaders ──
+
+async function loadContactBookingContext(
+  orgId: string,
+  contactId: string,
+): Promise<string> {
+  const now = new Date();
+  const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  const [upcoming, recent, waitlistEntries] = await Promise.all([
+    // Upcoming appointments (next 30 days, non-cancelled)
+    db
+      .select({
+        id: appointments.id,
+        title: appointments.title,
+        startTime: appointments.startTime,
+        endTime: appointments.endTime,
+        status: appointments.status,
+      })
+      .from(appointments)
+      .where(
+        and(
+          withOrgScope(appointments.orgId, orgId),
+          eq(appointments.contactId, contactId),
+          gte(appointments.startTime, now),
+          lte(appointments.startTime, thirtyDaysFromNow),
+          ne(appointments.status, 'cancelled'),
+        ),
+      )
+      .orderBy(appointments.startTime)
+      .limit(10),
+
+    // Last 3 completed appointments
+    db
+      .select({
+        id: appointments.id,
+        title: appointments.title,
+        startTime: appointments.startTime,
+        endTime: appointments.endTime,
+        status: appointments.status,
+      })
+      .from(appointments)
+      .where(
+        and(
+          withOrgScope(appointments.orgId, orgId),
+          eq(appointments.contactId, contactId),
+          eq(appointments.status, 'completed'),
+        ),
+      )
+      .orderBy(desc(appointments.startTime))
+      .limit(3),
+
+    // Active waitlist entries
+    db
+      .select({
+        id: waitlist.id,
+        serviceId: waitlist.serviceId,
+        preferredDateRange: waitlist.preferredDateRange,
+        preferredTimeOfDay: waitlist.preferredTimeOfDay,
+        notes: waitlist.notes,
+        createdAt: waitlist.createdAt,
+      })
+      .from(waitlist)
+      .where(
+        and(
+          withOrgScope(waitlist.orgId, orgId),
+          eq(waitlist.contactId, contactId),
+          eq(waitlist.status, 'pending'),
+        ),
+      )
+      .orderBy(desc(waitlist.createdAt))
+      .limit(5),
+  ]);
+
+  const lines: string[] = [];
+
+  if (upcoming.length > 0) {
+    lines.push('=== CONTACT UPCOMING APPOINTMENTS ===');
+    for (const appt of upcoming) {
+      const date = new Date(appt.startTime).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      lines.push(`  - [${appt.id}] ${appt.title} — ${date} (${appt.status})`);
+    }
+  } else {
+    lines.push('=== CONTACT UPCOMING APPOINTMENTS ===');
+    lines.push('  No upcoming appointments.');
+  }
+
+  if (recent.length > 0) {
+    lines.push('', '=== CONTACT PAST APPOINTMENTS ===');
+    for (const appt of recent) {
+      const date = new Date(appt.startTime).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      lines.push(`  - [${appt.id}] ${appt.title} — ${date}`);
+    }
+  }
+
+  if (waitlistEntries.length > 0) {
+    lines.push('', '=== CONTACT ACTIVE WAITLIST ENTRIES ===');
+    for (const entry of waitlistEntries) {
+      const created = new Date(entry.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      lines.push(
+        `  - [${entry.id}] Service: ${entry.serviceId ?? 'any'}, ` +
+          `Time pref: ${entry.preferredTimeOfDay ?? 'any'}, ` +
+          `Added: ${created}`,
+      );
+    }
+  }
+
+  return lines.join('\n');
+}
+
+async function loadBookableServicesContext(orgId: string): Promise<string> {
+  const services = await db
+    .select({
+      id: bookableServices.id,
+      name: bookableServices.name,
+      description: bookableServices.description,
+      durationMinutes: bookableServices.durationMinutes,
+      bufferMinutes: bookableServices.bufferMinutes,
+    })
+    .from(bookableServices)
+    .where(
+      and(
+        withOrgScope(bookableServices.orgId, orgId),
+        eq(bookableServices.isActive, true),
+      ),
+    );
+
+  if (services.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['', '=== BOOKABLE SERVICES ==='];
+
+  for (const svc of services) {
+    // Fetch team members for this service
+    const members = await db
+      .select({
+        userId: serviceTeamMembers.userId,
+        userName: users.name,
+      })
+      .from(serviceTeamMembers)
+      .innerJoin(users, eq(serviceTeamMembers.userId, users.id))
+      .where(
+        and(
+          withOrgScope(serviceTeamMembers.orgId, orgId),
+          eq(serviceTeamMembers.serviceId, svc.id),
+        ),
+      );
+
+    const memberNames =
+      members.length > 0
+        ? members.map((m) => `${m.userName} (${m.userId})`).join(', ')
+        : 'No team members assigned';
+
+    lines.push(
+      `  - [${svc.id}] ${svc.name} (${svc.durationMinutes}min` +
+        `${svc.bufferMinutes > 0 ? ` + ${svc.bufferMinutes}min buffer` : ''})` +
+        `${svc.description ? ` — ${svc.description}` : ''}`,
+    );
+    lines.push(`    Team: ${memberNames}`);
+  }
+
+  lines.push(
+    '',
+    '=== BOOKING INSTRUCTIONS ===',
+    'When handling booking requests:',
+    '1. Always confirm the details with the contact before creating a booking.',
+    '2. If no exact match for the requested time, offer alternatives.',
+    '3. Ask qualifying questions before checking availability (e.g. which service, preferred date/time).',
+    '4. If no slots are available, offer to add the contact to the waitlist.',
+    '5. If you cannot resolve the request, escalate to a human team member.',
+  );
+
+  return lines.join('\n');
+}
+
 // ── System Prompt Builder ──
 
 function buildSystemPrompt(ctx: BusinessContext): string {
@@ -417,13 +613,25 @@ export const platformAssistantService = {
     orgId: string,
     message: string,
     history: ChatMessage[] = [],
+    options?: { contactId?: string; channel?: string },
   ): Promise<{ response: string; context?: Partial<BusinessContext> }> {
     const client = getAnthropicClient();
 
-    // Load business context from DB
+    // Load business context and booking context in parallel
     let ctx: BusinessContext;
+    let bookingContext = '';
     try {
-      ctx = await loadBusinessContext(orgId);
+      const contextLoaders: [Promise<BusinessContext>, Promise<string>, Promise<string>] = [
+        loadBusinessContext(orgId),
+        loadBookableServicesContext(orgId),
+        options?.contactId
+          ? loadContactBookingContext(orgId, options.contactId)
+          : Promise.resolve(''),
+      ];
+
+      const [businessCtx, servicesCtx, contactCtx] = await Promise.all(contextLoaders);
+      ctx = businessCtx;
+      bookingContext = [servicesCtx, contactCtx].filter(Boolean).join('\n');
     } catch (err) {
       logger.error('Failed to load business context for assistant', {
         orgId,
@@ -447,11 +655,14 @@ export const platformAssistantService = {
       };
     }
 
-    // Build system prompt with real data
-    const systemPrompt = buildSystemPrompt(ctx);
+    // Build system prompt with real data + booking context
+    let systemPrompt = buildSystemPrompt(ctx);
+    if (bookingContext) {
+      systemPrompt += '\n\n' + bookingContext;
+    }
 
     // Build message history for Claude (last 10 messages)
-    const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    const claudeMessages: Anthropic.MessageParam[] = [];
 
     const recentHistory = history.slice(-10);
     for (const msg of recentHistory) {
@@ -464,22 +675,77 @@ export const platformAssistantService = {
     // Add current message
     claudeMessages.push({ role: 'user', content: message });
 
+    // Determine whether to pass booking tools
+    const hasContactId = Boolean(options?.contactId);
+    const toolsToPass = hasContactId ? BOOKING_TOOLS : undefined;
+
     try {
-      const response = await client.messages.create({
+      let claudeResponse = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
         system: systemPrompt,
         messages: claudeMessages,
+        ...(toolsToPass ? { tools: toolsToPass } : {}),
       });
 
-      // Extract text from response
-      const textBlock = response.content.find((block) => block.type === 'text');
+      // Tool-use loop: keep going while Claude wants to call tools
+      while (claudeResponse.stop_reason === 'tool_use') {
+        // Add the assistant's response (with tool_use blocks) to messages
+        claudeMessages.push({
+          role: 'assistant',
+          content: claudeResponse.content,
+        });
+
+        // Extract and execute all tool_use blocks
+        const toolUseBlocks = claudeResponse.content.filter(
+          (block): block is Anthropic.ContentBlockParam & { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
+            block.type === 'tool_use',
+        );
+
+        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        for (const toolBlock of toolUseBlocks) {
+          const bookingCtx = {
+            orgId,
+            contactId: options?.contactId ?? '',
+            channel: (options?.channel ?? 'webchat') as 'webchat' | 'sms' | 'whatsapp' | 'email' | 'call',
+          };
+
+          const result = await executeBookingTool(
+            toolBlock.name,
+            toolBlock.input,
+            bookingCtx,
+          );
+
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolBlock.id,
+            content: result,
+          });
+        }
+
+        // Send tool results back to Claude
+        claudeMessages.push({
+          role: 'user',
+          content: toolResults,
+        });
+
+        claudeResponse = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: claudeMessages,
+          ...(toolsToPass ? { tools: toolsToPass } : {}),
+        });
+      }
+
+      // Extract text from final response
+      const textBlock = claudeResponse.content.find((block) => block.type === 'text');
       const responseText = textBlock?.text ?? 'I wasn\'t able to generate a response. Please try again.';
 
       logger.info('Assistant chat completed', {
         orgId,
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
+        inputTokens: claudeResponse.usage.input_tokens,
+        outputTokens: claudeResponse.usage.output_tokens,
       });
 
       return {

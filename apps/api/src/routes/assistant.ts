@@ -23,6 +23,8 @@ const chatSchema = z.object({
     .max(20)
     .optional()
     .default([]),
+  contactId: z.string().uuid().optional(),
+  channel: z.string().optional(),
 });
 
 // ── Routes ──
@@ -53,7 +55,10 @@ assistantRouter.post('/chat', async (c) => {
   const { message, history } = parsed.data;
 
   try {
-    const result = await platformAssistantService.chat(orgId, message, history);
+    const result = await platformAssistantService.chat(orgId, message, history, {
+      contactId: parsed.data.contactId,
+      channel: parsed.data.channel,
+    });
 
     return c.json({
       response: result.response,
