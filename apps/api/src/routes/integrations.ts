@@ -4,6 +4,8 @@ import { authMiddleware, requirePlatformAdmin } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
+import { db, googleCalendarConnections } from '@hararai/db';
+import { eq, and } from 'drizzle-orm';
 import {
   OAUTH_PROVIDERS,
   buildOAuthUrl,
@@ -257,6 +259,53 @@ integrations.get('/:provider/callback', async (c) => {
     const orgConnections = getOrgConnections(orgId);
     orgConnections.set(provider, connection);
 
+    // For Google Calendar: also persist tokens to database for sync service
+    if (provider === 'google_calendar') {
+      const user = c.get('user');
+      try {
+        // Upsert: update if exists, insert if not
+        const [existing] = await db
+          .select({ id: googleCalendarConnections.id })
+          .from(googleCalendarConnections)
+          .where(
+            and(
+              eq(googleCalendarConnections.orgId, orgId),
+              eq(googleCalendarConnections.userId, user.id),
+            ),
+          );
+
+        if (existing) {
+          await db
+            .update(googleCalendarConnections)
+            .set({
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+              expiresAt: tokens.expiresAt,
+              syncEnabled: true,
+              updatedAt: new Date(),
+            })
+            .where(eq(googleCalendarConnections.id, existing.id));
+        } else {
+          await db.insert(googleCalendarConnections).values({
+            orgId,
+            userId: user.id,
+            calendarId: 'primary',
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+          });
+        }
+
+        logger.info('Google Calendar tokens persisted to DB', { orgId, userId: user.id });
+      } catch (err) {
+        logger.error('Failed to persist Google Calendar tokens to DB', {
+          orgId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        // Don't fail the OAuth flow — in-memory storage still works
+      }
+    }
+
     logger.info(`OAuth connected: ${provider}`, { orgId, accountName, accountId });
 
     // Redirect back to frontend integrations page with success
@@ -308,6 +357,26 @@ integrations.delete('/:provider', async (c) => {
 
   // Remove from store
   orgConnections.delete(provider);
+
+  // For Google Calendar: also remove from database
+  if (provider === 'google_calendar') {
+    const user = c.get('user');
+    try {
+      await db
+        .delete(googleCalendarConnections)
+        .where(
+          and(
+            eq(googleCalendarConnections.orgId, orgId),
+            eq(googleCalendarConnections.userId, user.id),
+          ),
+        );
+    } catch (err) {
+      logger.error('Failed to remove Google Calendar connection from DB', {
+        orgId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   logger.info(`OAuth disconnected: ${provider}`, { orgId });
 
