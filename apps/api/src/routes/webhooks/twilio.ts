@@ -312,7 +312,7 @@ twilioWebhooks.post('/voice', async (c) => {
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<Response>',
     '  <Connect>',
-    `    <Stream url="${escapeXml(streamUrl)}">`,
+    `    <Stream url="${escapeXml(streamUrl)}" bidirectional="true">`,
     `      <Parameter name="callerPhone" value="${escapeXml(From)}" />`,
     `      <Parameter name="calledNumber" value="${escapeXml(To)}" />`,
     '    </Stream>',

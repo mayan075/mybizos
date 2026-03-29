@@ -40,6 +40,7 @@ interface BridgeParams {
   callerPhone: string;
   systemPrompt: string;
   voiceName?: string;
+  streamSid?: string;
 }
 
 interface TwilioMediaMessage {
@@ -106,6 +107,7 @@ export class GeminiCallBridge {
     this.agentId = params.agentId;
     this.callSid = params.callSid;
     this.callerPhone = params.callerPhone;
+    this.streamSid = params.streamSid ?? null;
 
     // Build Gemini session config
     const geminiConfig: GeminiLiveConfig = {

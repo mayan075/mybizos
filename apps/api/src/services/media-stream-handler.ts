@@ -63,7 +63,7 @@ export async function handleTwilioMediaStream(ws: WebSocket, _req: IncomingMessa
       if (message.event === 'start') {
         bridgeStarted = true;
         const startEvent = message as TwilioStartEvent;
-        const { callSid, customParameters } = startEvent.start;
+        const { callSid, streamSid, customParameters } = startEvent.start;
         const callerPhone = customParameters['callerPhone'] ?? '';
         const calledNumber = customParameters['calledNumber'] ?? '';
 
@@ -117,7 +117,7 @@ export async function handleTwilioMediaStream(ws: WebSocket, _req: IncomingMessa
             ? geminiConfig['voiceName']
             : undefined;
 
-          // Create and start the bridge
+          // Create and start the bridge (pass streamSid since we already consumed the start event)
           const bridge = new GeminiCallBridge({
             twilioWs: ws,
             orgId,
@@ -126,6 +126,7 @@ export async function handleTwilioMediaStream(ws: WebSocket, _req: IncomingMessa
             callerPhone,
             systemPrompt: agent.systemPrompt,
             voiceName,
+            streamSid,
           });
 
           await bridge.start();
