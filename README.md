@@ -4,7 +4,7 @@
 
 HararAI replaces GoHighLevel with a modern, integrated platform that combines CRM, pipeline management, marketing automation, appointment scheduling, and AI-powered phone/SMS agents. The killer feature: an AI phone agent that answers every call 24/7, qualifies leads, quotes price ranges, and books appointments automatically.
 
-**Live Demo:** [https://mybizos.vercel.app](https://mybizos.vercel.app)
+**Live Demo:** [https://hararai.com](https://hararai.com)
 
 <!-- Screenshots: TODO -->
 

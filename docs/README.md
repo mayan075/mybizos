@@ -99,4 +99,4 @@ Features not in Phase 1 are tracked in [FEATURE_JAIL.md](../FEATURE_JAIL.md).
 
 ## Live Demo
 
-Visit [https://mybizos.vercel.app](https://mybizos.vercel.app) to see the live deployment.
+Visit [https://hararai.com](https://hararai.com) to see the live deployment.

@@ -302,8 +302,8 @@ twilioWebhooks.post('/voice', async (c) => {
   });
 
   // Build WebSocket URL using the request's Host header so it matches
-  // the domain Twilio is actually reaching (e.g. mybizos-production.up.railway.app)
-  const RAILWAY_FALLBACK = 'mybizos-production.up.railway.app';
+  // the domain Twilio is actually reaching (e.g. api.hararai.com)
+  const RAILWAY_FALLBACK = 'api.hararai.com';
   const host = c.req.header('host') || RAILWAY_FALLBACK;
   const streamUrl = `wss://${host}/ws/media-stream`;
 

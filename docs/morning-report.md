@@ -34,13 +34,13 @@ All systems green. No errors, no fixes needed.
 | Test files | 5 |
 | Build errors | 0 |
 | TypeScript errors | 0 |
-| Live URL | mybizos.vercel.app |
+| Live URL | hararai.com |
 | Vercel status | Ready |
 
 ### WHAT NEEDS MAYAN'S ATTENTION
 
-1. **Railway API** — Check if it deployed successfully at https://mybizos-production.up.railway.app/health. If it shows `{"status":"ok"}`, the Vercel login will work too.
-2. **Vercel Environment Variable** — Once Railway API is live, add `NEXT_PUBLIC_API_URL` = `https://mybizos-production.up.railway.app` in Vercel dashboard (Settings > Environment Variables), then redeploy.
+1. **Railway API** — Check if it deployed successfully at https://api.hararai.com/health. If it shows `{"status":"ok"}`, the Vercel login will work too.
+2. **Vercel Environment Variable** — Once Railway API is live, add `NEXT_PUBLIC_API_URL` = `https://api.hararai.com` in Vercel dashboard (Settings > Environment Variables), then redeploy.
 3. **Twilio Voice Setup** — Open the dialer, click "Enable Browser Calling" to create the TwiML App + API Keys on your Twilio account automatically.
 4. **Test the automation engine** — Sequences now actually execute. Create a test sequence and verify it fires steps on schedule.
 

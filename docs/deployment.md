@@ -2,7 +2,7 @@
 
 ## Live URL
 
-Production: https://mybizos.vercel.app
+Production: https://hararai.com
 
 ## Prerequisites
 

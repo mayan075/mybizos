@@ -10,19 +10,19 @@ Last updated: 2026-03-29
 | Anthropic API | ✅ Working | Claude Haiku responding |
 | Twilio | ✅ Active | "My first Twilio account" |
 | Resend | ✅ Working | Send-only key configured |
-| Railway API | ✅ Deployed | https://mybizos-production.up.railway.app/health |
-| Vercel Frontend | ✅ Deployed | https://mybizos.vercel.app |
+| Railway API | ✅ Deployed | https://api.hararai.com/health |
+| Vercel Frontend | ✅ Deployed | https://hararai.com |
 | GitHub | ✅ Pushed | All code up to date |
 
 ## 🔧 ACTION NEEDED — Vercel Environment Variable
 
-The frontend at `mybizos.vercel.app` needs to know where the API is.
+The frontend at `hararai.com` needs to know where the API is.
 
-**Go to:** https://vercel.com → MyBizOS project → Settings → Environment Variables
+**Go to:** https://vercel.com → HararAI project → Settings → Environment Variables
 
 **Add this variable:**
 ```
-NEXT_PUBLIC_API_URL = https://mybizos-production.up.railway.app
+NEXT_PUBLIC_API_URL = https://api.hararai.com
 ```
 
 Set it for **Production**, **Preview**, and **Development** environments.
@@ -48,8 +48,9 @@ Without this, the frontend talks to `localhost:3001` which doesn't exist in prod
 - Without it: "Sign in with Google" button won't appear
 
 ### 4. Domain Setup
-- hararai.com or mybizos.com — point to Vercel
-- Configure custom domain in Vercel dashboard
+- Point `hararai.com` to Vercel (frontend)
+- Point `api.hararai.com` to Railway (backend API)
+- Configure custom domains in Vercel and Railway dashboards
 
 ### 5. Production JWT Secret
 - Current secret is fine for dev but should be rotated for production

@@ -115,7 +115,7 @@ vercel ls | head -5
 vercel logs <deployment-url> | tail -30
 
 # Check Railway API
-curl -s --max-time 10 https://mybizos-production.up.railway.app/health
+curl -s --max-time 10 https://api.hararai.com/health
 
 # Force Vercel redeploy
 vercel --prod --yes
