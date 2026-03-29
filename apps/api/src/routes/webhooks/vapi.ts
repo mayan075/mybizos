@@ -11,11 +11,12 @@ import {
   pipelineStages,
   notifications,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { logger } from '../../middleware/logger.js';
 import { config } from '../../config.js';
 import { resolveContact } from '../../services/contact-resolution-service.js';
 import { activityService } from '../../services/activity-service.js';
+import { walletService } from '../../services/wallet-service.js';
 
 const vapiWebhooks = new Hono();
 
@@ -179,6 +180,37 @@ vapiWebhooks.post('/tool-call', async (c) => {
 
     const orgId = agent.orgId;
     const results: Array<{ toolCallId: string; result: string }> = [];
+
+    // ── Pre-call balance check ──────────────────────────────────────────
+    // Ensure the org has at least $0.50 to cover potential call costs
+    let hasSufficientBalance = true;
+    try {
+      const balance = await walletService.getBalance(orgId);
+      if (balance < 0.50) {
+        hasSufficientBalance = false;
+        logger.warn('[Vapi] Insufficient wallet balance for tool calls', {
+          orgId,
+          balance,
+        });
+      }
+    } catch (err) {
+      // If wallet check fails, allow the call to proceed (don't block on wallet errors)
+      logger.error('[Vapi] Failed to check wallet balance', {
+        orgId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    if (!hasSufficientBalance) {
+      // Return a friendly message for all tool calls when balance is too low
+      for (const toolCall of toolCalls) {
+        results.push({
+          toolCallId: toolCall.id,
+          result: "I'm sorry, the business account needs to be topped up. Please call back shortly or leave your details and we'll get back to you.",
+        });
+      }
+      return c.json({ results });
+    }
 
     for (const toolCall of toolCalls) {
       const { name, arguments: args } = toolCall.function;
@@ -504,6 +536,35 @@ vapiWebhooks.post('/call-ended', async (c) => {
       logger.info('[Vapi] Call logged', { orgId, vapiCallId, outcome, duration });
     } catch (err) {
       logger.error('[Vapi] Failed to log call', {
+        orgId,
+        vapiCallId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // ── Debit wallet for AI call cost (fire-and-forget) ─────────────────
+    try {
+      const durationSeconds = duration ?? 0;
+      const DEFAULT_AI_CALL_RATE = 0.15; // $0.15 per minute
+      const callCost = (durationSeconds / 60) * DEFAULT_AI_CALL_RATE;
+
+      if (callCost > 0) {
+        await walletService.debit(orgId, {
+          amount: callCost,
+          category: 'ai_call',
+          description: `AI call (${Math.ceil(durationSeconds / 60)} min)`,
+          relatedResourceId: vapiCallId,
+        });
+        logger.info('[Vapi] Wallet debited for call', {
+          orgId,
+          vapiCallId,
+          callCost: callCost.toFixed(4),
+          durationSeconds,
+        });
+      }
+    } catch (err) {
+      // Fire-and-forget: log warning but don't fail the webhook
+      logger.warn('[Vapi] Failed to debit wallet for call', {
         orgId,
         vapiCallId,
         error: err instanceof Error ? err.message : String(err),

@@ -27,13 +27,18 @@ import {
   Loader2,
   Check,
   Zap,
+  Wallet,
+  Plus,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getUser } from "@/lib/auth";
 import { getOnboardingData } from "@/lib/onboarding";
 import { apiClient, tryFetch } from "@/lib/api-client";
-import { getOrgId } from "@/lib/hooks/use-api";
+import { getOrgId, useApiQuery, useApiMutation } from "@/lib/hooks/use-api";
 import { useToast } from "@/components/ui/toast";
 
 // ---------------------------------------------------------------------------
@@ -100,6 +105,32 @@ interface IntegrationStatus {
   quickbooks: boolean;
 }
 
+interface WalletBalance {
+  amount: number;
+  currency: string;
+}
+
+interface WalletTransaction {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  balanceAfter: number;
+  type: 'credit' | 'debit';
+}
+
+interface AutoRechargeConfig {
+  enabled: boolean;
+  threshold: number;
+  amount: number;
+}
+
+interface UsageRate {
+  label: string;
+  unit: string;
+  rate: number;
+}
+
 interface AllSettings {
   profile: ProfileSettings;
   general: GeneralSettings;
@@ -116,7 +147,7 @@ interface ValidationErrors {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "mybizos_settings";
+const STORAGE_KEY = "hararai_settings";
 
 const DAYS: { key: DayOfWeek; label: string }[] = [
   { key: "monday", label: "Monday" },
@@ -531,6 +562,17 @@ function SettingsContent() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
 
+  // --- Wallet state ---
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState<number | "">("");
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [autoRecharge, setAutoRecharge] = useState<AutoRechargeConfig>({
+    enabled: false,
+    threshold: 5,
+    amount: 25,
+  });
+  const [autoRechargeSaving, setAutoRechargeSaving] = useState(false);
+
   // Load from API on mount, fall back to localStorage
   useEffect(() => {
     let cancelled = false;
@@ -567,6 +609,101 @@ function SettingsContent() {
     fetchBilling();
     return () => { cancelled = true; };
   }, [activeTab]);
+
+  // --- Wallet API hooks ---
+  const walletEnabled = activeTab === "billing";
+
+  const {
+    data: walletBalance,
+    isLoading: walletBalanceLoading,
+    refetch: refetchBalance,
+  } = useApiQuery<WalletBalance>(
+    "/orgs/:orgId/wallet/balance",
+    { amount: 0, currency: "AUD" },
+    undefined,
+    walletEnabled,
+  );
+
+  const {
+    data: walletTransactions,
+    isLoading: walletTransactionsLoading,
+    refetch: refetchTransactions,
+  } = useApiQuery<WalletTransaction[]>(
+    "/orgs/:orgId/wallet/transactions",
+    [],
+    { limit: "5" },
+    walletEnabled,
+  );
+
+  const {
+    data: walletAutoRecharge,
+    isLoading: walletAutoRechargeLoading,
+  } = useApiQuery<AutoRechargeConfig>(
+    "/orgs/:orgId/wallet/auto-recharge",
+    { enabled: false, threshold: 5, amount: 25 },
+    undefined,
+    walletEnabled,
+  );
+
+  const {
+    data: usageRates,
+    isLoading: usageRatesLoading,
+  } = useApiQuery<UsageRate[]>(
+    "/orgs/:orgId/wallet/rates",
+    [
+      { label: "AI Call", unit: "minute", rate: 0.15 },
+      { label: "SMS (AU)", unit: "message", rate: 0.05 },
+      { label: "SMS (US)", unit: "message", rate: 0.01 },
+      { label: "Phone Number", unit: "month", rate: 5.00 },
+    ],
+    undefined,
+    walletEnabled,
+  );
+
+  // Sync auto-recharge from API when it loads
+  useEffect(() => {
+    if (walletAutoRecharge && !walletAutoRechargeLoading) {
+      setAutoRecharge(walletAutoRecharge);
+    }
+  }, [walletAutoRecharge, walletAutoRechargeLoading]);
+
+  const { mutate: topUpWallet } = useApiMutation<{ amount: number }, { url: string }>(
+    "/orgs/:orgId/wallet/topup",
+    "post",
+  );
+
+  const { mutate: saveAutoRecharge } = useApiMutation<AutoRechargeConfig, AutoRechargeConfig>(
+    "/orgs/:orgId/wallet/auto-recharge",
+    "post",
+  );
+
+  const handleTopUp = useCallback(async (amount: number) => {
+    if (amount <= 0) return;
+    setTopUpLoading(true);
+    try {
+      const result = await topUpWallet({ amount });
+      if (result && "url" in result && result.url) {
+        window.location.href = result.url;
+        return;
+      }
+      showToast("Top-up initiated. Redirecting to payment...");
+      setTopUpModalOpen(false);
+    } catch {
+      showToast("Failed to start top-up. Please try again.", "error");
+    }
+    setTopUpLoading(false);
+  }, [topUpWallet]);
+
+  const handleSaveAutoRecharge = useCallback(async () => {
+    setAutoRechargeSaving(true);
+    try {
+      await saveAutoRecharge(autoRecharge);
+      showToast("Auto-recharge settings saved.");
+    } catch {
+      showToast("Failed to save auto-recharge settings.", "error");
+    }
+    setAutoRechargeSaving(false);
+  }, [autoRecharge, saveAutoRecharge]);
 
   const openBillingPortal = useCallback(async () => {
     setPortalLoading(true);
@@ -1511,7 +1648,7 @@ function SettingsContent() {
                   Email Settings
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure how MyBizOS sends emails on your behalf.
+                  Configure how HararAI sends emails on your behalf.
                 </p>
 
                 <div className="space-y-4">
@@ -1668,7 +1805,7 @@ function SettingsContent() {
                   Integrations
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Connect third-party services to MyBizOS using OAuth. Manage all your
+                  Connect third-party services to HararAI using OAuth. Manage all your
                   Facebook, Instagram, Google, QuickBooks, and Stripe connections from the
                   dedicated Integrations hub.
                 </p>
@@ -2006,6 +2143,335 @@ function SettingsContent() {
                     </div>
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ============================================================= */}
+          {/* WALLET / CREDITS (within billing tab)                          */}
+          {/* ============================================================= */}
+          {activeTab === "billing" && (
+            <div className="space-y-5">
+              {/* ── Wallet Balance Card ──────────────────────────────────── */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Wallet className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">
+                        Wallet Balance
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        Pay-as-you-go credits for AI calls, SMS &amp; more
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { refetchBalance(); refetchTransactions(); }}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Refresh balance"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-end justify-between">
+                  <div>
+                    {walletBalanceLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Loading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-3xl font-bold text-foreground">
+                          ${walletBalance.amount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {walletBalance.currency}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setTopUpModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Credits
+                  </button>
+                </div>
+
+                {/* Recent Transactions */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-foreground">Recent Transactions</h3>
+                    <Link
+                      href="/dashboard/settings?tab=billing&view=transactions"
+                      className="text-xs text-primary hover:text-primary/80 transition-colors"
+                    >
+                      View All
+                    </Link>
+                  </div>
+                  <div className="divide-y divide-border rounded-lg border border-border">
+                    {walletTransactionsLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-xs text-muted-foreground">Loading transactions...</span>
+                      </div>
+                    ) : walletTransactions.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                        No transactions yet
+                      </div>
+                    ) : (
+                      walletTransactions.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex items-center justify-between px-4 py-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-full",
+                              tx.type === "credit"
+                                ? "bg-emerald-500/10"
+                                : "bg-red-500/10"
+                            )}>
+                              {tx.type === "credit" ? (
+                                <ArrowDownRight className="h-3.5 w-3.5 text-emerald-600" />
+                              ) : (
+                                <ArrowUpRight className="h-3.5 w-3.5 text-red-600" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm text-foreground">{tx.description}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(tx.date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={cn(
+                              "text-sm font-medium",
+                              tx.type === "credit" ? "text-emerald-600" : "text-red-600"
+                            )}>
+                              {tx.type === "credit" ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Bal: ${tx.balanceAfter.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Auto-Recharge Toggle ─────────────────────────────────── */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Auto-Recharge</h3>
+                <p className="text-xs text-muted-foreground">
+                  Automatically top up your wallet when the balance drops below a threshold.
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-foreground" htmlFor="auto-recharge-toggle">
+                    Enable auto-recharge
+                  </label>
+                  <button
+                    id="auto-recharge-toggle"
+                    role="switch"
+                    aria-checked={autoRecharge.enabled}
+                    onClick={() => setAutoRecharge((prev) => ({ ...prev, enabled: !prev.enabled }))}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+                      autoRecharge.enabled ? "bg-primary" : "bg-muted"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        autoRecharge.enabled ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+
+                {autoRecharge.enabled && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor="recharge-threshold">
+                        When balance drops below
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                        <input
+                          id="recharge-threshold"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={autoRecharge.threshold}
+                          onChange={(e) => setAutoRecharge((prev) => ({ ...prev, threshold: Number(e.target.value) }))}
+                          className="w-full rounded-lg border border-border bg-background py-2 pl-7 pr-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor="recharge-amount">
+                        Recharge amount
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                        <input
+                          id="recharge-amount"
+                          type="number"
+                          min={5}
+                          step={5}
+                          value={autoRecharge.amount}
+                          onChange={(e) => setAutoRecharge((prev) => ({ ...prev, amount: Number(e.target.value) }))}
+                          className="w-full rounded-lg border border-border bg-background py-2 pl-7 pr-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {autoRecharge.enabled && (
+                  <p className="text-xs text-muted-foreground">
+                    Recharge <span className="font-medium text-foreground">${autoRecharge.amount.toFixed(2)}</span> when balance drops below{" "}
+                    <span className="font-medium text-foreground">${autoRecharge.threshold.toFixed(2)}</span>
+                  </p>
+                )}
+
+                <button
+                  onClick={handleSaveAutoRecharge}
+                  disabled={autoRechargeSaving}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2 text-xs font-medium text-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                >
+                  {autoRechargeSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  Save Auto-Recharge
+                </button>
+              </div>
+
+              {/* ── Usage Rates Card ─────────────────────────────────────── */}
+              <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Usage Rates</h3>
+                <p className="text-xs text-muted-foreground">
+                  Current per-unit pricing for your account.
+                </p>
+
+                {usageRatesLoading ? (
+                  <div className="flex items-center gap-2 py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Loading rates...</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {usageRates.map((rate) => (
+                      <div
+                        key={rate.label}
+                        className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                      >
+                        <p className="text-sm text-foreground">{rate.label}</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          ${rate.rate.toFixed(2)}<span className="text-xs font-normal text-muted-foreground">/{rate.unit}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Top-Up Modal ─────────────────────────────────────────── */}
+              {topUpModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-foreground">Add Credits</h3>
+                      <button
+                        onClick={() => { setTopUpModalOpen(false); setTopUpAmount(""); }}
+                        className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none"
+                      >
+                        &times;
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Select an amount or enter a custom value. You will be redirected to Stripe to complete the payment.
+                    </p>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {[10, 25, 50, 100].map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => setTopUpAmount(preset)}
+                          className={cn(
+                            "rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
+                            topUpAmount === preset
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-foreground hover:border-primary/50"
+                          )}
+                        >
+                          ${preset}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor="custom-topup-amount">
+                        Custom amount
+                      </label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                        <input
+                          id="custom-topup-amount"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={topUpAmount === "" ? "" : topUpAmount}
+                          onChange={(e) => setTopUpAmount(e.target.value ? Number(e.target.value) : "")}
+                          placeholder="Enter amount"
+                          className="w-full rounded-lg border border-border bg-background py-2 pl-7 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setTopUpModalOpen(false); setTopUpAmount(""); }}
+                        className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (typeof topUpAmount === "number" && topUpAmount > 0) {
+                            handleTopUp(topUpAmount);
+                          }
+                        }}
+                        disabled={topUpLoading || topUpAmount === "" || (typeof topUpAmount === "number" && topUpAmount <= 0)}
+                        className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {topUpLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                        ) : (
+                          `Pay ${typeof topUpAmount === "number" && topUpAmount > 0 ? `$${topUpAmount.toFixed(2)}` : "..."}`
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}

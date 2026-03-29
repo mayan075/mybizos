@@ -30,6 +30,7 @@ import { callsRoutes } from './routes/calls.js';
 import { assistantRoutes } from './routes/assistant.js';
 import { aiContentRoutes } from './routes/ai-content.js';
 import { billingRoutes } from './routes/billing.js';
+import { walletRoutes } from './routes/wallet.js';
 import { formRoutes, publicFormRoutes } from './routes/forms.js';
 import { activityRoutes } from './routes/activities.js';
 import { teamRoutes } from './routes/team.js';
@@ -92,7 +93,7 @@ app.onError(errorHandler);
 app.get('/', (c) => {
   return c.json({
     status: 'ok',
-    name: 'mybizos-api',
+    name: 'hararai-api',
     version: '0.1.0',
   });
 });
@@ -100,7 +101,7 @@ app.get('/', (c) => {
 app.get('/health', async (c) => {
   let dbStatus = 'unknown';
   try {
-    const { db } = await import('@mybizos/db');
+    const { db } = await import('@hararai/db');
     const { sql } = await import('drizzle-orm');
     const result = await db.execute(sql`SELECT 1 as ok`);
     dbStatus = Array.isArray(result) && result.length > 0 ? 'connected' : 'no-result';
@@ -139,6 +140,7 @@ app.route('/orgs/:orgId/calls', callsRoutes);
 app.route('/orgs/:orgId/assistant', assistantRoutes);
 app.route('/orgs/:orgId/ai', aiContentRoutes);
 app.route('/orgs/:orgId/billing', billingRoutes);
+app.route('/orgs/:orgId/wallet', walletRoutes);
 app.route('/orgs/:orgId/forms', formRoutes);
 app.route('/orgs/:orgId/activities', activityRoutes);
 app.route('/orgs/:orgId/team', teamRoutes);
@@ -175,7 +177,7 @@ app.notFound((c) => {
 
 const port = config.PORT;
 
-logger.info(`Starting MyBizOS API server`, {
+logger.info(`Starting HararAI API server`, {
   port: String(port),
   environment: config.NODE_ENV,
   corsOrigin: config.CORS_ORIGIN,
@@ -186,7 +188,7 @@ serve({
   port,
 });
 
-logger.info(`MyBizOS API server running on http://localhost:${port}`);
+logger.info(`HararAI API server running on http://localhost:${port}`);
 
 // ── Start Background Job Scheduler ──
 

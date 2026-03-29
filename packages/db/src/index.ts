@@ -18,6 +18,7 @@ export * from "./schema/call-history.js";
 export * from "./schema/invoices.js";
 export * from "./schema/notifications.js";
 export * from "./schema/social.js";
+export * from "./schema/wallet.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";

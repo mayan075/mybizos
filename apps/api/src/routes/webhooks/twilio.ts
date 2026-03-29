@@ -10,20 +10,21 @@ import {
   pipelines,
   pipelineStages,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { logger } from '../../middleware/logger.js';
 import { authMiddleware, requirePlatformAdmin } from '../../middleware/auth.js';
 import { config } from '../../config.js';
-import { ClaudeClient } from '@mybizos/ai';
-import type { ClaudeMessage } from '@mybizos/ai';
-import { getPhoneAgentPrompt, getSmsAgentPrompt } from '@mybizos/ai';
-import { TwilioClient } from '@mybizos/integrations';
-import type { Vertical } from '@mybizos/shared';
+import { ClaudeClient } from '@hararai/ai';
+import type { ClaudeMessage } from '@hararai/ai';
+import { getPhoneAgentPrompt, getSmsAgentPrompt } from '@hararai/ai';
+import { TwilioClient } from '@hararai/integrations';
+import type { Vertical } from '@hararai/shared';
 import { resolveOrgByPhoneNumber, type ResolvedOrg } from '../../services/phone-routing-service.js';
 import { resolveContact } from '../../services/contact-resolution-service.js';
 import { conversationService } from '../../services/conversation-service.js';
 import { activityService } from '../../services/activity-service.js';
 import { notificationService } from '../../services/notification-service.js';
+import { walletService } from '../../services/wallet-service.js';
 
 const twilioWebhooks = new Hono();
 
@@ -52,7 +53,7 @@ async function getBusinessConfig(calledNumber: string): Promise<{
   try {
     const resolved = await resolveOrgByPhoneNumber(calledNumber);
     if (resolved) {
-      const { db, organizations } = await import('@mybizos/db');
+      const { db, organizations } = await import('@hararai/db');
       const { eq: eqOp } = await import('drizzle-orm');
       const [org] = await db
         .select()
@@ -697,6 +698,35 @@ twilioWebhooks.post('/sms', async (c) => {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       logger.error('[SMS DB] Step 8 FAILED: Activity log error', { orgId, error: msg });
     });
+  }
+
+  // ── Step 8b: Debit wallet for outbound SMS (fire-and-forget) ────────────
+  if (orgId) {
+    try {
+      // Determine rate based on phone number country (AU vs US)
+      const isAustralian = To.startsWith('+61');
+      const smsCost = isAustralian ? 0.05 : 0.01; // $0.05 AU, $0.01 US
+
+      await walletService.debit(orgId, {
+        amount: smsCost,
+        category: 'sms_outbound',
+        description: `SMS reply to ${From}${isAustralian ? ' (AU)' : ' (US)'}`,
+        relatedResourceId: MessageSid,
+      });
+      logger.info('[SMS] Wallet debited for outbound SMS', {
+        orgId,
+        messageSid: MessageSid,
+        smsCost,
+        isAustralian,
+      });
+    } catch (err) {
+      // Fire-and-forget: log warning but don't fail the webhook
+      logger.warn('[SMS] Failed to debit wallet for outbound SMS', {
+        orgId,
+        messageSid: MessageSid,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   // ── Step 9: Return TwiML with AI response ───────────────────────────────

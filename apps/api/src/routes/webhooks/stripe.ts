@@ -10,8 +10,8 @@ const stripeWebhooks = new Hono();
  */
 stripeWebhooks.post('/', async (c) => {
   try {
-    const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations } = await import('@mybizos/db');
+    const { StripeClient } = await import('@hararai/integrations');
+    const { db, organizations } = await import('@hararai/db');
     const { eq, sql } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY || !config.STRIPE_WEBHOOK_SECRET) {
@@ -44,7 +44,7 @@ stripeWebhooks.post('/', async (c) => {
 
     switch (event.type) {
       case 'checkout.session.completed': {
-        const session = event.data.object as { metadata?: Record<string, string>; customer?: string; subscription?: string; amount_total?: number };
+        const session = event.data.object as { metadata?: Record<string, string>; customer?: string; subscription?: string; amount_total?: number; payment_intent?: string };
         const orgId = session.metadata?.orgId;
 
         if (!orgId) {
@@ -52,6 +52,30 @@ stripeWebhooks.post('/', async (c) => {
           break;
         }
 
+        // Handle wallet top-up payments
+        if (session.metadata?.type === 'wallet_topup') {
+          try {
+            const { walletService } = await import('../../services/wallet-service.js');
+            const amountDollars = (session.amount_total ?? 0) / 100;
+
+            await walletService.credit(orgId, {
+              amount: amountDollars,
+              category: 'topup',
+              description: 'Stripe wallet top-up',
+              stripePaymentIntentId: session.payment_intent as string,
+            });
+
+            logger.info('Wallet top-up credited', { orgId, amount: amountDollars });
+          } catch (topupErr) {
+            logger.error('Failed to credit wallet top-up', {
+              orgId,
+              error: topupErr instanceof Error ? topupErr.message : String(topupErr),
+            });
+          }
+          break;
+        }
+
+        // Handle subscription checkout
         const [org] = await db
           .select()
           .from(organizations)
