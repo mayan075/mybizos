@@ -1,5 +1,5 @@
 [build]
-buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@hararai/api && cd packages/db && npx drizzle-kit migrate"
+buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@hararai/api"
 
 [deploy]
 startCommand = "node apps/api/dist/apps/api/src/index.js"
