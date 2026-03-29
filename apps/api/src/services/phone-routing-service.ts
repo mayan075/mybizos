@@ -1,6 +1,7 @@
 import { db, organizations, withOrgScope } from '@hararai/db';
 import { sql } from 'drizzle-orm';
 import { logger } from '../middleware/logger.js';
+import { cacheGet, cacheSet } from '../lib/redis.js';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -40,42 +41,27 @@ export interface ResolvedOrg {
   settings: OrgSettings;
 }
 
-// ── In-memory cache (5-minute TTL) ───────────────────────────────────────
+// ── Redis cache (5-minute TTL) ────────────────────────────────────────────
 
-interface CacheEntry {
-  data: ResolvedOrg;
-  expiresAt: number;
+const CACHE_TTL_SECONDS = 300; // 5 minutes
+
+function cacheKey(normalizedPhone: string): string {
+  return `phone-routing:${normalizedPhone}`;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const orgByPhoneCache = new Map<string, CacheEntry>();
-
-function getCached(phoneNumber: string): ResolvedOrg | null {
-  const entry = orgByPhoneCache.get(phoneNumber);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    orgByPhoneCache.delete(phoneNumber);
+async function getCached(phoneNumber: string): Promise<ResolvedOrg | null> {
+  const raw = await cacheGet(cacheKey(phoneNumber));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ResolvedOrg;
+  } catch {
     return null;
   }
-  return entry.data;
 }
 
-function setCache(phoneNumber: string, data: ResolvedOrg): void {
-  orgByPhoneCache.set(phoneNumber, {
-    data,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  });
+async function setCache(phoneNumber: string, data: ResolvedOrg): Promise<void> {
+  await cacheSet(cacheKey(phoneNumber), JSON.stringify(data), CACHE_TTL_SECONDS);
 }
-
-// Clean expired entries every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of orgByPhoneCache) {
-    if (now > entry.expiresAt) {
-      orgByPhoneCache.delete(key);
-    }
-  }
-}, 10 * 60 * 1000);
 
 // ── Public API ───────────────────────────────────────────────────────────
 
@@ -96,7 +82,7 @@ export async function resolveOrgByPhoneNumber(
   const normalized = twilioNumber.replace(/\s/g, '');
 
   // Check cache first
-  const cached = getCached(normalized);
+  const cached = await getCached(normalized);
   if (cached) {
     logger.debug('Org resolved from cache', { phone: normalized, orgId: cached.orgId });
     return cached;
@@ -131,7 +117,7 @@ export async function resolveOrgByPhoneNumber(
               vertical: org.vertical,
               settings: settings,
             };
-            setCache(normalized, resolved);
+            await setCache(normalized, resolved);
             logger.info('Org resolved via managedPhone number', {
               phone: normalized,
               orgId: org.id,
@@ -152,7 +138,7 @@ export async function resolveOrgByPhoneNumber(
               vertical: org.vertical,
               settings: settings,
             };
-            setCache(normalized, resolved);
+            await setCache(normalized, resolved);
             logger.info('Org resolved via phone routing', {
               phone: normalized,
               orgId: org.id,
@@ -171,7 +157,7 @@ export async function resolveOrgByPhoneNumber(
           vertical: org.vertical,
           settings: settings ?? {},
         };
-        setCache(normalized, resolved);
+        await setCache(normalized, resolved);
         logger.info('Org resolved via org phone column', {
           phone: normalized,
           orgId: org.id,

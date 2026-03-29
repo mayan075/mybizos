@@ -47,3 +47,63 @@ export const orgScopeMiddleware: MiddlewareHandler = async (c, next) => {
 export function withOrgScope(orgId: string): { orgId: string } {
   return { orgId };
 }
+
+/**
+ * Audit log middleware factory.
+ * Runs AFTER the handler (post-middleware) and records a structured audit
+ * entry for any successful mutation (HTTP 200–299).
+ *
+ * Usage:
+ *   app.post('/contacts', orgScopeMiddleware, auditLog('create', 'contacts'), handler)
+ */
+export function auditLog(
+  action: string,
+  resource: string,
+): MiddlewareHandler {
+  return async (c, next) => {
+    await next();
+
+    const status = c.res.status;
+    if (status < 200 || status > 299) {
+      return;
+    }
+
+    // Fire-and-forget — never block the response
+    (async () => {
+      try {
+        const { auditService } = await import('../services/audit-service.js');
+
+        const orgId: string | undefined = c.get('orgId');
+        const user = c.get('user') as { id?: string } | undefined;
+
+        if (!orgId) return;
+
+        const ipAddress =
+          c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+          c.req.header('x-real-ip') ??
+          null;
+
+        const userAgent = c.req.header('user-agent') ?? null;
+
+        let resourceId: string | null = null;
+        try {
+          resourceId = c.req.param('id') ?? null;
+        } catch {
+          // param() throws if the route has no :id segment
+        }
+
+        auditService.log(orgId, {
+          userId: user?.id ?? null,
+          action: action as Parameters<typeof auditService.log>[1]['action'],
+          resource,
+          resourceId,
+          description: `${action} on ${resource}${resourceId ? ` (${resourceId})` : ''}`,
+          ipAddress,
+          userAgent,
+        });
+      } catch {
+        // Silently swallow — audit failures must never surface to callers
+      }
+    })();
+  };
+}

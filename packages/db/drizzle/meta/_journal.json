@@ -15,6 +15,13 @@
       "when": 1774708041947,
       "tag": "0001_google-oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774766332086,
+      "tag": "0002_overrated_gateway",
+      "breakpoints": true
     }
   ]
 }

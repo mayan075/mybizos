@@ -1,5 +1,5 @@
 // Database client
-export { db, type Database } from "./client.js";
+export { db, type Database, withRLS } from "./client.js";
 
 // Schema exports
 export * from "./schema/auth.js";
@@ -19,6 +19,7 @@ export * from "./schema/invoices.js";
 export * from "./schema/notifications.js";
 export * from "./schema/social.js";
 export * from "./schema/wallet.js";
+export * from "./schema/audit-log.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";

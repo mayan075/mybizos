@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
 import postgres from "postgres";
 
 import * as authSchema from "./schema/auth.js";
@@ -9,6 +10,7 @@ import * as activitiesSchema from "./schema/activities.js";
 import * as communicationsSchema from "./schema/communications.js";
 import * as schedulingSchema from "./schema/scheduling.js";
 import * as aiSchema from "./schema/ai.js";
+import * as auditLogSchema from "./schema/audit-log.js";
 
 const schema = {
   ...authSchema,
@@ -19,6 +21,7 @@ const schema = {
   ...communicationsSchema,
   ...schedulingSchema,
   ...aiSchema,
+  ...auditLogSchema,
 };
 
 const connectionString = process.env["DATABASE_URL"] ?? "";
@@ -95,3 +98,28 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
 });
 
 export type Database = ReturnType<typeof drizzle>;
+
+/**
+ * Executes a callback inside a transaction with `app.current_org_id` set for
+ * the duration of that transaction. All RLS policies on tenant-scoped tables
+ * use this setting, so every query inside the callback is automatically
+ * restricted to the given org.
+ *
+ * Usage:
+ *   const contacts = await withRLS(orgId, (tx) =>
+ *     tx.select().from(contactsTable)
+ *   );
+ *
+ * Note: `any` casts are required because Drizzle's transaction callback
+ * types are complex generics that vary by schema. This is intentional.
+ */
+export async function withRLS<T>(
+  orgId: string,
+  callback: (tx: ReturnType<typeof drizzle>) => Promise<T>,
+): Promise<T> {
+  const realDb = getDb();
+  return await (realDb as any).transaction(async (tx: any) => {
+    await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+    return callback(tx);
+  });
+}
