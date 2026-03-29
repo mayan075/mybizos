@@ -57,14 +57,32 @@ export class GeminiLiveSession extends EventEmitter {
       }, 10_000);
 
       this.ws.on('open', () => {
-        // Send setup message with session configuration
-        const setupMessage = {
-          setup: {
-            model: `models/${this.model}`,
-            generationConfig: this.sessionConfig,
+        // Build setup message with correct Gemini Live API structure:
+        // systemInstruction, tools go at setup level; audio/speech config under generationConfig
+        const setup: Record<string, unknown> = {
+          model: `models/${this.model}`,
+          generationConfig: {
+            responseModalities: this.sessionConfig.responseModalities,
+            ...(this.sessionConfig.speechConfig && { speechConfig: this.sessionConfig.speechConfig }),
+            ...(this.sessionConfig.realtimeInputConfig && { realtimeInputConfig: this.sessionConfig.realtimeInputConfig }),
+            ...(this.sessionConfig.generationConfig?.thinkingConfig && { thinkingConfig: this.sessionConfig.generationConfig.thinkingConfig }),
           },
         };
-        this.ws!.send(JSON.stringify(setupMessage));
+
+        if (this.sessionConfig.systemInstruction) {
+          setup.systemInstruction = this.sessionConfig.systemInstruction;
+        }
+        if (this.sessionConfig.tools) {
+          setup.tools = this.sessionConfig.tools;
+        }
+        if (this.sessionConfig.inputAudioTranscription) {
+          setup.inputAudioTranscription = this.sessionConfig.inputAudioTranscription;
+        }
+        if (this.sessionConfig.outputAudioTranscription) {
+          setup.outputAudioTranscription = this.sessionConfig.outputAudioTranscription;
+        }
+
+        this.ws!.send(JSON.stringify({ setup }));
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
