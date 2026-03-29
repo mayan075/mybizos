@@ -274,7 +274,10 @@ integrations.get('/:provider/callback', async (c) => {
             ),
           );
 
-        if (existing) {
+        // Validate required non-null fields before persisting
+        if (tokens.refreshToken === null || tokens.expiresAt === null) {
+          logger.warn('Google Calendar tokens missing refreshToken or expiresAt — skipping DB persist', { orgId });
+        } else if (existing) {
           await db
             .update(googleCalendarConnections)
             .set({
