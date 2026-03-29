@@ -37,7 +37,7 @@ interface OrgSettings {
 
 async function loadPhoneSettings(orgId: string): Promise<PhoneSettings | null> {
   try {
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
 
     const [org] = await db
       .select({ settings: organizations.settings })

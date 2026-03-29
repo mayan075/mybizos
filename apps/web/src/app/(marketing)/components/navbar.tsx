@@ -28,7 +28,7 @@ export function Navbar() {
             <Zap className="h-4 w-4" />
           </div>
           <span className="text-lg font-bold tracking-tight text-white">
-            MyBizOS
+            HararAI
           </span>
         </Link>
 

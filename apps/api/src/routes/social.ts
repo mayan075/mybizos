@@ -32,7 +32,7 @@ socialRoutes.get('/posts', async (c) => {
   });
 
   try {
-    const { db, socialPosts, withOrgScope } = await import('@mybizos/db');
+    const { db, socialPosts, withOrgScope } = await import('@hararai/db');
     const { and, eq, desc, count } = await import('drizzle-orm');
 
     const conditions = [withOrgScope(socialPosts.orgId, orgId)];
@@ -65,7 +65,7 @@ socialRoutes.post('/posts', async (c) => {
   const parsed = createPostSchema.parse(body);
 
   try {
-    const { db, socialPosts } = await import('@mybizos/db');
+    const { db, socialPosts } = await import('@hararai/db');
 
     const [created] = await db.insert(socialPosts).values({
       orgId,
@@ -93,7 +93,7 @@ socialRoutes.patch('/posts/:id', async (c) => {
   const parsed = updatePostSchema.parse(body);
 
   try {
-    const { db, socialPosts, withOrgScope } = await import('@mybizos/db');
+    const { db, socialPosts, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const updateData: Record<string, unknown> = {};
@@ -117,7 +117,7 @@ socialRoutes.delete('/posts/:id', async (c) => {
   const orgId = c.get('orgId');
   const postId = c.req.param('id');
   try {
-    const { db, socialPosts, withOrgScope } = await import('@mybizos/db');
+    const { db, socialPosts, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const result = await db.delete(socialPosts)
@@ -135,7 +135,7 @@ socialRoutes.post('/suggestions', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
 
     const [org] = await db.select({ name: organizations.name, vertical: organizations.vertical })
       .from(organizations).where(withOrgScope(organizations.id, orgId));

@@ -4,7 +4,7 @@ import {
   messages,
   aiCallLogs,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { logger } from '../middleware/logger.js';
 

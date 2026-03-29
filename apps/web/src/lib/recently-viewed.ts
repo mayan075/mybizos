@@ -3,7 +3,7 @@
  * Used by the command palette for quick access and the dashboard for a "Recently Viewed" section.
  */
 
-const STORAGE_KEY = "mybizos_recently_viewed";
+const STORAGE_KEY = "hararai_recently_viewed";
 const MAX_ITEMS = 10;
 
 export interface RecentlyViewedItem {

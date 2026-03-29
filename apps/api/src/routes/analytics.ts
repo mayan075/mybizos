@@ -22,7 +22,7 @@ analyticsRoutes.get('/', async (c) => {
   });
 
   try {
-    const { db, contacts, deals, appointments, activities, formSubmissions, callHistory, withOrgScope } = await import('@mybizos/db');
+    const { db, contacts, deals, appointments, activities, formSubmissions, callHistory, withOrgScope } = await import('@hararai/db');
     const { and, gte, count, sum, sql, desc } = await import('drizzle-orm');
 
     // Calculate date range

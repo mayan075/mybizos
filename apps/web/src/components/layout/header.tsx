@@ -90,7 +90,7 @@ export function Header({ onOpenCommandPalette, onToggleMobileSidebar }: HeaderPr
     // localStorage settings (from the settings page)
     if (typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem("mybizos_settings");
+        const raw = localStorage.getItem("hararai_settings");
         if (raw) {
           const settings = JSON.parse(raw) as { businessName?: string };
           if (settings.businessName) return settings.businessName;

@@ -36,11 +36,11 @@ export type DayOfWeek =
 
 export type BusinessHours = Record<DayOfWeek, BusinessHoursDay>;
 
-export type PhoneSetupMode = "mybizos" | "existing" | "skip";
+export type PhoneSetupMode = "managed" | "existing" | "skip";
 
 export interface PhoneSetup {
   mode: PhoneSetupMode;
-  /** MyBizOS provisioned number */
+  /** HararAI provisioned number */
   country?: string;
   numberType?: string;
   selectedNumber?: string;
@@ -90,7 +90,7 @@ export interface OnboardingData {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "mybizos_onboarding";
+const STORAGE_KEY = "hararai_onboarding";
 
 export const VERTICALS = [
   { value: "rubbish_removals", label: "Rubbish Removals", icon: "Trash2" },
@@ -286,7 +286,7 @@ export function saveOnboardingData(data: OnboardingData): void {
 /** Fire-and-forget POST of onboarding data to the API. */
 async function persistOnboardingToApi(data: OnboardingData): Promise<void> {
   const API_BASE = env.NEXT_PUBLIC_API_URL;
-  const token = localStorage.getItem("mybizos_token");
+  const token = localStorage.getItem("hararai_token");
   if (!token || !API_BASE) return;
 
   // Decode orgId from token
@@ -321,7 +321,7 @@ export async function loadOnboardingFromApi(orgId: string): Promise<OnboardingDa
   // Try API
   try {
     const API_BASE = env.NEXT_PUBLIC_API_URL;
-    const token = localStorage.getItem("mybizos_token");
+    const token = localStorage.getItem("hararai_token");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 

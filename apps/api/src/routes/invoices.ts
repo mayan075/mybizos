@@ -43,7 +43,7 @@ invoiceRoutes.get('/', async (c) => {
   });
 
   try {
-    const { db, invoices, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, contacts, withOrgScope } = await import('@hararai/db');
     const { and, eq, desc, count } = await import('drizzle-orm');
 
     const conditions = [withOrgScope(invoices.orgId, orgId)];
@@ -86,7 +86,7 @@ invoiceRoutes.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const invoiceId = c.req.param('id');
   try {
-    const { db, invoices, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, contacts, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [row] = await db.select({ invoice: invoices, contactFirstName: contacts.firstName, contactLastName: contacts.lastName, contactEmail: contacts.email })
@@ -107,7 +107,7 @@ invoiceRoutes.post('/', async (c) => {
   const parsed = createInvoiceSchema.parse(body);
 
   try {
-    const { db, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { count, and } = await import('drizzle-orm');
 
     // Generate invoice number
@@ -152,7 +152,7 @@ invoiceRoutes.patch('/:id', async (c) => {
   const parsed = updateInvoiceSchema.parse(body);
 
   try {
-    const { db, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -185,7 +185,7 @@ invoiceRoutes.post('/:id/send', async (c) => {
   const orgId = c.get('orgId');
   const invoiceId = c.req.param('id');
   try {
-    const { db, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [updated] = await db.update(invoices)
@@ -204,7 +204,7 @@ invoiceRoutes.post('/:id/mark-paid', async (c) => {
   const orgId = c.get('orgId');
   const invoiceId = c.req.param('id');
   try {
-    const { db, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [updated] = await db.update(invoices)
@@ -223,7 +223,7 @@ invoiceRoutes.delete('/:id', async (c) => {
   const orgId = c.get('orgId');
   const invoiceId = c.req.param('id');
   try {
-    const { db, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const result = await db.delete(invoices)

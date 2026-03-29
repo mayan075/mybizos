@@ -1,5 +1,5 @@
 {
-  "name": "@mybizos/web",
+  "name": "@hararai/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mybizos/shared": "workspace:*",
-    "@mybizos/ui": "workspace:*",
+    "@hararai/shared": "workspace:*",
+    "@hararai/ui": "workspace:*",
     "@twilio/voice-sdk": "^2.18.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",

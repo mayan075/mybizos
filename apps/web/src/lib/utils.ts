@@ -56,7 +56,7 @@ function getLocaleForCountry(countryCode: string): string {
 export function getUserCountry(): string {
   if (typeof window === "undefined") return "US";
   try {
-    const raw = localStorage.getItem("mybizos_onboarding");
+    const raw = localStorage.getItem("hararai_onboarding");
     if (raw) {
       const data = JSON.parse(raw);
       if (data?.country) return data.country;

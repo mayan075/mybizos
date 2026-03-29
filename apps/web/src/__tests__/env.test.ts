@@ -28,13 +28,13 @@ describe("web env schema", () => {
 
   it("accepts valid URLs", () => {
     const result = webEnvSchema.safeParse({
-      NEXT_PUBLIC_API_URL: "https://api.mybizos.com",
-      NEXT_PUBLIC_APP_URL: "https://app.mybizos.com",
+      NEXT_PUBLIC_API_URL: "https://api.hararai.com",
+      NEXT_PUBLIC_APP_URL: "https://app.hararai.com",
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.NEXT_PUBLIC_API_URL).toBe("https://api.mybizos.com");
-      expect(result.data.NEXT_PUBLIC_APP_URL).toBe("https://app.mybizos.com");
+      expect(result.data.NEXT_PUBLIC_API_URL).toBe("https://api.hararai.com");
+      expect(result.data.NEXT_PUBLIC_APP_URL).toBe("https://app.hararai.com");
     }
   });
 

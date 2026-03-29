@@ -1,6 +1,6 @@
 /**
  * Google Calendar integration for appointment syncing.
- * Manages two-way sync between MyBizOS appointments and Google Calendar.
+ * Manages two-way sync between HararAI appointments and Google Calendar.
  * Uses the googleapis npm package for proper client support.
  */
 

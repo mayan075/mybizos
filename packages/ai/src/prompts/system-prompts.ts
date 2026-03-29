@@ -1,5 +1,5 @@
-import type { Vertical } from "@mybizos/shared";
-import { AI_DISCLOSURE_PREFIX } from "@mybizos/shared";
+import type { Vertical } from "@hararai/shared";
+import { AI_DISCLOSURE_PREFIX } from "@hararai/shared";
 
 interface PromptContext {
   businessName: string;

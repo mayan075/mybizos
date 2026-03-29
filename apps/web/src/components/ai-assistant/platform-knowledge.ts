@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/*  MyBizOS Platform Knowledge Base                                           */
+/*  HararAI Platform Knowledge Base                                           */
 /*  Comprehensive answers for the AI Assistant                                */
 /* -------------------------------------------------------------------------- */
 
@@ -30,7 +30,7 @@ export const PLATFORM_KNOWLEDGE: KnowledgeEntry[] = [
       "just signed up",
       "where do i start",
     ],
-    answer: `Welcome to MyBizOS! Here's how to get your account fully set up:
+    answer: `Welcome to HararAI! Here's how to get your account fully set up:
 
 **Step 1: Complete your business profile**
 Go to Settings > Business Profile. Fill in your business name, address, service area, and business hours. This info powers your AI phone agent and booking page.
@@ -78,7 +78,7 @@ That's it! You're ready to start receiving calls and booking jobs.`,
       "forward calls",
       "call forwarding",
     ],
-    answer: `MyBizOS offers two ways to connect your phone system:
+    answer: `HararAI offers two ways to connect your phone system:
 
 **Model A: Bring Your Own Twilio (Advanced)**
 1. Go to Settings > Phone
@@ -103,7 +103,7 @@ That's it! You're ready to start receiving calls and booking jobs.`,
 - Send you a notification for every call
 
 **To make outbound calls:**
-Use the Dialer (bottom-right of your screen) to call contacts directly from MyBizOS.`,
+Use the Dialer (bottom-right of your screen) to call contacts directly from HararAI.`,
   },
 
   /* ====================================================================== */
@@ -304,7 +304,7 @@ Every call is recorded and transcribed. View them in the Calls section.`,
 - Choose which services can be booked online vs. quote-only
 
 **Sharing Your Booking Link:**
-- Your booking page URL: mybizos.com/book/{{your-slug}}
+- Your booking page URL: hararai.com/book/{{your-slug}}
 - Share via text, email, social media, or your website
 - Embed on your website with our widget code
 - QR code generator included
@@ -342,7 +342,7 @@ Every call is recorded and transcribed. View them in the Calls section.`,
       "estimates",
       "quote",
     ],
-    answer: `Create and send professional invoices directly from MyBizOS:
+    answer: `Create and send professional invoices directly from HararAI:
 
 **Creating an Invoice:**
 1. Go to Invoices and click "New Invoice"
@@ -735,7 +735,7 @@ Every automation has a TRIGGER (when something happens) and an ACTION (do someth
       "tags",
       "segment",
     ],
-    answer: `Your contact database is the foundation of MyBizOS:
+    answer: `Your contact database is the foundation of HararAI:
 
 **Adding Contacts:**
 - **Manual**: Click "Add Contact" and fill in the details
@@ -759,7 +759,7 @@ Every automation has a TRIGGER (when something happens) and an ACTION (do someth
 **Importing from CSV:**
 1. Go to Contacts > Import
 2. Upload your CSV file
-3. Map your columns to MyBizOS fields (name, phone, email, etc.)
+3. Map your columns to HararAI fields (name, phone, email, etc.)
 4. Review and confirm
 5. Contacts are created with a "Imported" tag
 
@@ -853,7 +853,7 @@ Every automation has a TRIGGER (when something happens) and an ACTION (do someth
       "expensive",
       "affordable",
     ],
-    answer: `MyBizOS is built to replace your entire tech stack at a fraction of the cost:
+    answer: `HararAI is built to replace your entire tech stack at a fraction of the cost:
 
 **Starter Plan - $97/month**
 - 1 user
@@ -958,7 +958,7 @@ Manage your plan at Settings > Billing.`,
 2. Verify customer email is correct
 3. Check if the invoice was sent (look for "Sent" status)
 
-**Still stuck?** Describe your issue and I'll log it for the MyBizOS team. Or email support@mybizos.com.`,
+**Still stuck?** Describe your issue and I'll log it for the HararAI team. Or email support@hararai.com.`,
   },
 
   /* ====================================================================== */
@@ -1025,7 +1025,7 @@ Manage your plan at Settings > Billing.`,
       "posting",
       "social post",
     ],
-    answer: `Manage your social media presence from MyBizOS:
+    answer: `Manage your social media presence from HararAI:
 
 **Social Features:**
 1. Go to Social
@@ -1067,7 +1067,7 @@ Manage your plan at Settings > Billing.`,
       "reminder",
       "reminders",
     ],
-    answer: `Stay on top of everything with MyBizOS notifications:
+    answer: `Stay on top of everything with HararAI notifications:
 
 **Notification Center:**
 - Click the bell icon in the top navigation bar
@@ -1157,10 +1157,10 @@ Type to search for anything:
       "mobile app",
       "on the go",
     ],
-    answer: `Access MyBizOS from anywhere:
+    answer: `Access HararAI from anywhere:
 
 **Mobile Web App:**
-- Visit app.mybizos.com on your phone's browser
+- Visit app.hararai.com on your phone's browser
 - Tap "Add to Home Screen" for an app-like experience
 - Full access to inbox, pipeline, contacts, and more
 
@@ -1374,7 +1374,7 @@ export const PAGE_CONTEXTS: PageContext[] = [
   {
     pathPattern: "/dashboard",
     greeting:
-      "Welcome to your MyBizOS Dashboard! This is your command center. How can I help you today?",
+      "Welcome to your HararAI Dashboard! This is your command center. How can I help you today?",
     suggestions: [
       "How do I get started?",
       "Set up my phone system",

@@ -14,7 +14,7 @@ import {
   type OAuthConnection,
   type OAuthCredentials,
   type OAuthConnectionStatus,
-} from '@mybizos/integrations';
+} from '@hararai/integrations';
 
 // ─── In-Memory Storage ──────────────────────────────────────────────────────
 // In production this will be stored in the database. For now we use Maps.
@@ -158,7 +158,7 @@ integrations.get('/:provider/auth', (c) => {
     const providerCfg = OAUTH_PROVIDERS[provider];
     return c.json(
       {
-        error: `${providerCfg.displayName} integration is not configured. Ask your MyBizOS admin to add ${providerCfg.credentialKeys.clientId} and ${providerCfg.credentialKeys.clientSecret} in Settings > Integrations.`,
+        error: `${providerCfg.displayName} integration is not configured. Ask your HararAI admin to add ${providerCfg.credentialKeys.clientId} and ${providerCfg.credentialKeys.clientSecret} in Settings > Integrations.`,
         code: 'INTEGRATION_NOT_CONFIGURED',
         status: 400,
         developerUrl: providerCfg.developerUrl,

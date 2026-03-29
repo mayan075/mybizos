@@ -1,5 +1,5 @@
 {
-  "name": "@mybizos/ai",
+  "name": "@hararai/ai",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@mybizos/shared": "workspace:*"
+    "@hararai/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

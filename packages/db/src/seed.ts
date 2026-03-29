@@ -309,7 +309,7 @@ const CONVERSATIONS_DATA: ConversationSeed[] = [
 
 async function seed(): Promise<void> {
   const connectionString =
-    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/mybizos_dev";
+    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/hararai_dev";
 
   const queryClient = postgres(connectionString, { max: 1 });
   const db = drizzle(queryClient);

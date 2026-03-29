@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@mybizos/shared": path.resolve(__dirname, "../../packages/shared/src"),
+      "@hararai/shared": path.resolve(__dirname, "../../packages/shared/src"),
     },
   },
 });

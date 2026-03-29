@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
  */
 async function reset(): Promise<void> {
   const connectionString =
-    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/mybizos_dev";
+    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/hararai_dev";
 
   const queryClient = postgres(connectionString, { max: 1 });
   const db = drizzle(queryClient);

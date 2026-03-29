@@ -1,4 +1,4 @@
-# MyBizOS Quality Audit Report
+# HararAI Quality Audit Report
 
 **Date:** 2026-03-22
 **Auditor:** Claude Code (Opus 4.6)

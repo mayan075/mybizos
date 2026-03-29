@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "MyBizOS",
+      "name": "HararAI",
       "runtimeExecutable": "apps/web/node_modules/.bin/next",
       "runtimeArgs": ["dev", "--turbopack", "--port", "3002"],
       "port": 3002

@@ -29,13 +29,6 @@ const updateAgentSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const linkPhoneSchema = z.object({
-  twilioPhoneNumber: z.string().min(1, 'Phone number is required').regex(
-    /^\+[1-9]\d{1,14}$/,
-    'Phone number must be in E.164 format (e.g., +1234567890)',
-  ),
-});
-
 const scoreLeadSchema = z.object({
   contactId: z.string().min(1, 'Contact ID is required'),
 });
@@ -162,78 +155,25 @@ ai.delete('/ai-agents/:id', async (c) => {
 });
 
 /**
- * POST /orgs/:orgId/ai-agents/:id/link-phone — link a Twilio phone number to an AI agent via Vapi
+ * POST /orgs/:orgId/ai-agents/:id/link-phone — DEPRECATED
+ * Phone linking is no longer needed. Gemini Live sessions are ephemeral —
+ * the AI agent is resolved from the phone number at call time via phone-routing-service.
+ * Configure your Twilio number's webhook to point to /voice/twiml and it will auto-route.
  */
 ai.post('/ai-agents/:id/link-phone', async (c) => {
-  const orgId = c.get('orgId');
-  const agentId = c.req.param('id');
-  const body = await c.req.json();
-  const parsed = linkPhoneSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const errors = parsed.error.issues.map((issue) => ({
-      field: issue.path.join('.'),
-      message: issue.message,
-    }));
-    return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: errors }, 422);
-  }
-
-  try {
-    const { aiService } = await import('../services/ai-service.js');
-    const agent = await aiService.getAgentById(orgId, agentId);
-
-    if (!agent.vapiAssistantId) {
-      return c.json({
-        error: 'Agent does not have a Vapi assistant. Create the agent as a phone type first.',
-        code: 'PRECONDITION_FAILED',
-        status: 422,
-      }, 422);
-    }
-
-    const result = await aiService.linkPhone(orgId, agentId, {
-      vapiAssistantId: agent.vapiAssistantId,
-      twilioPhoneNumber: parsed.data.twilioPhoneNumber,
-    });
-
-    return c.json({ data: { linked: true, phoneNumberId: result.phoneNumberId } });
-  } catch (err) {
-    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
-    }
-    logger.error('Failed to link phone number', { error: err instanceof Error ? err.message : String(err) });
-    return c.json({ error: 'Failed to link phone number', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
-  }
+  return c.json({
+    error: 'Phone linking via Vapi is deprecated. Configure your Twilio webhook to point to the HararAI API instead. The AI agent is resolved automatically from the phone number.',
+    code: 'DEPRECATED',
+    status: 410,
+  }, 410);
 });
 
-/**
- * DELETE /orgs/:orgId/ai-agents/:id/unlink-phone — unlink a phone number from an AI agent
- */
 ai.delete('/ai-agents/:id/unlink-phone', async (c) => {
-  const orgId = c.get('orgId');
-  const agentId = c.req.param('id');
-
-  try {
-    const { aiService } = await import('../services/ai-service.js');
-    const agent = await aiService.getAgentById(orgId, agentId);
-
-    if (!agent.vapiPhoneNumberId) {
-      return c.json({
-        error: 'Agent does not have a linked phone number',
-        code: 'PRECONDITION_FAILED',
-        status: 422,
-      }, 422);
-    }
-
-    await aiService.unlinkPhone(orgId, agentId, agent.vapiPhoneNumberId);
-
-    return c.json({ data: { unlinked: true } });
-  } catch (err) {
-    if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-      return c.json({ error: 'AI agent not found', code: 'NOT_FOUND', status: 404 }, 404);
-    }
-    logger.error('Failed to unlink phone number', { error: err instanceof Error ? err.message : String(err) });
-    return c.json({ error: 'Failed to unlink phone number', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
-  }
+  return c.json({
+    error: 'Phone unlinking via Vapi is deprecated.',
+    code: 'DEPRECATED',
+    status: 410,
+  }, 410);
 });
 
 /**

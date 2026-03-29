@@ -50,7 +50,7 @@ export async function register(
   vertical: string,
 ): Promise<AuthResult> {
   try {
-    const { db, users, sessions, organizations, orgMembers } = await import('@mybizos/db');
+    const { db, users, sessions, organizations, orgMembers } = await import('@hararai/db');
     const bcrypt = await import('bcryptjs');
     const { eq } = await import('drizzle-orm');
 
@@ -107,7 +107,7 @@ export async function register(
     if (!autoVerify) {
       try {
         const verifyUrl = `${config.APP_URL}/auth/verify-email?token=${verificationToken}`;
-        const { ResendProvider, emailVerificationHtml } = await import('@mybizos/email');
+        const { ResendProvider, emailVerificationHtml } = await import('@hararai/email');
         const emailProvider = new ResendProvider({
           apiKey: config.RESEND_API_KEY,
           defaultFrom: config.RESEND_DEFAULT_FROM,
@@ -115,7 +115,7 @@ export async function register(
         await emailProvider.sendEmail(
           undefined,
           email,
-          'Verify Your Email — MyBizOS',
+          'Verify Your Email — HararAI',
           emailVerificationHtml(verifyUrl),
           undefined,
           'email-verification',
@@ -160,7 +160,7 @@ export async function login(
   _userAgent?: string,
 ): Promise<AuthResult> {
   try {
-    const { db, users, sessions, organizations, orgMembers } = await import('@mybizos/db');
+    const { db, users, sessions, organizations, orgMembers } = await import('@hararai/db');
     const bcrypt = await import('bcryptjs');
     const { eq } = await import('drizzle-orm');
 
@@ -202,7 +202,7 @@ export async function login(
 
 export async function logout(_token: string): Promise<void> {
   try {
-    const { db, sessions } = await import('@mybizos/db');
+    const { db, sessions } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
     await db.delete(sessions).where(eq(sessions.token, _token));
   } catch {
@@ -216,7 +216,7 @@ export async function getMe(_userId: string): Promise<{
   org: { id: string; name: string; slug: string; vertical: string };
 }> {
   try {
-    const { db, users, organizations, orgMembers } = await import('@mybizos/db');
+    const { db, users, organizations, orgMembers } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     const [user] = await db.select({ id: users.id, email: users.email, name: users.name, avatarUrl: users.avatarUrl, emailVerified: users.emailVerified }).from(users).where(eq(users.id, _userId)).limit(1);
@@ -249,7 +249,7 @@ export async function loginOrCreateWithGoogle(
   userAgent?: string,
 ): Promise<AuthResult> {
   try {
-    const { db, users, sessions, organizations, orgMembers, accounts } = await import('@mybizos/db');
+    const { db, users, sessions, organizations, orgMembers, accounts } = await import('@hararai/db');
     const { eq, and } = await import('drizzle-orm');
 
     // Check if this Google account is already linked
@@ -367,7 +367,7 @@ export async function loginOrCreateWithGoogle(
  */
 export async function verifyEmail(verificationToken: string): Promise<string> {
   try {
-    const { db, users } = await import('@mybizos/db');
+    const { db, users } = await import('@hararai/db');
     const { eq, and, gte } = await import('drizzle-orm');
 
     const [user] = await db
@@ -382,7 +382,7 @@ export async function verifyEmail(verificationToken: string): Promise<string> {
 
     // Check if already verified
     if (user.emailVerified) {
-      const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+      const frontendUrl = config.CORS_ORIGIN || 'https://app.hararai.com';
       return `${frontendUrl}/login?verified=true`;
     }
 
@@ -415,7 +415,7 @@ export async function verifyEmail(verificationToken: string): Promise<string> {
 
     logger.info('Email verified successfully', { userId: user.id, email: user.email });
 
-    const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+    const frontendUrl = config.CORS_ORIGIN || 'https://app.hararai.com';
     return `${frontendUrl}/login?verified=true`;
   } catch (err) {
     if (err instanceof AuthError) throw err;
@@ -432,7 +432,7 @@ export async function verifyEmail(verificationToken: string): Promise<string> {
  */
 export async function resendVerificationEmail(userId: string): Promise<void> {
   try {
-    const { db, users } = await import('@mybizos/db');
+    const { db, users } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     const [user] = await db
@@ -474,7 +474,7 @@ export async function resendVerificationEmail(userId: string): Promise<void> {
 
     // Send email
     const verifyUrl = `${config.APP_URL}/auth/verify-email?token=${newToken}`;
-    const { ResendProvider, emailVerificationHtml } = await import('@mybizos/email');
+    const { ResendProvider, emailVerificationHtml } = await import('@hararai/email');
     const emailProvider = new ResendProvider({
       apiKey: config.RESEND_API_KEY,
       defaultFrom: config.RESEND_DEFAULT_FROM,
@@ -482,7 +482,7 @@ export async function resendVerificationEmail(userId: string): Promise<void> {
     await emailProvider.sendEmail(
       undefined,
       user.email,
-      'Verify Your Email — MyBizOS',
+      'Verify Your Email — HararAI',
       emailVerificationHtml(verifyUrl),
       undefined,
       'email-verification',

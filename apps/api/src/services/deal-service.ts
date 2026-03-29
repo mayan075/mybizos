@@ -6,7 +6,7 @@ import {
   contacts,
   activities,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc, asc, count, sum, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';

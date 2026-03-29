@@ -9,7 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@mybizos/shared": path.resolve(__dirname, "./src"),
+      "@hararai/shared": path.resolve(__dirname, "./src"),
     },
   },
 });

@@ -1,4 +1,4 @@
-import type { Vertical } from "@mybizos/shared";
+import type { Vertical } from "@hararai/shared";
 interface PromptContext {
     businessName: string;
     vertical: Vertical;

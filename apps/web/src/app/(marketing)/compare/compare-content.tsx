@@ -21,19 +21,19 @@ import { RevealSection } from "../components/reveal-section";
 
 const comparisonRows: {
   feature: string;
-  mybizos: string | boolean;
+  hararai: string | boolean;
   ghl: string | boolean;
 }[] = [
-  { feature: "AI Phone Agent (24/7)", mybizos: true, ghl: false },
-  { feature: "AI SMS Follow-ups", mybizos: true, ghl: false },
-  { feature: "AI Lead Scoring", mybizos: true, ghl: "Manual only" },
-  { feature: "CRM + Pipeline", mybizos: true, ghl: true },
-  { feature: "Email Marketing", mybizos: true, ghl: true },
-  { feature: "SMS Marketing", mybizos: true, ghl: true },
-  { feature: "Booking / Calendar", mybizos: true, ghl: true },
-  { feature: "Review Management", mybizos: true, ghl: true },
-  { feature: "Form Builder", mybizos: true, ghl: true },
-  { feature: "Workflow Automation", mybizos: true, ghl: true },
+  { feature: "AI Phone Agent (24/7)", hararai: true, ghl: false },
+  { feature: "AI SMS Follow-ups", hararai: true, ghl: false },
+  { feature: "AI Lead Scoring", hararai: true, ghl: "Manual only" },
+  { feature: "CRM + Pipeline", hararai: true, ghl: true },
+  { feature: "Email Marketing", hararai: true, ghl: true },
+  { feature: "SMS Marketing", hararai: true, ghl: true },
+  { feature: "Booking / Calendar", hararai: true, ghl: true },
+  { feature: "Review Management", hararai: true, ghl: true },
+  { feature: "Form Builder", hararai: true, ghl: true },
+  { feature: "Workflow Automation", hararai: true, ghl: true },
 ];
 
 const differentiators = [
@@ -142,7 +142,7 @@ function HeroSection() {
         {/* Subheadline */}
         <RevealSection delay={200}>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Not another overpriced marketing platform. MyBizOS is an AI-powered
+            Not another overpriced marketing platform. HararAI is an AI-powered
             business OS designed for home services.
           </p>
         </RevealSection>
@@ -182,7 +182,7 @@ function ComparisonTableSection() {
           <div className="text-center mb-12">
             <p className="section-label mb-3">Feature-by-Feature</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-              MyBizOS vs GoHighLevel
+              HararAI vs GoHighLevel
             </h2>
           </div>
         </RevealSection>
@@ -197,7 +197,7 @@ function ComparisonTableSection() {
                   </th>
                   <th className="py-4 px-5 text-center">
                     <div className="text-sm font-bold text-primary">
-                      MyBizOS Pro
+                      HararAI Pro
                     </div>
                     <div className="text-xs text-muted-foreground">$99/mo</div>
                   </th>
@@ -223,7 +223,7 @@ function ComparisonTableSection() {
                       {row.feature}
                     </td>
                     <td className="py-3.5 px-5 text-center">
-                      <CellValue value={row.mybizos} />
+                      <CellValue value={row.hararai} />
                     </td>
                     <td className="py-3.5 px-5 text-center">
                       <CellValue value={row.ghl} />
@@ -277,9 +277,9 @@ function DifferentiatorsSection() {
       <div className="mx-auto max-w-5xl px-6">
         <RevealSection>
           <div className="text-center mb-14">
-            <p className="section-label mb-3">Exclusive to MyBizOS</p>
+            <p className="section-label mb-3">Exclusive to HararAI</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-              What MyBizOS Does That GHL Can&apos;t
+              What HararAI Does That GHL Can&apos;t
             </h2>
           </div>
         </RevealSection>

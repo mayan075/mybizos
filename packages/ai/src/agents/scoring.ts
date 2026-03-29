@@ -1,5 +1,5 @@
-import type { Contact, Vertical } from "@mybizos/shared";
-import { AI_SCORE } from "@mybizos/shared";
+import type { Contact, Vertical } from "@hararai/shared";
+import { AI_SCORE } from "@hararai/shared";
 import type { ClaudeClient } from "../providers/claude.js";
 
 export interface ScoringFactors {

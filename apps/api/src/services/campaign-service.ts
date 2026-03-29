@@ -4,8 +4,8 @@ import {
   campaignRecipients,
   contacts,
   withOrgScope,
-} from '@mybizos/db';
-import type { CampaignStats, SegmentFilter } from '@mybizos/db';
+} from '@hararai/db';
+import type { CampaignStats, SegmentFilter } from '@hararai/db';
 import { eq, and, ilike, sql, desc, count } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';

@@ -27,11 +27,11 @@ export default function GlobalError({
       };
       // Use structured logging instead of console.log
       try {
-        const existing = JSON.parse(localStorage.getItem("mybizos_error_log") ?? "[]") as unknown[];
+        const existing = JSON.parse(localStorage.getItem("hararai_error_log") ?? "[]") as unknown[];
         existing.push(errorInfo);
         // Keep only last 20 errors
         if (existing.length > 20) existing.splice(0, existing.length - 20);
-        localStorage.setItem("mybizos_error_log", JSON.stringify(existing));
+        localStorage.setItem("hararai_error_log", JSON.stringify(existing));
       } catch {
         // localStorage unavailable, silently ignore
       }

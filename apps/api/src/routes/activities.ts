@@ -22,7 +22,7 @@ activityRoutes.get('/', async (c) => {
   });
 
   try {
-    const { db, activities, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, activities, contacts, withOrgScope } = await import('@hararai/db');
     const { and, eq, desc, count } = await import('drizzle-orm');
 
     const conditions = [withOrgScope(activities.orgId, c.get('orgId'))];

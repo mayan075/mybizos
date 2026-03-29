@@ -80,8 +80,8 @@ interface PlatformStats {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ADMIN_SETTINGS_KEY = "mybizos_admin_settings";
-const ADMIN_STATUS_KEY = "mybizos_admin_status";
+const ADMIN_SETTINGS_KEY = "hararai_admin_settings";
+const ADMIN_STATUS_KEY = "hararai_admin_status";
 
 function loadAdminSettings(): AdminSettings {
   if (typeof window === "undefined") return defaultSettings;
@@ -386,8 +386,8 @@ export default function AdminSettingsPage() {
     if (!window.confirm("Reset all demo data? This clears onboarding, settings, and admin config from localStorage.")) {
       return;
     }
-    localStorage.removeItem("mybizos_onboarding");
-    localStorage.removeItem("mybizos_settings");
+    localStorage.removeItem("hararai_onboarding");
+    localStorage.removeItem("hararai_settings");
     localStorage.removeItem(ADMIN_SETTINGS_KEY);
     localStorage.removeItem(ADMIN_STATUS_KEY);
     setSettings(defaultSettings);

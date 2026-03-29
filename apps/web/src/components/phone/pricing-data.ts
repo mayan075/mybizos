@@ -3,7 +3,7 @@
 /* -------------------------------------------------------------------------- */
 
 export type RoutingMode = "ai-first" | "ring-first" | "forward";
-export type PhoneModel = "mybizos" | "byo-twilio";
+export type PhoneModel = "managed" | "byo-twilio";
 export type NumberType = "local" | "mobile" | "toll-free";
 
 export interface PhoneNumber {
@@ -30,7 +30,7 @@ export type TransferReason =
 
 export interface PhoneSystemStatus {
   connected: boolean;
-  provider?: "mybizos" | "byo-twilio" | null;
+  provider?: "managed" | "byo-twilio" | null;
   accountName?: string | null;
   numberCount?: number | null;
 }

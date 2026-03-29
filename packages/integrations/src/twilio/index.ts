@@ -378,7 +378,7 @@ export class TwilioClient {
 
   // ─── Model B: Subaccount Management ────────────────────────────────────
   // All methods use the MASTER account credentials to manage customer subaccounts.
-  // Customers never see Twilio — they just click "Get a Number" in MyBizOS.
+  // Customers never see Twilio — they just click "Get a Number" in HararAI.
 
   /**
    * Create a Twilio subaccount for a customer org.
@@ -469,7 +469,7 @@ export class TwilioClient {
 
   /**
    * Purchase a phone number under the master account, then transfer it
-   * to a customer subaccount. Configures webhooks to point to MyBizOS.
+   * to a customer subaccount. Configures webhooks to point to HararAI.
    */
   static async purchaseNumber(
     masterSid: string,

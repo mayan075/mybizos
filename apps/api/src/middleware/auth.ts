@@ -23,7 +23,7 @@ declare module 'hono' {
  */
 async function getDevUser(): Promise<AuthUser | null> {
   try {
-    const { db, users, orgMembers } = await import('@mybizos/db');
+    const { db, users, orgMembers } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     const result = await db

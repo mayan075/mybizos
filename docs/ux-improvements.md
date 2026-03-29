@@ -1,4 +1,4 @@
-# MyBizOS UX Research Report — Brutally Honest Assessment
+# HararAI UX Research Report — Brutally Honest Assessment
 
 **Date:** 2026-03-25
 **Methodology:** Full code audit of every page in `apps/web/src/app/`, component review, customer journey walkthrough, and competitive research against best-in-class CRMs (HubSpot, Pipedrive, Bigin, GoHighLevel).
@@ -173,27 +173,27 @@
 
 ## RESEARCH INSIGHTS (from competitive analysis)
 
-### What best-in-class CRMs do that MyBizOS does not:
+### What best-in-class CRMs do that HararAI does not:
 
-1. **Guided empty states with one clear CTA** — When HubSpot has no contacts, it shows "Import contacts" as the primary action with a video tutorial. MyBizOS shows empty states but the CTAs are generic. Each empty state should have a SPECIFIC next action.
+1. **Guided empty states with one clear CTA** — When HubSpot has no contacts, it shows "Import contacts" as the primary action with a video tutorial. HararAI shows empty states but the CTAs are generic. Each empty state should have a SPECIFIC next action.
 
-2. **Interactive onboarding progress bar that persists** — Pipedrive shows a persistent progress bar at the top of the dashboard until 100% setup complete, with clear remaining steps. MyBizOS has `GettingStartedChecklist` but it can be dismissed and is localStorage-based.
+2. **Interactive onboarding progress bar that persists** — Pipedrive shows a persistent progress bar at the top of the dashboard until 100% setup complete, with clear remaining steps. HararAI has `GettingStartedChecklist` but it can be dismissed and is localStorage-based.
 
-3. **Real-time data everywhere** — The #1 complaint about CRMs is stale data. MyBizOS falls back to mock data too eagerly. When the API is down, show a clear "Reconnecting..." banner instead of seamlessly swapping in fake data that looks real.
+3. **Real-time data everywhere** — The #1 complaint about CRMs is stale data. HararAI falls back to mock data too eagerly. When the API is down, show a clear "Reconnecting..." banner instead of seamlessly swapping in fake data that looks real.
 
-4. **Speed to value under 5 minutes** — Best CRMs let you add a contact, send a message, and see value within the first session. MyBizOS has a 7-step onboarding flow before you even see the dashboard. Consider: let users skip to dashboard immediately with a minimal setup (business name + phone only) and progressively complete setup.
+4. **Speed to value under 5 minutes** — Best CRMs let you add a contact, send a message, and see value within the first session. HararAI has a 7-step onboarding flow before you even see the dashboard. Consider: let users skip to dashboard immediately with a minimal setup (business name + phone only) and progressively complete setup.
 
-5. **Mobile-first for field service** — GoHighLevel and ServiceTitan are mobile-first because technicians/movers are in the field. MyBizOS has no native mobile experience and the responsive design breaks on pipeline and scheduling pages.
+5. **Mobile-first for field service** — GoHighLevel and ServiceTitan are mobile-first because technicians/movers are in the field. HararAI has no native mobile experience and the responsive design breaks on pipeline and scheduling pages.
 
-6. **Automatic data capture** — Modern CRMs auto-log calls, emails, and texts. MyBizOS requires manual entry for most things. The AI call feature is the right direction but it needs to auto-populate the pipeline and contact records.
+6. **Automatic data capture** — Modern CRMs auto-log calls, emails, and texts. HararAI requires manual entry for most things. The AI call feature is the right direction but it needs to auto-populate the pipeline and contact records.
 
-7. **Quick actions from anywhere** — Ability to call, text, or email a contact with one click from any page. MyBizOS has a floating dialer but no quick-SMS or quick-email from contact cards.
+7. **Quick actions from anywhere** — Ability to call, text, or email a contact with one click from any page. HararAI has a floating dialer but no quick-SMS or quick-email from contact cards.
 
 8. **Customizable pipeline stages** — Pipeline stages ("New Lead", "Quoted", "Scheduled", "Won") are hardcoded for HVAC. A rubbish removal company might need "Quoted", "Booked", "En Route", "Completed", "Invoiced". Users cannot customize stages.
 
 9. **Real-time notifications** — WebSocket/SSE push notifications for new leads, missed calls, completed bookings. Currently all notifications are mock data.
 
-10. **Data import on Day 1** — CSV import, Google Contacts import, spreadsheet import. The #1 barrier to CRM adoption is getting existing data in. MyBizOS has no import flow.
+10. **Data import on Day 1** — CSV import, Google Contacts import, spreadsheet import. The #1 barrier to CRM adoption is getting existing data in. HararAI has no import flow.
 
 ### Key stat from research:
 - 20-70% of CRM projects fail due to poor user adoption (source: SBA.gov)

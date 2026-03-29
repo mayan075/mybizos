@@ -1,5 +1,5 @@
-const TOKEN_KEY = 'mybizos_token';
-const COOKIE_NAME = 'mybizos_token';
+const TOKEN_KEY = 'hararai_token';
+const COOKIE_NAME = 'hararai_token';
 
 export interface TokenPayload {
   userId: string;

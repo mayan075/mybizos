@@ -7,14 +7,14 @@
  * database is reachable with seeded data.
  */
 
-import { db, contacts, deals, appointments, conversations, activities, organizations, users } from '@mybizos/db';
+import { db, contacts, deals, appointments, conversations, activities, organizations, users } from '@hararai/db';
 import { count, eq } from 'drizzle-orm';
 
 async function testDatabaseConnection() {
   const log = (msg: string) => process.stdout.write(`${msg}\n`);
   const err = (msg: string) => process.stderr.write(`ERROR: ${msg}\n`);
 
-  log('=== MyBizOS Database Connection Test ===\n');
+  log('=== HararAI Database Connection Test ===\n');
 
   // 1. Check DATABASE_URL
   const dbUrl = process.env['DATABASE_URL'];

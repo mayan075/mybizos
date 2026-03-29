@@ -11,9 +11,9 @@ import {
   aiCallLogs,
   conversations,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { and, eq, gte, lte, sql, count, sum, desc } from 'drizzle-orm';
-import { ClaudeClient } from '@mybizos/ai';
+import { ClaudeClient } from '@hararai/ai';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { notificationService } from '../services/notification-service.js';
@@ -241,7 +241,7 @@ async function gatherOrgData(orgId: string, orgName: string): Promise<OrgSummary
 async function generateBriefing(data: OrgSummaryData): Promise<string> {
   // New org with no data
   if (data.isNewOrg) {
-    return `Morning, ${data.ownerName}! Welcome to MyBizOS! Your AI employee is ready and waiting for the first call. Once calls start coming in, I'll send you a daily briefing every morning with your business stats. Have a great day! -- Your AI Employee`;
+    return `Morning, ${data.ownerName}! Welcome to HararAI! Your AI employee is ready and waiting for the first call. Once calls start coming in, I'll send you a daily briefing every morning with your business stats. Have a great day! -- Your AI Employee`;
   }
 
   if (!config.ANTHROPIC_API_KEY) {
@@ -409,7 +409,7 @@ ${emailText}
           </div>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
           <p style="color: #94a3b8; font-size: 12px;">
-            This is your daily AI employee briefing from MyBizOS.
+            This is your daily AI employee briefing from HararAI.
             <br>Manage your settings at <a href="${config.CORS_ORIGIN}" style="color: #6366f1;">your dashboard</a>.
           </p>
         </div>

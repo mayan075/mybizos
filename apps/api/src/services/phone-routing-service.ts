@@ -1,4 +1,4 @@
-import { db, organizations, withOrgScope } from '@mybizos/db';
+import { db, organizations, withOrgScope } from '@hararai/db';
 import { sql } from 'drizzle-orm';
 import { logger } from '../middleware/logger.js';
 
@@ -13,7 +13,7 @@ interface PhoneSettings {
   routing?: Record<string, { voiceUrl: string; smsUrl: string; configuredAt: string }>;
 }
 
-interface MybizosPhoneSettings {
+interface ManagedPhoneSettings {
   subaccountSid: string;
   subaccountAuthToken: string;
   friendlyName: string;
@@ -28,7 +28,8 @@ interface MybizosPhoneSettings {
 
 interface OrgSettings {
   phone?: PhoneSettings;
-  mybizosPhone?: MybizosPhoneSettings;
+  managedPhone?: ManagedPhoneSettings;
+  mybizosPhone?: ManagedPhoneSettings;
   [key: string]: unknown;
 }
 
@@ -83,7 +84,7 @@ setInterval(() => {
  *
  * Searches two JSONB paths in the `organizations.settings` column:
  * 1. `settings->'phone'->'routing'` keys (numbers configured via BYOT flow)
- * 2. `settings->'mybizosPhone'->'numbers'` array (numbers purchased via MyBizOS)
+ * 2. `settings->'managedPhone'->'numbers'` array (numbers purchased via HararAI)
  * 3. Falls back to matching the `organizations.phone` column directly
  *
  * Results are cached in-memory for 5 minutes.
@@ -117,11 +118,12 @@ export async function resolveOrgByPhoneNumber(
       .from(organizations);
 
     for (const org of allOrgs) {
-      const settings = org.settings as OrgSettings | null;
+      const settings = (org.settings ?? {}) as OrgSettings;
 
-      // Check mybizosPhone numbers array
-      if (settings?.mybizosPhone?.numbers) {
-        for (const num of settings.mybizosPhone.numbers) {
+      // Check managedPhone / mybizosPhone numbers array (dual-read)
+      const managedPhone = settings?.managedPhone ?? settings?.mybizosPhone;
+      if (managedPhone?.numbers) {
+        for (const num of managedPhone.numbers) {
           if (num.phoneNumber === normalized) {
             const resolved: ResolvedOrg = {
               orgId: org.id,
@@ -130,7 +132,7 @@ export async function resolveOrgByPhoneNumber(
               settings: settings,
             };
             setCache(normalized, resolved);
-            logger.info('Org resolved via mybizosPhone number', {
+            logger.info('Org resolved via managedPhone number', {
               phone: normalized,
               orgId: org.id,
               orgName: org.name,

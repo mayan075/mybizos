@@ -1,4 +1,4 @@
-import type { AiAgentType, Vertical } from "@mybizos/shared";
+import type { AiAgentType, Vertical } from "@hararai/shared";
 import type { ClaudeClient, ClaudeMessage, ClaudeResponse } from "../providers/claude.js";
 export interface AgentContext {
     orgId: string;

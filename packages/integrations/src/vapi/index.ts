@@ -1,7 +1,7 @@
 /**
  * Vapi.ai integration for managed AI voice agents.
  * Vapi handles speech-to-text, text-to-speech, and telephony infrastructure.
- * MyBizOS provides the AI brain (Claude) and Vapi handles the voice layer.
+ * HararAI provides the AI brain (Claude) and Vapi handles the voice layer.
  */
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ interface VapiApiError {
 // ─── Tool Schemas ────────────────────────────────────────────────────────────
 
 /**
- * Pre-defined tool schemas for common MyBizOS voice agent functions.
+ * Pre-defined tool schemas for common HararAI voice agent functions.
  * Attach these to an assistant to enable function calling during voice calls.
  */
 export const VAPI_TOOL_SCHEMAS: Record<string, VapiToolDefinition> = {

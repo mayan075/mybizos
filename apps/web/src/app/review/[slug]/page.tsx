@@ -297,7 +297,7 @@ export default function ReviewPage() {
       <footer className="pb-8 text-center">
         <p className="text-xs text-gray-400">
           Powered by{" "}
-          <a href="/" className="font-semibold text-gray-500 hover:text-gray-700 transition-colors">MyBizOS</a>
+          <a href="/" className="font-semibold text-gray-500 hover:text-gray-700 transition-colors">HararAI</a>
         </p>
       </footer>
     </div>

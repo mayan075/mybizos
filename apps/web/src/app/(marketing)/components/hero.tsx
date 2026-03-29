@@ -234,7 +234,7 @@ function DashboardMockup() {
               <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
             </div>
             <div className="ml-3 flex-1 rounded-lg bg-white/[0.04] px-3 py-1 text-[10px] text-white/25 font-mono">
-              app.mybizos.com/dashboard
+              app.hararai.com/dashboard
             </div>
             <div className="flex gap-1.5">
               <div className="h-2 w-2 rounded-sm bg-white/10" />
@@ -250,7 +250,7 @@ function DashboardMockup() {
                 <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
                   <span className="text-[7px] font-bold text-white">M</span>
                 </div>
-                <span className="text-[11px] font-bold tracking-tight text-white/80">MyBizOS</span>
+                <span className="text-[11px] font-bold tracking-tight text-white/80">HararAI</span>
               </div>
 
               {/* Nav items */}
@@ -434,7 +434,7 @@ export function Hero() {
           </h1>
 
           <p className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-white/50 sm:text-xl">
-            MyBizOS answers every call, books every appointment, and follows up
+            HararAI answers every call, books every appointment, and follows up
             every lead — so you can focus on doing the work you love.
           </p>
 

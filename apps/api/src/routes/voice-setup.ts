@@ -48,7 +48,7 @@ function escapeXml(text: string): string {
 
 async function loadPhoneSettings(orgId: string): Promise<{ phone: PhoneSettings | null; orgFound: boolean }> {
   try {
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
 
     const [org] = await db
       .select({ settings: organizations.settings })
@@ -99,7 +99,7 @@ async function saveVoiceConfig(orgId: string, updatedPhone: PhoneSettings): Prom
   }
 
   try {
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
 
     await db
       .update(organizations)
@@ -161,7 +161,7 @@ voiceSetup.post('/setup', async (c) => {
     // 1. Create TwiML App — voice URL points to our webhook
     // Twilio requires a publicly accessible URL for webhooks (not localhost).
     // Use APP_URL in production, or the Railway URL as fallback for dev.
-    const PRODUCTION_API_URL = 'https://mybizos-production.up.railway.app';
+    const PRODUCTION_API_URL = 'https://api.hararai.com';
     const webhookBaseUrl = config.APP_URL.includes('localhost') ? PRODUCTION_API_URL : config.APP_URL;
     const voiceUrl = `${webhookBaseUrl}/voice/twiml`;
     const statusCallbackUrl = `${webhookBaseUrl}/webhooks/twilio/status`;
@@ -169,7 +169,7 @@ voiceSetup.post('/setup', async (c) => {
     logger.info('Creating TwiML App', { orgId, voiceUrl });
 
     const twimlApp = await client.applications.create({
-      friendlyName: `MyBizOS Browser Calling - ${orgId}`,
+      friendlyName: `HararAI Browser Calling - ${orgId}`,
       voiceMethod: 'POST',
       voiceUrl,
       statusCallback: statusCallbackUrl,
@@ -180,7 +180,7 @@ voiceSetup.post('/setup', async (c) => {
     logger.info('Creating API Key', { orgId });
 
     const apiKey = await client.newKeys.create({
-      friendlyName: `MyBizOS Voice SDK - ${orgId}`,
+      friendlyName: `HararAI Voice SDK - ${orgId}`,
     });
 
     // 3. Store everything in org settings

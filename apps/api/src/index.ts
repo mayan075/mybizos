@@ -1,4 +1,5 @@
-import { serve } from '@hono/node-server';
+import { createAdaptorServer } from '@hono/node-server';
+import { WebSocketServer } from 'ws';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { config } from './config.js';
@@ -39,6 +40,8 @@ import { invoiceRoutes } from './routes/invoices.js';
 import { estimateRoutes } from './routes/estimates.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { socialRoutes } from './routes/social.js';
+import { geminiRoutes } from './routes/gemini.js';
+import { handleTwilioMediaStream } from './services/media-stream-handler.js';
 import { startScheduler } from './scheduler.js';
 
 const app = new Hono();
@@ -149,6 +152,7 @@ app.route('/orgs/:orgId/invoices', invoiceRoutes);
 app.route('/orgs/:orgId/estimates', estimateRoutes);
 app.route('/orgs/:orgId/notifications', notificationRoutes);
 app.route('/orgs/:orgId/social', socialRoutes);
+app.route('/orgs/:orgId/gemini', geminiRoutes);
 
 // Scheduling and forms have both authenticated and public routes
 app.route('/', schedulingRoutes);
@@ -183,12 +187,27 @@ logger.info(`Starting HararAI API server`, {
   corsOrigin: config.CORS_ORIGIN,
 });
 
-serve({
+const server = createAdaptorServer({
   fetch: app.fetch,
   port,
 });
 
-logger.info(`HararAI API server running on http://localhost:${port}`);
+// ── WebSocket Server for Twilio Media Streams ──
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url?.startsWith('/ws/media-stream')) {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      handleTwilioMediaStream(ws, req);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(port, () => {
+  logger.info(`HararAI API server running on http://localhost:${port}`);
+});
 
 // ── Start Background Job Scheduler ──
 

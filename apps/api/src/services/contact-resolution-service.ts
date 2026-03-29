@@ -2,7 +2,7 @@ import {
   db,
   contacts,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../middleware/logger.js';
 import { activityService } from './activity-service.js';

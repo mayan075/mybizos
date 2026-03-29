@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
-import { db, organizations } from '@mybizos/db';
+import { db, organizations } from '@hararai/db';
 import { sql } from 'drizzle-orm';
 
 const voiceTwiml = new Hono();
@@ -38,7 +38,7 @@ interface PhoneSettings {
   routing?: Record<string, unknown>;
 }
 
-interface MybizosPhoneSettings {
+interface ManagedPhoneSettings {
   subaccountSid: string;
   subaccountAuthToken: string;
   friendlyName: string;
@@ -53,7 +53,8 @@ interface MybizosPhoneSettings {
 
 interface OrgSettings {
   phone?: PhoneSettings;
-  mybizosPhone?: MybizosPhoneSettings;
+  managedPhone?: ManagedPhoneSettings;
+  mybizosPhone?: ManagedPhoneSettings;
   [key: string]: unknown;
 }
 
@@ -74,10 +75,10 @@ async function findCallerIdForOrg(accountSid: string): Promise<string | null> {
     const settings = result[0]?.settings as OrgSettings | null;
 
     // Try BYO Twilio numbers first — look for first purchased number
-    // from the phone.routing config or from mybizosPhone.numbers
-    const mybizos = settings?.mybizosPhone;
-    if (mybizos?.numbers && mybizos.numbers.length > 0) {
-      const firstNumber = mybizos.numbers[0];
+    // from the phone.routing config or from managedPhone.numbers
+    const managed = (settings?.managedPhone ?? settings?.mybizosPhone);
+    if (managed?.numbers && managed.numbers.length > 0) {
+      const firstNumber = managed.numbers[0];
       if (firstNumber) return firstNumber.phoneNumber;
     }
 
@@ -171,7 +172,7 @@ voiceTwiml.post('/twiml', async (c) => {
 
       // Build the Dial TwiML
       // Twilio requires a publicly accessible URL for callbacks (not localhost).
-      const PRODUCTION_API_URL = 'https://mybizos-production.up.railway.app';
+      const PRODUCTION_API_URL = 'https://api.hararai.com';
       const webhookBase = config.APP_URL.includes('localhost') ? PRODUCTION_API_URL : config.APP_URL;
       const statusCallbackUrl = `${webhookBase}/webhooks/twilio/status`;
       const twiml = [

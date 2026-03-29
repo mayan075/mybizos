@@ -156,7 +156,7 @@ export default function PortalLayout({
             </div>
             <p className="text-xs text-muted-foreground/70">
               Powered by{" "}
-              <a href="/" className="font-semibold text-muted-foreground hover:text-foreground transition-colors">MyBizOS</a>
+              <a href="/" className="font-semibold text-muted-foreground hover:text-foreground transition-colors">HararAI</a>
             </p>
           </div>
         </div>

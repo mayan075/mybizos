@@ -18,7 +18,7 @@ export function Testimonials() {
       stars: 5,
     },
     {
-      quote: "I set up MyBizOS on a Saturday morning and had my AI agent answering calls by lunch. First customer booked that afternoon.",
+      quote: "I set up HararAI on a Saturday morning and had my AI agent answering calls by lunch. First customer booked that afternoon.",
       name: "Early Access User",
       role: "Beta Tester",
       stars: 5,

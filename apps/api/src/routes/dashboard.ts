@@ -20,7 +20,7 @@ dashboard.get('/stats', async (c) => {
 
   try {
     // Try real DB
-    const { db, contacts, deals, appointments, conversations, activities, aiCallLogs, withOrgScope } = await import('@mybizos/db');
+    const { db, contacts, deals, appointments, conversations, activities, aiCallLogs, withOrgScope } = await import('@hararai/db');
     const { count, sum, eq, and, gte, sql } = await import('drizzle-orm');
 
     const now = new Date();
@@ -223,7 +223,7 @@ dashboard.get('/activity', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, activities, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, activities, contacts, withOrgScope } = await import('@hararai/db');
     const { eq, sql } = await import('drizzle-orm');
 
     const rows = await db

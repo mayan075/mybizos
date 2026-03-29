@@ -2,7 +2,7 @@
 
 ## Monorepo Structure
 
-MyBizOS uses a Turborepo monorepo with pnpm workspaces. The dependency graph between packages:
+HararAI uses a Turborepo monorepo with pnpm workspaces. The dependency graph between packages:
 
 ```
                     ┌──────────────┐

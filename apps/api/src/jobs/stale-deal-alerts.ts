@@ -5,7 +5,7 @@ import {
   pipelineStages,
   contacts,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { and, eq, lte, sql } from 'drizzle-orm';
 import { logger } from '../middleware/logger.js';
 import { notificationService } from '../services/notification-service.js';
@@ -129,7 +129,7 @@ export async function runStaleDealAlerts(): Promise<{
           </table>
           <p style="color: #475569;">Consider reaching out to these contacts to move the deals forward.</p>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-          <p style="color: #94a3b8; font-size: 12px;">Stale deal alert from MyBizOS.</p>
+          <p style="color: #94a3b8; font-size: 12px;">Stale deal alert from HararAI.</p>
         </div>
       `;
 

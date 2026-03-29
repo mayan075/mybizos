@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This guide walks you through setting up MyBizOS for local development.
+This guide walks you through setting up HararAI for local development.
 
 ## Prerequisites
 

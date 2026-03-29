@@ -137,7 +137,7 @@ export function ROICalculator() {
                   </div>
                   <div className="glow-success overflow-hidden rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
                     <div className="text-sm font-medium text-green-400">
-                      MyBizOS would capture
+                      HararAI would capture
                     </div>
                     <div className="mt-1 text-3xl font-extrabold tabular-nums text-green-400">
                       {formatCurrency(animatedCaptured)}

@@ -190,31 +190,31 @@ The design was generated using Google Stitch, with HTML reference screens in `st
 
 ---
 
-## 7. Relationship to MyBizOS -- Integration Opportunities
+## 7. Relationship to HararAI -- Integration Opportunities
 
 ### Direct Overlap
-The Velvet Signal's database schema already contains CRM-adjacent tables (contacts, deals, pipelines, workflows, agents) that map closely to MyBizOS Phase 1 features. The per-user Twilio credential management pattern could be reused directly.
+The Velvet Signal's database schema already contains CRM-adjacent tables (contacts, deals, pipelines, workflows, agents) that map closely to HararAI Phase 1 features. The per-user Twilio credential management pattern could be reused directly.
 
 ### Potential Integration Points
 
-1. **Twilio Infrastructure** -- The Twilio client factory (`lib/twilio.ts`), voice token generation, webhook handlers, and TwiML routing are production-tested and could be extracted into a shared package or directly into MyBizOS's phone/communications module.
+1. **Twilio Infrastructure** -- The Twilio client factory (`lib/twilio.ts`), voice token generation, webhook handlers, and TwiML routing are production-tested and could be extracted into a shared package or directly into HararAI's phone/communications module.
 
-2. **Contact Model** -- The contacts table (phone, name, email, company, tags[], custom_fields JSONB, notes) is a lightweight CRM contact model. MyBizOS will need a richer version but the same Supabase patterns (RLS policies, GIN index on tags) apply.
+2. **Contact Model** -- The contacts table (phone, name, email, company, tags[], custom_fields JSONB, notes) is a lightweight CRM contact model. HararAI will need a richer version but the same Supabase patterns (RLS policies, GIN index on tags) apply.
 
-3. **Conversation/Messaging Layer** -- The message storage, conversation grouping, unread tracking, and 5-second polling pattern could serve as a starting point for MyBizOS's communication module. Upgrading to Supabase Realtime subscriptions would be the main improvement.
+3. **Conversation/Messaging Layer** -- The message storage, conversation grouping, unread tracking, and 5-second polling pattern could serve as a starting point for HararAI's communication module. Upgrading to Supabase Realtime subscriptions would be the main improvement.
 
 4. **Voice Calling** -- The entire VoiceClient.tsx component (Twilio Device initialization, incoming/active call UI overlays) is reusable. The webhook-based call logging with recording URLs is a solid pattern.
 
 5. **Multi-Tenant Auth Pattern** -- The per-user credential storage in profiles, the `resolveClient()` helper pattern (try auth user, fall back to service role), and the middleware session management are all patterns that carry over.
 
-6. **PWA Patterns** -- Service worker caching, push notification infrastructure, and the manifest-based installable app approach could be reused if MyBizOS offers a mobile-first view.
+6. **PWA Patterns** -- Service worker caching, push notification infrastructure, and the manifest-based installable app approach could be reused if HararAI offers a mobile-first view.
 
 ### Key Differences
-- Velvet Signal is a single-purpose phone app; MyBizOS is a full CRM platform
-- Velvet Signal uses polling; MyBizOS should use Realtime subscriptions from the start
-- Velvet Signal's auth redirect is disabled (single-user feel); MyBizOS needs strict multi-tenant auth
-- Velvet Signal stores Twilio creds in the profile row; MyBizOS may want a separate integrations/credentials table
-- The schema tables for workflows, agents, and pipelines exist but have zero implementation -- MyBizOS will build these properly
+- Velvet Signal is a single-purpose phone app; HararAI is a full CRM platform
+- Velvet Signal uses polling; HararAI should use Realtime subscriptions from the start
+- Velvet Signal's auth redirect is disabled (single-user feel); HararAI needs strict multi-tenant auth
+- Velvet Signal stores Twilio creds in the profile row; HararAI may want a separate integrations/credentials table
+- The schema tables for workflows, agents, and pipelines exist but have zero implementation -- HararAI will build these properly
 
 ### Recommended Approach
 Rather than importing Velvet Signal code wholesale, extract the proven patterns:

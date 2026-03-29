@@ -6,7 +6,7 @@ import {
   withOrgScope,
   type SequenceStep,
   type SequenceTriggerConfig,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';

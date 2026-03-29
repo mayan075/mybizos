@@ -339,7 +339,7 @@ export default function ContactDetailPage({
   // Call button handler - dispatch to floating dialer
   function handleCall() {
     // Dispatch a custom event that the floating dialer can listen for
-    const event = new CustomEvent("mybizos:dial", {
+    const event = new CustomEvent("app:dial", {
       detail: { phone: contact?.phone, name: contact?.name },
     });
     window.dispatchEvent(event);

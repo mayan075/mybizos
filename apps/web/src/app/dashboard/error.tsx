@@ -25,10 +25,10 @@ export default function DashboardError({
         url: window.location.href,
       };
       try {
-        const existing = JSON.parse(localStorage.getItem("mybizos_error_log") ?? "[]") as unknown[];
+        const existing = JSON.parse(localStorage.getItem("hararai_error_log") ?? "[]") as unknown[];
         existing.push(errorInfo);
         if (existing.length > 20) existing.splice(0, existing.length - 20);
-        localStorage.setItem("mybizos_error_log", JSON.stringify(existing));
+        localStorage.setItem("hararai_error_log", JSON.stringify(existing));
       } catch {
         // silently ignore
       }

@@ -128,7 +128,7 @@ export function Sidebar() {
     if (onboarding?.businessName) return onboarding.businessName;
     if (typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem("mybizos_settings");
+        const raw = localStorage.getItem("hararai_settings");
         if (raw) {
           const settings = JSON.parse(raw) as { businessName?: string };
           if (settings.businessName) return settings.businessName;
@@ -208,7 +208,7 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <span className="font-bold text-sidebar-foreground text-sm tracking-tight">
-              MyBizOS
+              HararAI
             </span>
           )}
         </Link>

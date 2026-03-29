@@ -9,8 +9,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@mybizos/shared": path.resolve(__dirname, "../shared/src"),
-      "@mybizos/ai": path.resolve(__dirname, "./src"),
+      "@hararai/shared": path.resolve(__dirname, "../shared/src"),
+      "@hararai/ai": path.resolve(__dirname, "./src"),
     },
   },
 });

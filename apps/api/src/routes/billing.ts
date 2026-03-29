@@ -18,8 +18,8 @@ billing.get('/', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { StripeClient } = await import('@hararai/integrations');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -82,7 +82,7 @@ billing.get('/', async (c) => {
 
     // Get usage from DB
     const { count, and, gte } = await import('drizzle-orm');
-    const { aiCallLogs, messages } = await import('@mybizos/db');
+    const { aiCallLogs, messages } = await import('@hararai/db');
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
     let aiMinutes = 0;
@@ -160,8 +160,8 @@ billing.post('/portal', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { StripeClient } = await import('@hararai/integrations');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -219,8 +219,8 @@ billing.post('/subscribe', async (c) => {
 
   try {
     const body = subscribeSchema.parse(await c.req.json());
-    const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { StripeClient } = await import('@hararai/integrations');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
     const { eq, sql } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {
@@ -252,7 +252,7 @@ billing.post('/subscribe', async (c) => {
     // Create Stripe customer if one doesn't exist
     if (!stripeCustomerId) {
       const customer = await stripe.createCustomer({
-        email: (org as Record<string, unknown>).email as string || 'unknown@mybizos.com',
+        email: (org as Record<string, unknown>).email as string || 'unknown@hararai.com',
         name: org.name || 'Unknown Business',
         metadata: { orgId },
       });
@@ -311,8 +311,8 @@ billing.post('/cancel', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { StripeClient } = await import('@mybizos/integrations');
-    const { db, organizations, withOrgScope } = await import('@mybizos/db');
+    const { StripeClient } = await import('@hararai/integrations');
+    const { db, organizations, withOrgScope } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     if (!config.STRIPE_SECRET_KEY) {

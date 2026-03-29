@@ -43,7 +43,7 @@ estimateRoutes.get('/', async (c) => {
   });
 
   try {
-    const { db, estimates, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, contacts, withOrgScope } = await import('@hararai/db');
     const { and, eq, desc, count } = await import('drizzle-orm');
 
     const conditions = [withOrgScope(estimates.orgId, orgId)];
@@ -86,7 +86,7 @@ estimateRoutes.get('/:id', async (c) => {
   const orgId = c.get('orgId');
   const estimateId = c.req.param('id');
   try {
-    const { db, estimates, contacts, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, contacts, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [row] = await db.select({ estimate: estimates, contactFirstName: contacts.firstName, contactLastName: contacts.lastName, contactEmail: contacts.email })
@@ -106,7 +106,7 @@ estimateRoutes.post('/', async (c) => {
   const parsed = createEstimateSchema.parse(body);
 
   try {
-    const { db, estimates, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, withOrgScope } = await import('@hararai/db');
     const { count } = await import('drizzle-orm');
 
     const [countResult] = await db.select({ value: count() }).from(estimates).where(withOrgScope(estimates.orgId, orgId));
@@ -148,7 +148,7 @@ estimateRoutes.patch('/:id', async (c) => {
   const parsed = updateEstimateSchema.parse(body);
 
   try {
-    const { db, estimates, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -180,7 +180,7 @@ estimateRoutes.post('/:id/send', async (c) => {
   const orgId = c.get('orgId');
   const estimateId = c.req.param('id');
   try {
-    const { db, estimates, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [updated] = await db.update(estimates)
@@ -198,7 +198,7 @@ estimateRoutes.post('/:id/accept', async (c) => {
   const orgId = c.get('orgId');
   const estimateId = c.req.param('id');
   try {
-    const { db, estimates, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [updated] = await db.update(estimates)
@@ -216,7 +216,7 @@ estimateRoutes.post('/:id/convert-to-invoice', async (c) => {
   const orgId = c.get('orgId');
   const estimateId = c.req.param('id');
   try {
-    const { db, estimates, invoices, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, invoices, withOrgScope } = await import('@hararai/db');
     const { and, eq, count } = await import('drizzle-orm');
 
     const [estimate] = await db.select().from(estimates)
@@ -264,7 +264,7 @@ estimateRoutes.delete('/:id', async (c) => {
   const orgId = c.get('orgId');
   const estimateId = c.req.param('id');
   try {
-    const { db, estimates, withOrgScope } = await import('@mybizos/db');
+    const { db, estimates, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const result = await db.delete(estimates)

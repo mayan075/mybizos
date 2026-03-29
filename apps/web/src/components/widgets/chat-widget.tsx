@@ -275,7 +275,7 @@ export function ChatWidget({
               </button>
             </div>
             <p className="text-center text-[9px] text-gray-400 mt-2">
-              Powered by <a href="/" className="font-semibold hover:underline">MyBizOS</a>
+              Powered by <a href="/" className="font-semibold hover:underline">HararAI</a>
             </p>
           </div>
         </div>

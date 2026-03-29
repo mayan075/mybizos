@@ -6,14 +6,14 @@ import {
   orgMembers,
   users,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and } from 'drizzle-orm';
-import { TwilioClient } from '@mybizos/integrations';
+import { TwilioClient } from '@hararai/integrations';
 import {
   ResendProvider,
   appointmentConfirmationHtml,
   appointmentReminderHtml,
-} from '@mybizos/email';
+} from '@hararai/email';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
@@ -32,7 +32,7 @@ async function getTwilioForOrg(orgId: string): Promise<TwilioClient> {
     .where(eq(organizations.id, orgId));
 
   const settings = (org?.settings ?? {}) as Record<string, unknown>;
-  const phoneSettings = (settings['phone'] ?? settings['mybizosPhone'] ?? {}) as Record<string, string>;
+  const phoneSettings = (settings['phone'] ?? settings['managedPhone'] ?? settings['mybizosPhone'] ?? {}) as Record<string, string>;
 
   return new TwilioClient({
     accountSid: phoneSettings['subaccountSid'] || phoneSettings['accountSid'] || config.TWILIO_ACCOUNT_SID,
@@ -385,7 +385,7 @@ export const notificationService = {
     if (owner.email) {
       try {
         const resend = getResend();
-        const subject = options?.subject ?? `MyBizOS Notification — ${org?.name ?? 'Your Business'}`;
+        const subject = options?.subject ?? `HararAI Notification — ${org?.name ?? 'Your Business'}`;
         await resend.sendEmail(
           undefined,
           owner.email,

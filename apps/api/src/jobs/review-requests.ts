@@ -4,10 +4,10 @@ import {
   contacts,
   organizations,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { and, lte, eq, sql } from 'drizzle-orm';
-import { TwilioClient } from '@mybizos/integrations';
-import { ResendProvider, reviewRequestHtml } from '@mybizos/email';
+import { TwilioClient } from '@hararai/integrations';
+import { ResendProvider, reviewRequestHtml } from '@hararai/email';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { activityService } from '../services/activity-service.js';
@@ -43,7 +43,7 @@ export async function runReviewRequests(): Promise<{
 
   for (const org of allOrgs) {
     const orgSettings = (org.settings ?? {}) as Record<string, unknown>;
-    const phoneSettings = (orgSettings['phone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
+    const phoneSettings = (orgSettings['phone'] ?? orgSettings['managedPhone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
 
     // Query completed appointments scoped to THIS org only
     const completedForOrg = await db

@@ -1,7 +1,7 @@
-# MyBizOS — System Laws for All Agent Sessions
+# HararAI — System Laws for All Agent Sessions
 
 ## Project Overview
-MyBizOS is an AI-native business operating system for local businesses (starting with home services: HVAC + plumbing). The killer feature is an AI phone agent that answers every call, qualifies leads, and books appointments 24/7.
+HararAI is an AI-native business operating system for local businesses (starting with home services: HVAC + plumbing). The killer feature is an AI phone agent that answers every call, qualifies leads, and books appointments 24/7.
 
 **Repo:** Turborepo monorepo with pnpm workspaces.
 **Master Plan:** See `../.claude/plans/gleaming-popping-tower.md` for the full vision and execution plan.

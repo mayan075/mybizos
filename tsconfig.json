@@ -13,12 +13,12 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@mybizos/db": ["./packages/db/src"],
-      "@mybizos/shared": ["./packages/shared/src"],
-      "@mybizos/ui": ["./packages/ui/src"],
-      "@mybizos/ai": ["./packages/ai/src"],
-      "@mybizos/email": ["./packages/email/src"],
-      "@mybizos/integrations": ["./packages/integrations/src"]
+      "@hararai/db": ["./packages/db/src"],
+      "@hararai/shared": ["./packages/shared/src"],
+      "@hararai/ui": ["./packages/ui/src"],
+      "@hararai/ai": ["./packages/ai/src"],
+      "@hararai/email": ["./packages/email/src"],
+      "@hararai/integrations": ["./packages/integrations/src"]
     }
   }
 }

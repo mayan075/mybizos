@@ -5,12 +5,12 @@ import {
   contacts,
   activities,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc, count, sql, ilike } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
 import { contactService } from './contact-service.js';
-import type { FormField, FormSettings } from '@mybizos/shared';
+import type { FormField, FormSettings } from '@hararai/shared';
 
 export interface FormFilters {
   search?: string;

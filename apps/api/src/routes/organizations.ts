@@ -56,7 +56,7 @@ organizations.get('/:orgId', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations: orgsTable, withOrgScope } = await import('@hararai/db');
     const [org] = await db
       .select()
       .from(orgsTable)
@@ -100,7 +100,7 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
   const parsed = updateOrgSchema.parse(body);
 
   try {
-    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations: orgsTable, withOrgScope } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
     const [updated] = await db
       .update(orgsTable)
@@ -130,7 +130,7 @@ organizations.get('/:orgId/members', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, orgMembers, users, withOrgScope } = await import('@mybizos/db');
+    const { db, orgMembers, users, withOrgScope } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
     const rows = await db
       .select({
@@ -175,7 +175,7 @@ organizations.post('/:orgId/invite', requireRole('owner', 'admin'), async (c) =>
   const parsed = inviteMemberSchema.parse(body);
 
   try {
-    const { db, orgMembers, users, withOrgScope } = await import('@mybizos/db');
+    const { db, orgMembers, users, withOrgScope } = await import('@hararai/db');
     const { eq, and } = await import('drizzle-orm');
 
     // Check if already a member
@@ -211,7 +211,7 @@ organizations.get('/:orgId/settings', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations: orgsTable, withOrgScope } = await import('@hararai/db');
     const [org] = await db
       .select({ settings: orgsTable.settings })
       .from(orgsTable)
@@ -239,7 +239,7 @@ organizations.post('/:orgId/settings', async (c) => {
 
   // Try to save to DB first
   try {
-    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations: orgsTable, withOrgScope } = await import('@hararai/db');
     const { sql } = await import('drizzle-orm');
     await db
       .update(orgsTable)
@@ -263,7 +263,7 @@ organizations.post('/:orgId/onboarding', async (c) => {
 
   // Try to persist to DB
   try {
-    const { db, organizations: orgsTable, withOrgScope } = await import('@mybizos/db');
+    const { db, organizations: orgsTable, withOrgScope } = await import('@hararai/db');
     const { sql } = await import('drizzle-orm');
 
     const updateData: Record<string, unknown> = {

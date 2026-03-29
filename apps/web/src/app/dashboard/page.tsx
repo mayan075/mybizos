@@ -140,7 +140,7 @@ const setupActions: SetupAction[] = [
 
 // ── localStorage key for dismissing Getting Started ─────────────────────
 
-const GETTING_STARTED_DISMISSED_KEY = "mybizos_getting_started_banner_dismissed";
+const GETTING_STARTED_DISMISSED_KEY = "hararai_getting_started_banner_dismissed";
 
 function isGettingStartedBannerDismissed(): boolean {
   if (typeof window === "undefined") return true;
@@ -258,10 +258,10 @@ function GettingStartedBanner() {
             </div>
             <div>
               <h2 className="text-base font-semibold text-foreground tracking-tight">
-                Welcome to MyBizOS, {businessName}!
+                Welcome to HararAI, {businessName}!
               </h2>
               <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                Complete these steps to get the most out of MyBizOS.
+                Complete these steps to get the most out of HararAI.
               </p>
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
           {isNewUser
-            ? "Your dashboard will fill up as you start using MyBizOS."
+            ? "Your dashboard will fill up as you start using HararAI."
             : "Welcome back. Here\u0027s what\u0027s happening with your business."}
         </p>
       </div>

@@ -1,14 +1,14 @@
-# MyBizOS Documentation
+# HararAI Documentation
 
-## What is MyBizOS?
+## What is HararAI?
 
-MyBizOS is an AI-native business operating system designed for local service businesses. It replaces tools like GoHighLevel with a modern, integrated platform that combines CRM, pipeline management, marketing automation, appointment scheduling, and AI-powered phone/SMS agents into a single system.
+HararAI is an AI-native business operating system designed for local service businesses. It replaces tools like GoHighLevel with a modern, integrated platform that combines CRM, pipeline management, marketing automation, appointment scheduling, and AI-powered phone/SMS agents into a single system.
 
 The killer feature is an **AI phone agent** that answers every call 24/7, qualifies leads, quotes price ranges, and books appointments automatically -- so business owners never miss a lead again.
 
 ### Who is it for?
 
-MyBizOS serves local service businesses across 12 verticals:
+HararAI serves local service businesses across 12 verticals:
 
 - Plumbing, HVAC, Electrical, Roofing
 - Rubbish Removals, Moving Companies

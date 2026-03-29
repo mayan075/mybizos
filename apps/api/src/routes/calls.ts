@@ -25,7 +25,7 @@ callsRoutes.get('/', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, callHistory, withOrgScope } = await import('@mybizos/db');
+    const { db, callHistory, withOrgScope } = await import('@hararai/db');
     const { desc } = await import('drizzle-orm');
 
     const rows = await db
@@ -65,7 +65,7 @@ callsRoutes.get('/:id', async (c) => {
   const callId = c.req.param('id');
 
   try {
-    const { db, callHistory, withOrgScope } = await import('@mybizos/db');
+    const { db, callHistory, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [row] = await db
@@ -127,7 +127,7 @@ callsRoutes.post('/log', async (c) => {
   const data = parsed.data;
 
   try {
-    const { db, callHistory } = await import('@mybizos/db');
+    const { db, callHistory } = await import('@hararai/db');
 
     const [created] = await db
       .insert(callHistory)

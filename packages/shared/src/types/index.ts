@@ -1,4 +1,4 @@
-/** Core business types for MyBizOS */
+/** Core business types for HararAI */
 
 // ─── Enums ──────────────────────────────────────────────────────────
 

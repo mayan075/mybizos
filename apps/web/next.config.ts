@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Note: 'standalone' output is not needed for Vercel (it handles Next.js natively).
   // If deploying to Docker/self-hosted, uncomment the line below:
   // output: "standalone",
-  transpilePackages: ["@mybizos/ui", "@mybizos/shared"],
+  transpilePackages: ["@hararai/ui", "@hararai/shared"],
   experimental: {
     typedEnv: true,
   },

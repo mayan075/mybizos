@@ -79,7 +79,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Get token from cookie or Authorization header
-  const cookieToken = request.cookies.get("mybizos_token")?.value;
+  const cookieToken = request.cookies.get("hararai_token")?.value;
   const authHeader = request.headers.get("Authorization");
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.slice(7)

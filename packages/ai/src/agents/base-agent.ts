@@ -1,4 +1,4 @@
-import type { AiAgentType, Vertical } from "@mybizos/shared";
+import type { AiAgentType, Vertical } from "@hararai/shared";
 import type { ClaudeClient, ClaudeMessage, ClaudeResponse } from "../providers/claude.js";
 
 export interface AgentContext {
@@ -25,7 +25,7 @@ export interface AgentResult {
 }
 
 /**
- * Base class for all MyBizOS AI agents.
+ * Base class for all HararAI AI agents.
  * Enforces compliance rules: disclosure, escalation after 2 misunderstandings,
  * emergency keyword detection, and price range quoting.
  */

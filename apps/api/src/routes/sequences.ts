@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
-import type { SequenceStep, SequenceTriggerConfig } from '@mybizos/db';
+import type { SequenceStep, SequenceTriggerConfig } from '@hararai/db';
 
 const sequences = new Hono();
 

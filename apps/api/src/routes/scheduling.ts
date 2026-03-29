@@ -162,7 +162,7 @@ scheduling.get('/public/org/:slug', async (c) => {
   const slug = c.req.param('slug');
 
   try {
-    const { db, organizations } = await import('@mybizos/db');
+    const { db, organizations } = await import('@hararai/db');
     const { eq } = await import('drizzle-orm');
 
     const [org] = await db

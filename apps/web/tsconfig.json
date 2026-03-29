@@ -15,8 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@mybizos/ui": ["../../packages/ui/src"],
-      "@mybizos/shared": ["../../packages/shared/src"]
+      "@hararai/ui": ["../../packages/ui/src"],
+      "@hararai/shared": ["../../packages/shared/src"]
     }
   },
   "include": [

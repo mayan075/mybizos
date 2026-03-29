@@ -5,9 +5,9 @@ import { authMiddleware } from '../middleware/auth.js';
 import { orgScopeMiddleware } from '../middleware/org-scope.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
-import { TwilioClient } from '@mybizos/integrations';
-import { db, organizations, withOrgScope } from '@mybizos/db';
-import type { PurchasedNumber } from '@mybizos/integrations';
+import { TwilioClient } from '@hararai/integrations';
+import { db, organizations, withOrgScope } from '@hararai/db';
+import type { PurchasedNumber } from '@hararai/integrations';
 
 const phoneSystem = new Hono();
 
@@ -30,7 +30,7 @@ interface NumberRouting {
   configuredAt: string;
 }
 
-interface MybizosPhoneSettings {
+interface ManagedPhoneSettings {
   subaccountSid: string;
   subaccountAuthToken: string;
   friendlyName: string;
@@ -40,14 +40,15 @@ interface MybizosPhoneSettings {
 
 interface OrgSettings {
   phone?: PhoneSettings;
-  mybizosPhone?: MybizosPhoneSettings;
+  managedPhone?: ManagedPhoneSettings;
+  mybizosPhone?: ManagedPhoneSettings;
   [key: string]: unknown;
 }
 
 // ── In-memory cache (fallback if DB is unavailable) ──────────────────────
 
 const credentialCache = new Map<string, PhoneSettings>();
-const mybizosCache = new Map<string, MybizosPhoneSettings>();
+const managedPhoneCache = new Map<string, ManagedPhoneSettings>();
 
 // ── Database helpers ─────────────────────────────────────────────────────
 
@@ -131,55 +132,57 @@ async function deletePhoneSettings(orgId: string): Promise<void> {
 }
 
 /**
- * Read MyBizOS phone settings from the database for an org.
+ * Read managed phone settings from the database for an org.
  * Falls back to in-memory cache if DB is unavailable.
+ * Dual-read: checks managedPhone first, falls back to legacy mybizosPhone key.
  */
-async function getMybizosSettings(orgId: string): Promise<MybizosPhoneSettings | null> {
+async function getManagedPhoneSettings(orgId: string): Promise<ManagedPhoneSettings | null> {
   try {
     const [org] = await db
       .select({ settings: organizations.settings })
       .from(organizations)
       .where(withOrgScope(organizations.id, orgId));
 
-    if (!org) return mybizosCache.get(orgId) ?? null;
+    if (!org) return managedPhoneCache.get(orgId) ?? null;
 
     const settings = org.settings as OrgSettings | null;
-    const mybizosPhone = settings?.mybizosPhone ?? null;
+    const managedPhone = (settings?.managedPhone ?? settings?.mybizosPhone) ?? null;
 
     // Sync cache
-    if (mybizosPhone) {
-      mybizosCache.set(orgId, mybizosPhone);
+    if (managedPhone) {
+      managedPhoneCache.set(orgId, managedPhone);
     } else {
-      mybizosCache.delete(orgId);
+      managedPhoneCache.delete(orgId);
     }
 
-    return mybizosPhone;
+    return managedPhone;
   } catch (err) {
-    logger.warn('DB read failed for mybizos phone settings, using cache', {
+    logger.warn('DB read failed for managed phone settings, using cache', {
       orgId,
       error: err instanceof Error ? err.message : 'Unknown',
     });
-    return mybizosCache.get(orgId) ?? null;
+    return managedPhoneCache.get(orgId) ?? null;
   }
 }
 
 /**
- * Write MyBizOS phone settings to the database for an org.
+ * Write managed phone settings to the database for an org.
  * Also updates the in-memory cache.
+ * Writes to the new 'managedPhone' key only.
  */
-async function setMybizosSettings(orgId: string, data: MybizosPhoneSettings): Promise<void> {
-  mybizosCache.set(orgId, data);
+async function setManagedPhoneSettings(orgId: string, data: ManagedPhoneSettings): Promise<void> {
+  managedPhoneCache.set(orgId, data);
 
   try {
     await db
       .update(organizations)
       .set({
-        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{mybizosPhone}', ${JSON.stringify(data)}::jsonb)`,
+        settings: sql`jsonb_set(COALESCE(settings, '{}'), '{managedPhone}', ${JSON.stringify(data)}::jsonb)`,
         updatedAt: new Date(),
       })
       .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
-    logger.error('DB write failed for mybizos phone settings, data in cache only', {
+    logger.error('DB write failed for managed phone settings, data in cache only', {
       orgId,
       error: err instanceof Error ? err.message : 'Unknown',
     });
@@ -187,21 +190,21 @@ async function setMybizosSettings(orgId: string, data: MybizosPhoneSettings): Pr
 }
 
 /**
- * Remove MyBizOS phone settings from the database for an org.
+ * Remove managed phone settings from the database for an org.
  */
-async function deleteMybizosSettings(orgId: string): Promise<void> {
-  mybizosCache.delete(orgId);
+async function deleteManagedPhoneSettings(orgId: string): Promise<void> {
+  managedPhoneCache.delete(orgId);
 
   try {
     await db
       .update(organizations)
       .set({
-        settings: sql`COALESCE(settings, '{}') - 'mybizosPhone'`,
+        settings: sql`COALESCE(settings, '{}') - 'managedPhone' - 'mybizosPhone'`,
         updatedAt: new Date(),
       })
       .where(withOrgScope(organizations.id, orgId));
   } catch (err) {
-    logger.error('DB write failed for mybizos phone settings delete', {
+    logger.error('DB write failed for managed phone settings delete', {
       orgId,
       error: err instanceof Error ? err.message : 'Unknown',
     });
@@ -287,7 +290,7 @@ phoneSystem.post('/connect', async (c) => {
 });
 
 /**
- * POST /waitlist — Join the MyBizOS managed phone waitlist.
+ * POST /waitlist — Join the managed phone waitlist.
  */
 phoneSystem.post('/waitlist', async (c) => {
   const body = await c.req.json();
@@ -356,8 +359,8 @@ phoneSystem.post('/numbers/:numberSid/configure', async (c) => {
     );
   }
 
-  const voiceUrl = parsed.data.voiceUrl ?? 'https://api.mybizos.com/webhooks/twilio/voice';
-  const smsUrl = parsed.data.smsUrl ?? 'https://api.mybizos.com/webhooks/twilio/sms';
+  const voiceUrl = parsed.data.voiceUrl ?? 'https://api.hararai.com/webhooks/twilio/voice';
+  const smsUrl = parsed.data.smsUrl ?? 'https://api.hararai.com/webhooks/twilio/sms';
 
   try {
     await TwilioClient.configureWebhooks(
@@ -435,12 +438,12 @@ phoneSystem.delete('/disconnect', async (c) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-//  MODEL B: MyBizOS Managed Phone Provisioning
+//  MODEL B: Managed Phone Provisioning
 //  Uses the MASTER Twilio account (from env) to manage subaccounts.
 //  Customers never see Twilio credentials.
 // ══════════════════════════════════════════════════════════════════════════
 
-const mybizosSetupSchema = z.object({
+const managedPhoneSetupSchema = z.object({
   businessName: z.string().min(1, 'Business name is required').max(100),
 });
 
@@ -468,13 +471,13 @@ function getMasterCredentials(): { sid: string; authToken: string } | null {
 }
 
 /**
- * POST /mybizos/setup — Create a Twilio subaccount for this org.
+ * POST /managed-phone/setup — Create a Twilio subaccount for this org.
  */
-phoneSystem.post('/mybizos/setup', async (c) => {
+phoneSystem.post('/managed-phone/setup', async (c) => {
   const orgId = c.get('orgId');
   const rawBody = await c.req.json();
 
-  const parsed = mybizosSetupSchema.safeParse(rawBody);
+  const parsed = managedPhoneSetupSchema.safeParse(rawBody);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => ({
       field: i.path.join('.'),
@@ -495,7 +498,7 @@ phoneSystem.post('/mybizos/setup', async (c) => {
   }
 
   // Check if this org already has a subaccount
-  const existing = await getMybizosSettings(orgId);
+  const existing = await getManagedPhoneSettings(orgId);
   if (existing) {
     return c.json({
       success: true,
@@ -505,14 +508,14 @@ phoneSystem.post('/mybizos/setup', async (c) => {
   }
 
   try {
-    const friendlyName = `MyBizOS - ${parsed.data.businessName} (${orgId})`;
+    const friendlyName = `HararAI - ${parsed.data.businessName} (${orgId})`;
     const subaccount = await TwilioClient.createSubaccount(
       master.sid,
       master.authToken,
       friendlyName,
     );
 
-    await setMybizosSettings(orgId, {
+    await setManagedPhoneSettings(orgId, {
       subaccountSid: subaccount.sid,
       subaccountAuthToken: subaccount.authToken,
       friendlyName: subaccount.friendlyName,
@@ -520,7 +523,7 @@ phoneSystem.post('/mybizos/setup', async (c) => {
       numbers: [],
     });
 
-    logger.info('MyBizOS subaccount created', {
+    logger.info('Managed phone subaccount created', {
       orgId,
       subaccountSid: subaccount.sid,
       friendlyName: subaccount.friendlyName,
@@ -542,11 +545,11 @@ phoneSystem.post('/mybizos/setup', async (c) => {
 });
 
 /**
- * GET /mybizos/status — Check if this org has a MyBizOS phone setup.
+ * GET /managed-phone/status — Check if this org has a managed phone setup.
  */
-phoneSystem.get('/mybizos/status', async (c) => {
+phoneSystem.get('/managed-phone/status', async (c) => {
   const orgId = c.get('orgId');
-  const orgData = await getMybizosSettings(orgId);
+  const orgData = await getManagedPhoneSettings(orgId);
 
   if (!orgData) {
     return c.json({ setup: false });
@@ -567,9 +570,9 @@ phoneSystem.get('/mybizos/status', async (c) => {
 });
 
 /**
- * GET /mybizos/available-numbers — Search available numbers from Twilio.
+ * GET /managed-phone/available-numbers — Search available numbers from Twilio.
  */
-phoneSystem.get('/mybizos/available-numbers', async (c) => {
+phoneSystem.get('/managed-phone/available-numbers', async (c) => {
   const orgId = c.get('orgId');
 
   const query = searchNumbersSchema.safeParse({
@@ -634,9 +637,9 @@ phoneSystem.get('/mybizos/available-numbers', async (c) => {
 });
 
 /**
- * POST /mybizos/purchase — Buy a number and assign to the org's subaccount.
+ * POST /managed-phone/purchase — Buy a number and assign to the org's subaccount.
  */
-phoneSystem.post('/mybizos/purchase', async (c) => {
+phoneSystem.post('/managed-phone/purchase', async (c) => {
   const orgId = c.get('orgId');
   const rawBody = await c.req.json();
 
@@ -661,10 +664,10 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
   }
 
   // Ensure org has a subaccount (auto-create if needed)
-  let orgData = await getMybizosSettings(orgId);
+  let orgData = await getManagedPhoneSettings(orgId);
   if (!orgData) {
     try {
-      const friendlyName = `MyBizOS - Org ${orgId}`;
+      const friendlyName = `HararAI - Org ${orgId}`;
       const subaccount = await TwilioClient.createSubaccount(
         master.sid,
         master.authToken,
@@ -678,7 +681,7 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
         setupAt: new Date().toISOString(),
         numbers: [],
       };
-      await setMybizosSettings(orgId, orgData);
+      await setManagedPhoneSettings(orgId, orgData);
 
       logger.info('Auto-created subaccount for purchase', {
         orgId,
@@ -706,7 +709,7 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
 
     // Add number to the stored list and persist
     orgData.numbers.push(purchased);
-    await setMybizosSettings(orgId, orgData);
+    await setManagedPhoneSettings(orgId, orgData);
 
     logger.info('Number purchased and assigned', {
       orgId,
@@ -747,9 +750,9 @@ phoneSystem.post('/mybizos/purchase', async (c) => {
 });
 
 /**
- * DELETE /mybizos/numbers/:numberSid — Release a number from the org's subaccount.
+ * DELETE /managed-phone/numbers/:numberSid — Release a number from the org's subaccount.
  */
-phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
+phoneSystem.delete('/managed-phone/numbers/:numberSid', async (c) => {
   const orgId = c.get('orgId');
   const numberSid = c.req.param('numberSid');
 
@@ -761,7 +764,7 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
     );
   }
 
-  const orgData = await getMybizosSettings(orgId);
+  const orgData = await getManagedPhoneSettings(orgId);
   if (!orgData) {
     return c.json(
       { error: 'No phone system set up for this organization.', code: 'NOT_SETUP', status: 400 },
@@ -788,7 +791,7 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
 
     // Remove from stored list and persist
     orgData.numbers.splice(numberIndex, 1);
-    await setMybizosSettings(orgId, orgData);
+    await setManagedPhoneSettings(orgId, orgData);
 
     logger.info('Number released', {
       orgId,
@@ -809,12 +812,12 @@ phoneSystem.delete('/mybizos/numbers/:numberSid', async (c) => {
 });
 
 /**
- * GET /mybizos/numbers — List all numbers for this org's subaccount.
+ * GET /managed-phone/numbers — List all numbers for this org's subaccount.
  */
-phoneSystem.get('/mybizos/numbers', async (c) => {
+phoneSystem.get('/managed-phone/numbers', async (c) => {
   const orgId = c.get('orgId');
 
-  const orgData = await getMybizosSettings(orgId);
+  const orgData = await getManagedPhoneSettings(orgId);
   if (!orgData) {
     return c.json({ numbers: [] });
   }

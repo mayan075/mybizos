@@ -26,7 +26,7 @@ const DEFAULT_MAX_TOKENS = 1024;
 
 /**
  * Wrapper around the Anthropic Claude API client.
- * Used by all AI agents (phone, SMS, chat, review) in MyBizOS.
+ * Used by all AI agents (phone, SMS, chat, review) in HararAI.
  */
 export class ClaudeClient {
   private client: Anthropic;

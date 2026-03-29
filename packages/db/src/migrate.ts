@@ -11,7 +11,7 @@ import postgres from "postgres";
  */
 async function runMigrations(): Promise<void> {
   const connectionString =
-    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/mybizos_dev";
+    process.env["DATABASE_URL"] ?? "postgresql://localhost:5432/hararai_dev";
 
   console.log("Running migrations...\n");
 

@@ -1,8 +1,8 @@
-# MyBizOS — Complete All Features Plan
+# HararAI — Complete All Features Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans.
 
-**Goal:** Take MyBizOS from 55% to 95% feature completion by wiring all stub pages to existing APIs and building the remaining missing features.
+**Goal:** Take HararAI from 55% to 95% feature completion by wiring all stub pages to existing APIs and building the remaining missing features.
 
 **Strategy:** Work in 3 waves — quick wins first (wire existing APIs), then medium builds, then new features from scratch.
 

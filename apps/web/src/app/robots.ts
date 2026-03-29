@@ -15,6 +15,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: "https://mybizos.vercel.app/sitemap.xml",
+    sitemap: "https://app.hararai.com/sitemap.xml",
   };
 }

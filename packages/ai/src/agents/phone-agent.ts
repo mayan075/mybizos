@@ -1,4 +1,4 @@
-import type { Vertical } from "@mybizos/shared";
+import type { Vertical } from "@hararai/shared";
 import type { ClaudeClient } from "../providers/claude.js";
 import { BaseAgent, type AgentAction, type AgentContext } from "./base-agent.js";
 import { getPhoneAgentPrompt } from "../prompts/system-prompts.js";

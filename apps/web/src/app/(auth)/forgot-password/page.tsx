@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <Zap className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">MyBizOS</span>
+            <span className="text-xl font-bold">HararAI</span>
           </div>
         </div>
         <div className="relative z-10 space-y-6">
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
         <div className="relative z-10 text-primary-foreground/50 text-sm">
-          &copy; 2026 MyBizOS. All rights reserved.
+          &copy; 2026 HararAI. All rights reserved.
         </div>
         {/* Background decoration */}
         <div className="absolute inset-0 opacity-10">
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
               <Zap className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">MyBizOS</span>
+            <span className="text-xl font-bold text-foreground">HararAI</span>
           </div>
 
           {isSubmitted ? (

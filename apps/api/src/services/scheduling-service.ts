@@ -5,7 +5,7 @@ import {
   contacts,
   organizations,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, gte, lte, or, desc, asc, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';

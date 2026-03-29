@@ -63,7 +63,7 @@ export async function processOnboardingData(
     pipelineStages,
     availabilityRules,
     withOrgScope,
-  } = await import('@mybizos/db');
+  } = await import('@hararai/db');
   const { eq, and } = await import('drizzle-orm');
 
   // 1. Update org name and vertical if provided

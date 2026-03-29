@@ -332,7 +332,7 @@ export function NumberList({
           <div>
             <p className="text-sm font-semibold text-foreground">Phone System Connected</p>
             <p className="text-xs text-muted-foreground">
-              {provider === "mybizos" ? "MyBizOS Phone" : "Your Twilio Account"}
+              {provider === "managed" ? "HararAI Phone" : "Your Twilio Account"}
               {accountName ? ` \u00b7 ${accountName}` : ""}
               {" \u00b7 "}{numbers.length} number{numbers.length !== 1 ? "s" : ""}
             </p>

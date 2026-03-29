@@ -11,11 +11,11 @@ COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 
 # Build packages that the API depends on
-RUN pnpm --filter @mybizos/shared build 2>/dev/null || true
-RUN pnpm --filter @mybizos/db build 2>/dev/null || true
-RUN pnpm --filter @mybizos/ai build 2>/dev/null || true
-RUN pnpm --filter @mybizos/email build 2>/dev/null || true
-RUN pnpm --filter @mybizos/integrations build 2>/dev/null || true
+RUN pnpm --filter @hararai/shared build 2>/dev/null || true
+RUN pnpm --filter @hararai/db build 2>/dev/null || true
+RUN pnpm --filter @hararai/ai build 2>/dev/null || true
+RUN pnpm --filter @hararai/email build 2>/dev/null || true
+RUN pnpm --filter @hararai/integrations build 2>/dev/null || true
 
 WORKDIR /app/apps/api
 

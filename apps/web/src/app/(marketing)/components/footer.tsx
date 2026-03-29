@@ -20,7 +20,7 @@ export function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
                 <Zap className="h-4 w-4" />
               </div>
-              <span className="text-lg font-bold text-white">MyBizOS</span>
+              <span className="text-lg font-bold text-white">HararAI</span>
             </Link>
             <p className="mt-3 text-sm text-white/30">
               The AI-powered operating system for local service businesses.
@@ -85,7 +85,7 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               {[
                 { label: "Help Center", href: "#" },
-                { label: "Contact", href: "mailto:support@mybizos.com" },
+                { label: "Contact", href: "mailto:support@hararai.com" },
                 { label: "Status", href: "#" },
                 { label: "Privacy", href: "#" },
                 { label: "Terms", href: "#" },
@@ -136,7 +136,7 @@ export function Footer() {
               Built for local businesses by people who understand local businesses.
             </p>
             <p className="text-xs text-white/15">
-              &copy; 2026 MyBizOS. All rights reserved.
+              &copy; 2026 HararAI. All rights reserved.
             </p>
           </div>
         </div>

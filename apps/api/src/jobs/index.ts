@@ -57,7 +57,7 @@ export const jobRegistry: Record<string, JobDefinition> = {
     handler: async () => {
       logger.info('Lead scoring job triggered (placeholder)');
       // Will be implemented when we integrate the LeadScoringEngine
-      // from @mybizos/ai with the contacts database
+      // from @hararai/ai with the contacts database
       return { scored: 0, message: 'Lead scoring not yet implemented' };
     },
   },

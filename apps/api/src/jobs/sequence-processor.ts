@@ -13,11 +13,11 @@ import {
   type AddTagStepConfig,
   type RemoveTagStepConfig,
   type AiDecisionStepConfig,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, lte, sql } from 'drizzle-orm';
-import { TwilioClient } from '@mybizos/integrations';
-import { ResendProvider } from '@mybizos/email';
-import { ClaudeClient } from '@mybizos/ai';
+import { TwilioClient } from '@hararai/integrations';
+import { ResendProvider } from '@hararai/email';
+import { ClaudeClient } from '@hararai/ai';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { activityService } from '../services/activity-service.js';
@@ -110,8 +110,8 @@ async function executeSendSms(
 
   const body = interpolateTemplate(stepConfig.body, ctx);
 
-  // Extract Twilio credentials from org settings JSONB (phone or mybizosPhone key)
-  const phoneSettings = (orgSettings['phone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
+  // Extract Twilio credentials from org settings JSONB (phone or managedPhone key)
+  const phoneSettings = (orgSettings['phone'] ?? orgSettings['managedPhone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
   const twilioSid = phoneSettings['subaccountSid'] || phoneSettings['accountSid'] || config.TWILIO_ACCOUNT_SID;
   const twilioToken = phoneSettings['subaccountAuthToken'] || phoneSettings['authToken'] || config.TWILIO_AUTH_TOKEN;
   const twilioFrom = phoneSettings['phoneNumber'] || config.TWILIO_PHONE_NUMBER;

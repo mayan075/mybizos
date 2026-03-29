@@ -116,9 +116,9 @@ export function ModelSelector({ onSelectModel }: ModelSelectorProps) {
     <div className="grid gap-6 md:grid-cols-2">
       <ModelCard
         selected={false}
-        onSelect={() => onSelectModel("mybizos")}
+        onSelect={() => onSelectModel("managed")}
         icon={Sparkles}
-        title="Get a MyBizOS Phone Number"
+        title="Get a HararAI Phone Number"
         subtitle="We handle everything. Get a number in 60 seconds."
         badge="Recommended"
         badgeVariant="recommended"

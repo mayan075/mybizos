@@ -1,5 +1,5 @@
 {
-  "name": "@mybizos/email",
+  "name": "@hararai/email",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -13,7 +13,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@mybizos/shared": "workspace:*",
+    "@hararai/shared": "workspace:*",
     "resend": "^6.9.4"
   },
   "devDependencies": {

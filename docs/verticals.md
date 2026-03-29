@@ -1,6 +1,6 @@
 # Supported Business Verticals
 
-MyBizOS is designed for local service businesses. Each vertical gets pre-configured pipeline stages, AI agent prompts, booking services with price ranges, and automated drip sequences tailored to its industry.
+HararAI is designed for local service businesses. Each vertical gets pre-configured pipeline stages, AI agent prompts, booking services with price ranges, and automated drip sequences tailored to its industry.
 
 ## Overview
 

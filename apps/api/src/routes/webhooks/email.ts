@@ -68,7 +68,7 @@ emailWebhooks.post('/inbound', async (c) => {
   // 6. Process attachments (store in object storage)
 
   // Extract the org identifier from the recipient address
-  // e.g., inbox+org_01@inbound.mybizos.com -> org_01
+  // e.g., inbox+org_01@inbound.hararai.com -> org_01
   const toAddress = parsed.to;
   const mailboxHash = toAddress.includes('+') ? toAddress.split('+')[1]?.split('@')[0] ?? '' : '';
   if (!mailboxHash) {

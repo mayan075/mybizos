@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = "mybizos_theme";
+const STORAGE_KEY = "hararai_theme";
 
 type Theme = "light" | "dark";
 

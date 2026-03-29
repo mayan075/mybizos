@@ -1,4 +1,4 @@
-import type { Contact, Vertical } from "@mybizos/shared";
+import type { Contact, Vertical } from "@hararai/shared";
 import type { ClaudeClient } from "../providers/claude.js";
 export interface ScoringFactors {
     hasPhone: boolean;

@@ -66,7 +66,7 @@ const API_BASE = env.NEXT_PUBLIC_API_URL;
 function getOrgId(): string {
   if (typeof window === 'undefined') return 'org_01';
   try {
-    const token = localStorage.getItem('mybizos_token');
+    const token = localStorage.getItem('hararai_token');
     if (!token) return 'org_01';
     const parts = token.split('.');
     if (parts.length !== 3 || !parts[1]) return 'org_01';
@@ -79,7 +79,7 @@ function getOrgId(): string {
 
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('mybizos_token');
+  return localStorage.getItem('hararai_token');
 }
 
 function setState(partial: Partial<TwilioCallState>): void {

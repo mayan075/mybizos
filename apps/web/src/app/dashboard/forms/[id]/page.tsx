@@ -783,7 +783,7 @@ function EmbedOptionsPanel({ formId }: { formId: string }) {
   >("embed");
   const [copied, setCopied] = useState(false);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://app.mybizos.com";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://app.hararai.com";
   const embedUrl = `${baseUrl}/embed/forms/${formId}`;
   const embedCode = `<iframe src="${embedUrl}" style="width:100%;min-height:500px;border:none;" title="Contact Form"></iframe>`;
   const directLink = embedUrl;

@@ -3,9 +3,9 @@ import {
   activities,
   aiCallLogs,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc } from 'drizzle-orm';
-import { ClaudeClient } from '@mybizos/ai';
+import { ClaudeClient } from '@hararai/ai';
 import { config } from '../config.js';
 import { contactService } from './contact-service.js';
 import { logger } from '../middleware/logger.js';

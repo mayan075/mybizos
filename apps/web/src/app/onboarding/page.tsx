@@ -166,7 +166,7 @@ export default function OnboardingPage() {
   const [personalPhone, setPersonalPhone] = useState("");
 
   // Step 6 — Phone number
-  const [phoneMode, setPhoneMode] = useState<PhoneSetupMode>("mybizos");
+  const [phoneMode, setPhoneMode] = useState<PhoneSetupMode>("managed");
   const [phoneCountry, setPhoneCountry] = useState("AU");
   const [numberType, setNumberType] = useState("local");
   const [existingNumber, setExistingNumber] = useState("");
@@ -286,8 +286,8 @@ export default function OnboardingPage() {
       },
       phoneSetup: {
         mode: phoneMode,
-        country: phoneMode === "mybizos" ? phoneCountry : undefined,
-        numberType: phoneMode === "mybizos" ? numberType : undefined,
+        country: phoneMode === "managed" ? phoneCountry : undefined,
+        numberType: phoneMode === "managed" ? numberType : undefined,
         existingNumber: phoneMode === "existing" ? existingNumber : undefined,
       },
       completedAt: new Date().toISOString(),
@@ -905,13 +905,13 @@ export default function OnboardingPage() {
 
         {/* Mode selector */}
         <div className="space-y-4">
-          {/* MyBizOS number */}
+          {/* HararAI number */}
           <button
             type="button"
-            onClick={() => setPhoneMode("mybizos")}
+            onClick={() => setPhoneMode("managed")}
             className={cn(
               "w-full rounded-xl border-2 p-5 text-left transition-all",
-              phoneMode === "mybizos"
+              phoneMode === "managed"
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/30",
             )}
@@ -931,7 +931,7 @@ export default function OnboardingPage() {
             </div>
           </button>
 
-          {phoneMode === "mybizos" && (
+          {phoneMode === "managed" && (
             <div className="ml-4 space-y-4 rounded-xl border border-border bg-card p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1113,7 +1113,7 @@ export default function OnboardingPage() {
           <div className="flex items-center gap-3 px-5 py-4">
             <Phone className="h-5 w-5 text-primary" />
             <p className="text-sm text-foreground">
-              {phoneMode === "mybizos"
+              {phoneMode === "managed"
                 ? "Business number will be provisioned shortly"
                 : phoneMode === "existing"
                   ? "Forwarding instructions will be sent"
@@ -1209,7 +1209,7 @@ export default function OnboardingPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-foreground text-sm">MyBizOS</span>
+          <span className="font-bold text-foreground text-sm">HararAI</span>
         </div>
         <p className="text-xs text-muted-foreground hidden sm:block">
           Step {step + 1} of {STEPS.length}

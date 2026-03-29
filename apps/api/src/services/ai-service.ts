@@ -6,49 +6,19 @@ import {
   contacts,
   appointments,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc, count, sum, sql, gte } from 'drizzle-orm';
-import { VapiClient, VAPI_TOOL_SCHEMAS } from '@mybizos/integrations';
-import type { VapiAssistantConfig } from '@mybizos/integrations';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
 import { config } from '../config.js';
 
-// ─── Vapi Helper ──────────────────────────────────────────────────────────────
+// ─── Default Gemini Config ──────────────────────────────────────────────────
 
-function getVapiClient(): VapiClient | null {
-  if (!config.VAPI_API_KEY) {
-    return null;
-  }
-  return new VapiClient({ apiKey: config.VAPI_API_KEY });
-}
-
-function buildVapiAssistantConfig(data: {
-  name: string;
-  systemPrompt: string;
-}): VapiAssistantConfig {
+function buildDefaultGeminiConfig(): Record<string, unknown> {
   return {
-    name: data.name,
-    firstMessage:
-      "Hi, this is your business's AI assistant. This call may be recorded. How can I help you today?",
-    model: {
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
-      systemPrompt: data.systemPrompt,
-      tools: [
-        VAPI_TOOL_SCHEMAS['bookAppointment']!,
-        VAPI_TOOL_SCHEMAS['checkAvailability']!,
-        VAPI_TOOL_SCHEMAS['transferToHuman']!,
-        VAPI_TOOL_SCHEMAS['endCall']!,
-      ],
-    },
-    voice: {
-      provider: '11labs',
-      voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel — professional female voice
-    },
-    serverUrl: config.APP_URL,
-    recordingEnabled: true,
-    maxDurationSeconds: 600,
+    voiceName: config.GEMINI_DEFAULT_VOICE,
+    thinkingLevel: 'MINIMAL',
+    maxDurationSeconds: 900,
   };
 }
 
@@ -101,45 +71,13 @@ export const aiService = {
         systemPrompt: data.systemPrompt,
         vertical: data.vertical,
         settings: data.settings ?? {},
+        geminiConfig: buildDefaultGeminiConfig(),
         isActive: data.isActive ?? true,
       })
       .returning();
 
     if (!created) {
       throw Errors.internal('Failed to create AI agent');
-    }
-
-    // Sync with Vapi — create a corresponding voice assistant
-    const vapiClient = getVapiClient();
-    if (vapiClient) {
-      try {
-        const vapiConfig = buildVapiAssistantConfig({
-          name: data.name,
-          systemPrompt: data.systemPrompt,
-        });
-        const vapiAssistant = await vapiClient.createAssistant(vapiConfig);
-
-        const [synced] = await db
-          .update(aiAgents)
-          .set({ vapiAssistantId: vapiAssistant.id })
-          .where(eq(aiAgents.id, created.id))
-          .returning();
-
-        if (synced) {
-          logger.info('Vapi assistant created', {
-            orgId,
-            agentId: created.id,
-            vapiAssistantId: vapiAssistant.id,
-          });
-          return synced;
-        }
-      } catch (err) {
-        logger.error('Failed to create Vapi assistant — agent saved without voice', {
-          orgId,
-          agentId: created.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
     }
 
     logger.info('AI Agent created', { orgId, agentId: created.id, type: data.type });
@@ -172,58 +110,15 @@ export const aiService = {
       throw Errors.notFound('AI Agent');
     }
 
-    // Sync changes to Vapi assistant
-    const vapiClient = getVapiClient();
-    if (vapiClient && updated.vapiAssistantId) {
-      try {
-        const vapiUpdates: Partial<VapiAssistantConfig> = {};
-        if (data.name) {
-          vapiUpdates.name = data.name;
-        }
-        if (data.systemPrompt) {
-          vapiUpdates.model = {
-            provider: 'anthropic',
-            model: 'claude-sonnet-4-20250514',
-            systemPrompt: data.systemPrompt,
-            tools: [
-              VAPI_TOOL_SCHEMAS['bookAppointment']!,
-              VAPI_TOOL_SCHEMAS['checkAvailability']!,
-              VAPI_TOOL_SCHEMAS['transferToHuman']!,
-              VAPI_TOOL_SCHEMAS['endCall']!,
-            ],
-          };
-        }
-
-        if (Object.keys(vapiUpdates).length > 0) {
-          await vapiClient.updateAssistant(updated.vapiAssistantId, vapiUpdates);
-          logger.info('Vapi assistant updated', {
-            orgId,
-            agentId,
-            vapiAssistantId: updated.vapiAssistantId,
-          });
-        }
-      } catch (err) {
-        logger.error('Failed to update Vapi assistant', {
-          orgId,
-          agentId,
-          vapiAssistantId: updated.vapiAssistantId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
+    // No external sync needed — Gemini sessions are ephemeral.
+    // Config changes take effect on the next call automatically.
     logger.info('AI Agent updated', { orgId, agentId });
     return updated;
   },
 
   async deleteAgent(orgId: string, agentId: string) {
-    // Look up the agent first to get Vapi IDs before deletion
     const [agent] = await db
-      .select({
-        id: aiAgents.id,
-        vapiAssistantId: aiAgents.vapiAssistantId,
-        vapiPhoneNumberId: aiAgents.vapiPhoneNumberId,
-      })
+      .select({ id: aiAgents.id })
       .from(aiAgents)
       .where(and(
         withOrgScope(aiAgents.orgId, orgId),
@@ -234,47 +129,7 @@ export const aiService = {
       throw Errors.notFound('AI Agent');
     }
 
-    // Clean up Vapi resources before DB deletion
-    const vapiClient = getVapiClient();
-    if (vapiClient) {
-      if (agent.vapiPhoneNumberId) {
-        try {
-          await vapiClient.deletePhoneNumber(agent.vapiPhoneNumberId);
-          logger.info('Vapi phone number deleted', {
-            orgId,
-            agentId,
-            vapiPhoneNumberId: agent.vapiPhoneNumberId,
-          });
-        } catch (err) {
-          logger.error('Failed to delete Vapi phone number', {
-            orgId,
-            agentId,
-            vapiPhoneNumberId: agent.vapiPhoneNumberId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-
-      if (agent.vapiAssistantId) {
-        try {
-          await vapiClient.deleteAssistant(agent.vapiAssistantId);
-          logger.info('Vapi assistant deleted', {
-            orgId,
-            agentId,
-            vapiAssistantId: agent.vapiAssistantId,
-          });
-        } catch (err) {
-          logger.error('Failed to delete Vapi assistant', {
-            orgId,
-            agentId,
-            vapiAssistantId: agent.vapiAssistantId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-    }
-
-    // Delete from DB
+    // No external cleanup needed — Gemini sessions are ephemeral.
     await db
       .delete(aiAgents)
       .where(and(
@@ -283,99 +138,6 @@ export const aiService = {
       ));
 
     logger.info('AI Agent deleted', { orgId, agentId });
-  },
-
-  // ── Phone Number Linking ──
-
-  async linkPhone(
-    orgId: string,
-    agentId: string,
-    data: { vapiAssistantId: string; twilioPhoneNumber: string },
-  ) {
-    const vapiClient = getVapiClient();
-    if (!vapiClient) {
-      throw Errors.internal('Vapi API key not configured');
-    }
-
-    try {
-      const vapiPhoneNumber = await vapiClient.createPhoneNumber({
-        provider: 'twilio',
-        twilioAccountSid: config.TWILIO_ACCOUNT_SID,
-        twilioAuthToken: config.TWILIO_AUTH_TOKEN,
-        twilioPhoneNumber: data.twilioPhoneNumber,
-        assistantId: data.vapiAssistantId,
-      });
-
-      const [updated] = await db
-        .update(aiAgents)
-        .set({ vapiPhoneNumberId: vapiPhoneNumber.id, updatedAt: new Date() })
-        .where(and(
-          withOrgScope(aiAgents.orgId, orgId),
-          eq(aiAgents.id, agentId),
-        ))
-        .returning();
-
-      if (!updated) {
-        throw Errors.notFound('AI Agent');
-      }
-
-      logger.info('Phone number linked to AI agent', {
-        orgId,
-        agentId,
-        vapiPhoneNumberId: vapiPhoneNumber.id,
-        phoneNumber: data.twilioPhoneNumber,
-      });
-
-      return { phoneNumberId: vapiPhoneNumber.id };
-    } catch (err) {
-      if (err instanceof Error && err.message.startsWith('Vapi API error')) {
-        logger.error('Vapi API error linking phone number', {
-          orgId,
-          agentId,
-          error: err.message,
-        });
-        throw Errors.internal(`Failed to link phone number: ${err.message}`);
-      }
-      throw err;
-    }
-  },
-
-  async unlinkPhone(orgId: string, agentId: string, vapiPhoneNumberId: string) {
-    const vapiClient = getVapiClient();
-    if (!vapiClient) {
-      throw Errors.internal('Vapi API key not configured');
-    }
-
-    try {
-      await vapiClient.deletePhoneNumber(vapiPhoneNumberId);
-    } catch (err) {
-      logger.error('Failed to delete Vapi phone number during unlink', {
-        orgId,
-        agentId,
-        vapiPhoneNumberId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      // Continue to clear the DB even if Vapi deletion fails
-    }
-
-    const [updated] = await db
-      .update(aiAgents)
-      .set({ vapiPhoneNumberId: null, updatedAt: new Date() })
-      .where(and(
-        withOrgScope(aiAgents.orgId, orgId),
-        eq(aiAgents.id, agentId),
-      ))
-      .returning();
-
-    if (!updated) {
-      throw Errors.notFound('AI Agent');
-    }
-
-    logger.info('Phone number unlinked from AI agent', {
-      orgId,
-      agentId,
-      vapiPhoneNumberId,
-    });
   },
 
   // ── AI Call Logs ──

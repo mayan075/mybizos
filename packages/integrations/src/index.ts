@@ -67,6 +67,29 @@ export {
   type VapiCallListFilters,
 } from "./vapi/index.js";
 
+// Gemini Live API
+export {
+  GeminiLiveSession,
+  mulawToLinear16,
+  linear16ToMulaw,
+  pcmDurationMs,
+  GEMINI_FUNCTION_DECLARATIONS,
+  buildGeminiToolsConfig,
+  generateEphemeralToken,
+  buildEphemeralWsUrl,
+  type EphemeralTokenResult,
+  type GeminiLiveConfig,
+  type GeminiSessionConfig,
+  type GeminiFunctionDeclaration,
+  type GeminiParameterSchema,
+  type GeminiToolConfig,
+  type GeminiToolCallMessage,
+  type GeminiServerMessage,
+  type GeminiClientMessage,
+  type GeminiSessionEvents,
+  type SessionUsageMetrics,
+} from "./gemini-live/index.js";
+
 // OAuth Integrations
 export {
   OAUTH_PROVIDERS,

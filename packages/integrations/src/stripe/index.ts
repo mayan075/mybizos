@@ -144,7 +144,7 @@ export class StripeClient {
 
   /**
    * Create a Stripe Connect Express account for a business.
-   * Each org in MyBizOS gets their own Connect account.
+   * Each org in HararAI gets their own Connect account.
    */
   async createConnectAccount(
     options: CreateConnectAccountOptions,

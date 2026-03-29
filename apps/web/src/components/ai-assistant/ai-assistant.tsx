@@ -71,7 +71,7 @@ const DEFAULT_SUGGESTIONS = [
   "How many open conversations?",
 ];
 
-const STORAGE_KEY = "mybizos_issues";
+const STORAGE_KEY = "hararai_issues";
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */
@@ -237,7 +237,7 @@ export function AIAssistant() {
 **Issue:** "${userText}"
 **Status:** Open
 
-The MyBizOS team will review this and work on a fix. If it's urgent, you can also email support@mybizos.com. Is there anything else I can help with?`;
+The HararAI team will review this and work on a fix. If it's urgent, you can also email support@hararai.com. Is there anything else I can help with?`;
       }
 
       // Check if this is an issue report
@@ -249,7 +249,7 @@ The MyBizOS team will review this and work on a fix. If it's urgent, you can als
 - What happened instead
 - Any error messages you saw
 
-I'll make sure the MyBizOS team sees this.`;
+I'll make sure the HararAI team sees this.`;
       }
 
       // Try to match from knowledge base

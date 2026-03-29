@@ -33,7 +33,7 @@ export function FAQSection() {
   const faqs = [
     {
       question: "Do I need technical skills?",
-      answer: "Not at all. MyBizOS is designed for busy tradespeople, not tech experts. Answer a few questions about your business, and our AI configures everything for you. If you can use a smartphone, you can use MyBizOS.",
+      answer: "Not at all. HararAI is designed for busy tradespeople, not tech experts. Answer a few questions about your business, and our AI configures everything for you. If you can use a smartphone, you can use HararAI.",
     },
     {
       question: "How does the AI phone agent work?",
@@ -45,7 +45,7 @@ export function FAQSection() {
     },
     {
       question: "Can I keep my existing phone number?",
-      answer: "Yes. We set up call forwarding from your existing number to your MyBizOS AI agent. Your customers keep calling the same number they always have. No changes needed on your end.",
+      answer: "Yes. We set up call forwarding from your existing number to your HararAI AI agent. Your customers keep calling the same number they always have. No changes needed on your end.",
     },
     {
       question: "How long does setup take?",

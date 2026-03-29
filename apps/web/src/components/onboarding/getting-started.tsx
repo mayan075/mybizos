@@ -22,9 +22,9 @@ import { getOnboardingData } from "@/lib/onboarding";
 // Storage keys
 // ---------------------------------------------------------------------------
 
-const WELCOME_DISMISSED_KEY = "mybizos_welcome_dismissed";
-const GETTING_STARTED_DISMISSED_KEY = "mybizos_getting_started_dismissed";
-const COMPLETED_STEPS_KEY = "mybizos_onboarding_steps";
+const WELCOME_DISMISSED_KEY = "hararai_welcome_dismissed";
+const GETTING_STARTED_DISMISSED_KEY = "hararai_getting_started_dismissed";
+const COMPLETED_STEPS_KEY = "hararai_onboarding_steps";
 
 // ---------------------------------------------------------------------------
 // Step definitions
@@ -161,7 +161,7 @@ export function WelcomeBanner() {
           </div>
           <div>
             <h2 className="text-base font-semibold text-foreground tracking-tight">
-              Welcome to MyBizOS!
+              Welcome to HararAI!
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5 max-w-xl leading-relaxed">
               We&apos;re excited to help {businessName} grow. Complete the steps below to get started.

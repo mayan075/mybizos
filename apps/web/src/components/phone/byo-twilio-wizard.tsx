@@ -132,7 +132,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
             <div className="rounded-lg bg-blue-500/5 border border-blue-500/10 p-4 space-y-2">
               <p className="text-sm font-medium text-foreground">How it works</p>
               <p className="text-sm text-muted-foreground">
-                Connect your Twilio account so MyBizOS can manage your phone numbers.
+                Connect your Twilio account so HararAI can manage your phone numbers.
                 Your credentials are validated live against the Twilio API.
                 You keep full control and pay Twilio directly for usage.
               </p>
@@ -204,7 +204,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Select the phone number(s) you want to use with MyBizOS:</p>
+                <p className="text-sm text-muted-foreground">Select the phone number(s) you want to use with HararAI:</p>
                 <div className="space-y-2">
                   {phoneNumbers.map((num) => {
                     const isSelected = selectedNumbers.has(num.sid);

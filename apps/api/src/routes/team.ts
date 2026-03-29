@@ -9,7 +9,7 @@ teamRoutes.get('/', async (c) => {
   const orgId = c.get('orgId');
 
   try {
-    const { db, orgMembers, users, withOrgScope } = await import('@mybizos/db');
+    const { db, orgMembers, users, withOrgScope } = await import('@hararai/db');
     const { eq, and } = await import('drizzle-orm');
 
     const rows = await db

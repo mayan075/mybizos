@@ -213,7 +213,7 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
     const successResponse = { data: { message: 'If an account exists, a reset link has been sent.' } };
 
     try {
-      const { db, users } = await import('@mybizos/db');
+      const { db, users } = await import('@hararai/db');
       const { eq } = await import('drizzle-orm');
 
       const [user] = await db
@@ -230,7 +230,7 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
       // Generate token and store in database
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      const { passwordResetTokens: resetTokensTable } = await import('@mybizos/db');
+      const { passwordResetTokens: resetTokensTable } = await import('@hararai/db');
       await db.insert(resetTokensTable).values({
         userId: user.id,
         token,
@@ -238,11 +238,11 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
       });
 
       // Send email
-      const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+      const frontendUrl = config.CORS_ORIGIN || 'https://app.hararai.com';
       const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
       try {
-        const { ResendProvider, passwordResetHtml } = await import('@mybizos/email');
+        const { ResendProvider, passwordResetHtml } = await import('@hararai/email');
         const emailProvider = new ResendProvider({
           apiKey: config.RESEND_API_KEY,
           defaultFrom: config.RESEND_DEFAULT_FROM,
@@ -250,7 +250,7 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
         await emailProvider.sendEmail(
           undefined,
           user.email,
-          'Reset Your Password — MyBizOS',
+          'Reset Your Password — HararAI',
           passwordResetHtml(resetUrl),
           undefined,
           'password-reset',
@@ -295,7 +295,7 @@ auth.post('/reset-password', async (c) => {
     }
 
     // Look up the token in the database
-    const { db, users, passwordResetTokens: resetTokensTable } = await import('@mybizos/db');
+    const { db, users, passwordResetTokens: resetTokensTable } = await import('@hararai/db');
     const { eq, and, isNull, gte } = await import('drizzle-orm');
 
     const [tokenRow] = await db
@@ -355,14 +355,14 @@ auth.get('/verify-email', async (c) => {
     const parsed = verifyEmailSchema.safeParse({ token: tokenParam });
 
     if (!parsed.success) {
-      const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+      const frontendUrl = config.CORS_ORIGIN || 'https://app.hararai.com';
       return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Invalid verification link')}`);
     }
 
     const redirectUrl = await verifyEmail(parsed.data.token);
     return c.redirect(redirectUrl);
   } catch (err) {
-    const frontendUrl = config.CORS_ORIGIN || 'https://mybizos.vercel.app';
+    const frontendUrl = config.CORS_ORIGIN || 'https://app.hararai.com';
     if (err instanceof AuthError) {
       return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
     }

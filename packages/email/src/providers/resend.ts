@@ -425,8 +425,8 @@ export function passwordResetHtml(
   `;
 
   return emailLayout(
-    'MyBizOS',
-    'Reset your MyBizOS password',
+    'HararAI',
+    'Reset your HararAI password',
     body,
   );
 }
@@ -439,17 +439,17 @@ export function emailVerificationHtml(
 ): string {
   const body = `
     <h2>Verify Your Email Address</h2>
-    <p>Thanks for signing up for MyBizOS! Please verify your email address by clicking the button below:</p>
+    <p>Thanks for signing up for HararAI! Please verify your email address by clicking the button below:</p>
     <div class="cta-wrapper">
       <a href="${verifyUrl}" class="cta-button" style="color: #ffffff;">Verify Email</a>
     </div>
     <p style="text-align: center; color: #64748b; font-size: 13px;">This link will expire in 24 hours.</p>
-    <p>If you didn&rsquo;t create a MyBizOS account, you can safely ignore this email.</p>
+    <p>If you didn&rsquo;t create a HararAI account, you can safely ignore this email.</p>
   `;
 
   return emailLayout(
-    'MyBizOS',
-    'Verify your email address to get started with MyBizOS',
+    'HararAI',
+    'Verify your email address to get started with HararAI',
     body,
   );
 }

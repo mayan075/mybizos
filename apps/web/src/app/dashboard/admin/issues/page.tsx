@@ -32,7 +32,7 @@ interface LoggedIssue {
 /*  Constants                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const STORAGE_KEY = "mybizos_issues";
+const STORAGE_KEY = "hararai_issues";
 
 /* -------------------------------------------------------------------------- */
 /*  Mock issues for demo purposes                                             */

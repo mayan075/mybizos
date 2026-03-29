@@ -7,7 +7,7 @@ import { apiClient, tryFetch, ApiRequestError } from "@/lib/api-client";
 import { buildPath } from "@/lib/hooks/use-api";
 import { useToast } from "@/components/ui/toast";
 import { ModelSelector } from "@/components/phone/model-selector";
-import { MyBizOSWizard } from "@/components/phone/mybizos-wizard";
+import { ManagedPhoneWizard } from "@/components/phone/managed-phone-wizard";
 import { BYOTwilioWizard } from "@/components/phone/byo-twilio-wizard";
 import { NumberList } from "@/components/phone/number-list";
 import { NumberConfig, type NumberConfigPayload } from "@/components/phone/number-config";
@@ -17,7 +17,7 @@ import {
   type PhoneSystemStatus,
 } from "@/components/phone/pricing-data";
 
-type ViewState = "loading" | "model-select" | "mybizos-wizard" | "byo-wizard" | "connected" | "configure-number";
+type ViewState = "loading" | "model-select" | "managed-wizard" | "byo-wizard" | "connected" | "configure-number";
 
 export default function PhoneSettingsPage() {
   const [view, setView] = useState<ViewState>("loading");
@@ -104,12 +104,12 @@ export default function PhoneSettingsPage() {
     return <>{/* Toast handled by centralized ToastProvider */}<NumberConfig number={configuringNumber} isLive={isLive} saveLoading={saveLoading} onSave={(cfg) => handleConfigureSave(configuringNumberSid, cfg)} onBack={() => { setConfiguringNumberSid(null); setView("connected"); }} /></>;
   }
 
-  if (view === "mybizos-wizard") {
-    return <div className="space-y-6 max-w-3xl">{/* Toast handled by centralized ToastProvider */}<div className="flex items-center gap-3"><button onClick={() => setView("model-select")} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></button><div><h1 className="text-xl font-bold text-foreground">Get a MyBizOS Phone Number</h1><p className="text-sm text-muted-foreground mt-0.5">We handle everything behind the scenes</p></div></div><MyBizOSWizard onComplete={() => { toast.success("You're on the waitlist! We'll email you when your number is ready."); setView("model-select"); }} onBack={() => setView("model-select")} /></div>;
+  if (view === "managed-wizard") {
+    return <div className="space-y-6 max-w-3xl">{/* Toast handled by centralized ToastProvider */}<div className="flex items-center gap-3"><button onClick={() => setView("model-select")} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></button><div><h1 className="text-xl font-bold text-foreground">Get a HararAI Phone Number</h1><p className="text-sm text-muted-foreground mt-0.5">We handle everything behind the scenes</p></div></div><ManagedPhoneWizard onComplete={() => { toast.success("You're on the waitlist! We'll email you when your number is ready."); setView("model-select"); }} onBack={() => setView("model-select")} /></div>;
   }
 
   if (view === "byo-wizard") {
-    return <div className="space-y-6 max-w-3xl">{/* Toast handled by centralized ToastProvider */}<div className="flex items-center gap-3"><button onClick={() => setView("model-select")} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></button><div><h1 className="text-xl font-bold text-foreground">Connect Your Own Twilio</h1><p className="text-sm text-muted-foreground mt-0.5">Link your existing Twilio account to MyBizOS</p></div></div><BYOTwilioWizard onComplete={() => { setConnectedProvider("byo-twilio"); setView("connected"); toast.success("Phone system connected successfully!"); }} onBack={() => setView("model-select")} /></div>;
+    return <div className="space-y-6 max-w-3xl">{/* Toast handled by centralized ToastProvider */}<div className="flex items-center gap-3"><button onClick={() => setView("model-select")} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></button><div><h1 className="text-xl font-bold text-foreground">Connect Your Own Twilio</h1><p className="text-sm text-muted-foreground mt-0.5">Link your existing Twilio account to HararAI</p></div></div><BYOTwilioWizard onComplete={() => { setConnectedProvider("byo-twilio"); setView("connected"); toast.success("Phone system connected successfully!"); }} onBack={() => setView("model-select")} /></div>;
   }
 
   if (view === "connected") {
@@ -132,7 +132,7 @@ export default function PhoneSettingsPage() {
         <Link href="/dashboard/settings" className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted transition-colors"><ArrowLeft className="h-4 w-4" /></Link>
         <div><h1 className="text-2xl font-bold text-foreground">Phone System</h1><p className="text-sm text-muted-foreground mt-0.5">Choose how you want to set up your business phone</p></div>
       </div>
-      <ModelSelector onSelectModel={(model) => setView(model === "mybizos" ? "mybizos-wizard" : "byo-wizard")} />
+      <ModelSelector onSelectModel={(model) => setView(model === "managed" ? "managed-wizard" : "byo-wizard")} />
     </div>
   );
 }

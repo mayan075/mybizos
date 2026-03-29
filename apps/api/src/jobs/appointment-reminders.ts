@@ -4,10 +4,10 @@ import {
   contacts,
   organizations,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { and, gte, lte, isNull, eq, sql } from 'drizzle-orm';
-import { TwilioClient } from '@mybizos/integrations';
-import { ResendProvider, appointmentReminderHtml } from '@mybizos/email';
+import { TwilioClient } from '@hararai/integrations';
+import { ResendProvider, appointmentReminderHtml } from '@hararai/email';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
@@ -43,7 +43,7 @@ export async function runAppointmentReminders(): Promise<{
 
   for (const org of allOrgs) {
     const orgSettings = (org.settings ?? {}) as Record<string, unknown>;
-    const phoneSettings = (orgSettings['phone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
+    const phoneSettings = (orgSettings['phone'] ?? orgSettings['managedPhone'] ?? orgSettings['mybizosPhone'] ?? {}) as Record<string, string>;
 
     // Query appointments scoped to THIS org only
     const upcomingForOrg = await db

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getPhoneAgentPrompt, getSmsAgentPrompt } from "../prompts/system-prompts.js";
-import { AI_DISCLOSURE_PREFIX } from "@mybizos/shared";
+import { AI_DISCLOSURE_PREFIX } from "@hararai/shared";
 
 // ─── getPhoneAgentPrompt ────────────────────────────────────────────
 

@@ -23,7 +23,7 @@ notificationRoutes.get('/', async (c) => {
   });
 
   try {
-    const { db, notifications, withOrgScope } = await import('@mybizos/db');
+    const { db, notifications, withOrgScope } = await import('@hararai/db');
     const { and, eq, desc, count } = await import('drizzle-orm');
 
     const conditions = [withOrgScope(notifications.orgId, orgId)];
@@ -60,7 +60,7 @@ notificationRoutes.patch('/:id/read', async (c) => {
   const orgId = c.get('orgId');
   const notificationId = c.req.param('id');
   try {
-    const { db, notifications, withOrgScope } = await import('@mybizos/db');
+    const { db, notifications, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const [updated] = await db.update(notifications)
@@ -78,7 +78,7 @@ notificationRoutes.patch('/:id/read', async (c) => {
 notificationRoutes.post('/read-all', async (c) => {
   const orgId = c.get('orgId');
   try {
-    const { db, notifications, withOrgScope } = await import('@mybizos/db');
+    const { db, notifications, withOrgScope } = await import('@hararai/db');
     const { eq, and } = await import('drizzle-orm');
 
     await db.update(notifications)
@@ -95,7 +95,7 @@ notificationRoutes.delete('/:id', async (c) => {
   const orgId = c.get('orgId');
   const notificationId = c.req.param('id');
   try {
-    const { db, notifications, withOrgScope } = await import('@mybizos/db');
+    const { db, notifications, withOrgScope } = await import('@hararai/db');
     const { and, eq } = await import('drizzle-orm');
 
     const result = await db.delete(notifications)

@@ -550,7 +550,7 @@ function StepConfirmation({
     const pad = (n: number) => String(n).padStart(2, "0");
     const fmt = (d: Date) =>
       `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
-    return `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(service.name + " - " + businessName)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent("Booked via MyBizOS")}`;
+    return `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(service.name + " - " + businessName)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent("Booked via HararAI")}`;
   }, [date, time, service.name, businessName]);
 
   return (
@@ -913,7 +913,7 @@ export default function BookingPage() {
       <footer className="mt-8 pb-8 text-center">
         <p className="text-xs text-gray-400">
           Powered by{" "}
-          <a href="/" className="font-semibold text-gray-500 hover:text-gray-700 transition-colors">MyBizOS</a>
+          <a href="/" className="font-semibold text-gray-500 hover:text-gray-700 transition-colors">HararAI</a>
         </p>
       </footer>
 

@@ -279,7 +279,7 @@ export default function IntegrationsPage() {
     if (status && !status.credentialsConfigured) {
       const card = INTEGRATION_CARDS.find((c) => c.provider === provider);
       toast.error(
-        `${card?.credentialLabel ?? provider} credentials not configured. Ask your MyBizOS admin to configure them in Admin Settings.`,
+        `${card?.credentialLabel ?? provider} credentials not configured. Ask your HararAI admin to configure them in Admin Settings.`,
       );
       return;
     }
@@ -474,7 +474,7 @@ export default function IntegrationsPage() {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Connect MyBizOS to 5,000+ apps using Zapier. Use your API key and webhook URL below.
+                Connect HararAI to 5,000+ apps using Zapier. Use your API key and webhook URL below.
               </p>
 
               <div className="mt-4 space-y-3">

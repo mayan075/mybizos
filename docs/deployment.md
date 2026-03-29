@@ -1,4 +1,4 @@
-# MyBizOS Deployment Guide
+# HararAI Deployment Guide
 
 ## Live URL
 
@@ -14,7 +14,7 @@ Production: https://mybizos.vercel.app
 
 ## Architecture
 
-MyBizOS is a Turborepo monorepo. The web app (`apps/web`) is the Next.js 15 frontend deployed to Vercel. The API (`apps/api`) is a Hono server that will be deployed separately (not yet deployed).
+HararAI is a Turborepo monorepo. The web app (`apps/web`) is the Next.js 15 frontend deployed to Vercel. The API (`apps/api`) is a Hono server that will be deployed separately (not yet deployed).
 
 The Vercel project root directory is set to `apps/web`, but `sourceFilesOutsideRootDirectory` is enabled so the build has access to the full monorepo (workspace packages like `@mybizos/ui` and `@mybizos/shared`).
 

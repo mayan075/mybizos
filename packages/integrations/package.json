@@ -1,5 +1,5 @@
 {
-  "name": "@mybizos/integrations",
+  "name": "@hararai/integrations",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -14,13 +14,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "twilio": "^5.0.0",
-    "stripe": "^17.0.0",
-    "googleapis": "^144.0.0",
+    "@hararai/shared": "workspace:*",
     "google-auth-library": "^9.0.0",
-    "@mybizos/shared": "workspace:*"
+    "googleapis": "^144.0.0",
+    "stripe": "^17.0.0",
+    "twilio": "^5.0.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "typescript": "^5.7.0"
   }
 }

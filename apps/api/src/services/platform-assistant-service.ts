@@ -10,7 +10,7 @@ import {
   contacts,
   aiCallLogs,
   withOrgScope,
-} from '@mybizos/db';
+} from '@hararai/db';
 import { eq, and, desc, count, sum, sql, gte } from 'drizzle-orm';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';

@@ -10,22 +10,22 @@ import { RevealSection } from "./reveal-section";
 
 export function ComparisonTable() {
   type CellValue = "yes" | "no" | "partial" | string;
-  const rows: { feature: string; mybizos: CellValue; ghl: CellValue; jobber: CellValue; servicetitan: CellValue }[] = [
-    { feature: "Monthly Price", mybizos: "$99/mo", ghl: "$297/mo", jobber: "$199/mo", servicetitan: "$500+/mo" },
-    { feature: "Setup Time", mybizos: "5 minutes", ghl: "2-4 weeks", jobber: "1-2 weeks", servicetitan: "4-8 weeks" },
-    { feature: "AI Phone Agent", mybizos: "yes", ghl: "no", jobber: "no", servicetitan: "no" },
-    { feature: "AI SMS Follow-up", mybizos: "yes", ghl: "partial", jobber: "no", servicetitan: "no" },
-    { feature: "CRM + Pipeline", mybizos: "yes", ghl: "yes", jobber: "yes", servicetitan: "yes" },
-    { feature: "Online Booking", mybizos: "yes", ghl: "yes", jobber: "yes", servicetitan: "yes" },
-    { feature: "Invoicing", mybizos: "yes", ghl: "partial", jobber: "yes", servicetitan: "yes" },
-    { feature: "Built for Trades", mybizos: "yes", ghl: "no", jobber: "yes", servicetitan: "yes" },
-    { feature: "No Training Needed", mybizos: "yes", ghl: "no", jobber: "partial", servicetitan: "no" },
+  const rows: { feature: string; hararai: CellValue; ghl: CellValue; jobber: CellValue; servicetitan: CellValue }[] = [
+    { feature: "Monthly Price", hararai: "$99/mo", ghl: "$297/mo", jobber: "$199/mo", servicetitan: "$500+/mo" },
+    { feature: "Setup Time", hararai: "5 minutes", ghl: "2-4 weeks", jobber: "1-2 weeks", servicetitan: "4-8 weeks" },
+    { feature: "AI Phone Agent", hararai: "yes", ghl: "no", jobber: "no", servicetitan: "no" },
+    { feature: "AI SMS Follow-up", hararai: "yes", ghl: "partial", jobber: "no", servicetitan: "no" },
+    { feature: "CRM + Pipeline", hararai: "yes", ghl: "yes", jobber: "yes", servicetitan: "yes" },
+    { feature: "Online Booking", hararai: "yes", ghl: "yes", jobber: "yes", servicetitan: "yes" },
+    { feature: "Invoicing", hararai: "yes", ghl: "partial", jobber: "yes", servicetitan: "yes" },
+    { feature: "Built for Trades", hararai: "yes", ghl: "no", jobber: "yes", servicetitan: "yes" },
+    { feature: "No Training Needed", hararai: "yes", ghl: "no", jobber: "partial", servicetitan: "no" },
   ];
 
-  function renderCell(value: CellValue, isMyBizOS: boolean) {
+  function renderCell(value: CellValue, isHararAI: boolean) {
     if (value === "yes") {
       return (
-        <div className={`flex items-center justify-center ${isMyBizOS ? "text-green-500" : "text-muted-foreground/50"}`}>
+        <div className={`flex items-center justify-center ${isHararAI ? "text-green-500" : "text-muted-foreground/50"}`}>
           <CheckCircle2 className="h-5 w-5" />
         </div>
       );
@@ -45,7 +45,7 @@ export function ComparisonTable() {
       );
     }
     return (
-      <span className={`text-sm font-medium ${isMyBizOS ? "font-bold text-green-500 dark:text-green-400" : "text-muted-foreground"}`}>
+      <span className={`text-sm font-medium ${isHararAI ? "font-bold text-green-500 dark:text-green-400" : "text-muted-foreground"}`}>
         {value}
       </span>
     );
@@ -63,7 +63,7 @@ export function ComparisonTable() {
               See how we compare
             </h2>
             <p className="mt-5 text-lg text-muted-foreground">
-              MyBizOS gives you more for less — and it actually works out of the box.
+              HararAI gives you more for less — and it actually works out of the box.
             </p>
           </div>
         </RevealSection>
@@ -82,7 +82,7 @@ export function ComparisonTable() {
                         <div className="glow-sm mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
                           <Zap className="h-3.5 w-3.5" />
                         </div>
-                        <span className="text-sm font-bold text-primary">MyBizOS</span>
+                        <span className="text-sm font-bold text-primary">HararAI</span>
                       </div>
                     </th>
                     <th className="border-b border-border/30 bg-accent/20 px-4 py-4 text-center text-sm font-medium text-muted-foreground">GoHighLevel</th>
@@ -97,7 +97,7 @@ export function ComparisonTable() {
                         {row.feature}
                       </td>
                       <td className="border-b border-primary/10 bg-primary/5 px-4 py-3.5 text-center">
-                        {renderCell(row.mybizos, true)}
+                        {renderCell(row.hararai, true)}
                       </td>
                       <td className={`border-b border-border/10 px-4 py-3.5 text-center ${i % 2 !== 0 ? "bg-accent/5" : ""}`}>
                         {renderCell(row.ghl, false)}

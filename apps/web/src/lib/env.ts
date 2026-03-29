@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 const envSchema = z.object({
   NEXT_PUBLIC_API_URL: z.string().url().default('http://localhost:3001'),
-  NEXT_PUBLIC_APP_NAME: z.string().default('MyBizOS'),
+  NEXT_PUBLIC_APP_NAME: z.string().default('HararAI'),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().default(''),
 });
 

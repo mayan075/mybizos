@@ -1,5 +1,5 @@
 /**
- * Shared type definitions for the MyBizOS web app.
+ * Shared type definitions for the HararAI web app.
  * Extracted from mock-data.ts so that both real API responses
  * and mock fallback data use the same shapes.
  */

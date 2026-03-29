@@ -104,15 +104,15 @@ function toTwilioType(type: NumberType): "local" | "mobile" | "tollFree" {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  MyBizOS Wizard (Model B — Real Provisioning)                               */
+/*  Managed Phone Wizard (Model B — Real Provisioning)                         */
 /* -------------------------------------------------------------------------- */
 
-interface MyBizOSWizardProps {
+interface ManagedPhoneWizardProps {
   onComplete: () => void;
   onBack: () => void;
 }
 
-export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
+export function ManagedPhoneWizard({ onComplete, onBack }: ManagedPhoneWizardProps) {
   // Wizard state
   const [step, setStep] = useState(0);
 
@@ -164,7 +164,7 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
       }
 
       const { data, error } = await apiFetch<{ numbers: AvailableNumber[]; message?: string }>(
-        `/mybizos/available-numbers?${params.toString()}`,
+        `/managed-phone/available-numbers?${params.toString()}`,
       );
 
       setIsSearching(false);
@@ -198,7 +198,7 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
     setPurchaseError(null);
 
     const { data, error } = await apiFetch<{ success: boolean; number: PurchasedNumber }>(
-      "/mybizos/purchase",
+      "/managed-phone/purchase",
       {
         method: "POST",
         body: JSON.stringify({ phoneNumber: selectedNumber.phoneNumber }),
@@ -660,7 +660,7 @@ export function MyBizOSWizard({ onComplete, onBack }: MyBizOSWizardProps) {
               <ul className="space-y-1.5">
                 {[
                   "Number is provisioned and assigned to your account",
-                  "Inbound calls and SMS are routed to your MyBizOS AI agent",
+                  "Inbound calls and SMS are routed to your HararAI AI agent",
                   "You can configure call routing, business hours, and greetings",
                   "Cancel anytime — the number will be released",
                 ].map((item) => (
