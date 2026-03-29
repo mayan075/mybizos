@@ -5,6 +5,10 @@ import {
   contacts,
   organizations,
   withOrgScope,
+  bookableServices,
+  serviceTeamMembers,
+  users,
+  googleCalendarBusyBlocks,
 } from '@hararai/db';
 import { eq, and, gte, lte, or, desc, asc, sql } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
@@ -97,6 +101,8 @@ export const schedulingService = {
       assignedTo?: string | null;
       location?: string | null;
       notes?: string | null;
+      serviceId?: string | null;
+      bookedVia?: typeof appointments.bookedVia.enumValues[number] | null;
     },
   ) {
     // Conflict check: no double-booking for the same assignee at the same time
@@ -132,6 +138,8 @@ export const schedulingService = {
         assignedTo: data.assignedTo ?? null,
         location: data.location ?? null,
         notes: data.notes ?? null,
+        serviceId: data.serviceId ?? null,
+        bookedVia: data.bookedVia ?? null,
       })
       .returning();
 
@@ -376,5 +384,198 @@ export const schedulingService = {
 
     logger.info('Public booking created', { orgSlug, appointmentId: appointment.id });
     return appointment;
+  },
+
+  async getAvailabilityForAI(
+    orgId: string,
+    params: {
+      serviceId: string;
+      startDate: string; // ISO date "2026-04-01"
+      endDate: string;   // ISO date "2026-04-03"
+      preferredTimeOfDay?: 'morning' | 'afternoon' | 'evening';
+    },
+  ) {
+    // 1. Get the bookable service and verify it's active
+    const [service] = await db
+      .select()
+      .from(bookableServices)
+      .where(and(
+        withOrgScope(bookableServices.orgId, orgId),
+        eq(bookableServices.id, params.serviceId),
+        eq(bookableServices.isActive, true),
+      ));
+
+    if (!service) {
+      return { service: null, slots: [], totalAvailable: 0 };
+    }
+
+    // 2. Get team members for this service joined with users
+    const teamMembers = await db
+      .select({
+        userId: serviceTeamMembers.userId,
+        userName: users.name,
+      })
+      .from(serviceTeamMembers)
+      .innerJoin(users, eq(serviceTeamMembers.userId, users.id))
+      .where(and(
+        withOrgScope(serviceTeamMembers.orgId, orgId),
+        eq(serviceTeamMembers.serviceId, params.serviceId),
+      ));
+
+    // 3. Generate array of dates from startDate to endDate
+    const dates: string[] = [];
+    const cursor = new Date(`${params.startDate}T00:00:00Z`);
+    const endDateObj = new Date(`${params.endDate}T00:00:00Z`);
+    while (cursor <= endDateObj) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+    const slotDurationMinutes = service.durationMinutes;
+    const bufferMinutes = service.bufferMinutes;
+    const totalSlotMinutes = slotDurationMinutes + bufferMinutes;
+    const now = new Date();
+
+    const slots: {
+      date: string;
+      startTime: string;
+      endTime: string;
+      teamMemberId: string;
+      teamMemberName: string;
+    }[] = [];
+
+    // 4. For each team member, for each date
+    for (const member of teamMembers) {
+      for (const date of dates) {
+        const dateObj = new Date(`${date}T00:00:00Z`);
+        const dayOfWeek = days[dateObj.getUTCDay()];
+
+        if (!dayOfWeek) continue;
+
+        // Get availability rules for this team member on this day
+        const rules = await db
+          .select()
+          .from(availabilityRules)
+          .where(and(
+            withOrgScope(availabilityRules.orgId, orgId),
+            eq(availabilityRules.userId, member.userId),
+            eq(availabilityRules.dayOfWeek, dayOfWeek),
+            eq(availabilityRules.isActive, true),
+          ));
+
+        if (rules.length === 0) continue;
+
+        const dayStart = new Date(`${date}T00:00:00Z`);
+        const dayEnd = new Date(`${date}T23:59:59Z`);
+
+        // Get existing appointments (non-cancelled, non-no_show)
+        const existingAppointments = await db
+          .select({
+            startTime: appointments.startTime,
+            endTime: appointments.endTime,
+          })
+          .from(appointments)
+          .where(and(
+            withOrgScope(appointments.orgId, orgId),
+            eq(appointments.assignedTo, member.userId),
+            gte(appointments.startTime, dayStart),
+            lte(appointments.startTime, dayEnd),
+            sql`${appointments.status} NOT IN ('cancelled', 'no_show')`,
+          ));
+
+        // Get Google Calendar busy blocks
+        const busyBlocks = await db
+          .select({
+            startTime: googleCalendarBusyBlocks.startTime,
+            endTime: googleCalendarBusyBlocks.endTime,
+          })
+          .from(googleCalendarBusyBlocks)
+          .where(and(
+            withOrgScope(googleCalendarBusyBlocks.orgId, orgId),
+            eq(googleCalendarBusyBlocks.userId, member.userId),
+            gte(googleCalendarBusyBlocks.startTime, dayStart),
+            lte(googleCalendarBusyBlocks.startTime, dayEnd),
+          ));
+
+        // Combine into busy times array
+        const busyTimes = [
+          ...existingAppointments,
+          ...busyBlocks,
+        ];
+
+        // Generate time slots based on service duration + buffer
+        for (const rule of rules) {
+          const [startH, startM] = rule.startTime.split(':').map(Number) as [number, number];
+          const [endH, endM] = rule.endTime.split(':').map(Number) as [number, number];
+
+          const ruleStartMinutes = startH * 60 + startM;
+          const ruleEndMinutes = endH * 60 + endM;
+
+          for (
+            let slotStart = ruleStartMinutes;
+            slotStart + slotDurationMinutes <= ruleEndMinutes;
+            slotStart += totalSlotMinutes
+          ) {
+            const slotEnd = slotStart + slotDurationMinutes;
+
+            const slotStartH = Math.floor(slotStart / 60);
+            const slotStartM = slotStart % 60;
+            const slotEndH = Math.floor(slotEnd / 60);
+            const slotEndM = slotEnd % 60;
+
+            const startTime = `${date}T${String(slotStartH).padStart(2, '0')}:${String(slotStartM).padStart(2, '0')}:00`;
+            const endTime = `${date}T${String(slotEndH).padStart(2, '0')}:${String(slotEndM).padStart(2, '0')}:00`;
+
+            const slotStartDate = new Date(startTime + 'Z');
+            const slotEndDate = new Date(endTime + 'Z');
+
+            // Skip slots in the past
+            if (slotStartDate <= now) continue;
+
+            // Skip slots that conflict with busy times
+            const hasConflict = busyTimes.some((busy) => {
+              return busy.startTime < slotEndDate && busy.endTime > slotStartDate;
+            });
+
+            if (hasConflict) continue;
+
+            slots.push({
+              date,
+              startTime,
+              endTime,
+              teamMemberId: member.userId,
+              teamMemberName: member.userName,
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Filter by preferredTimeOfDay if specified
+    let filteredSlots = slots;
+    if (params.preferredTimeOfDay) {
+      filteredSlots = slots.filter((slot) => {
+        const hour = parseInt(slot.startTime.slice(11, 13), 10);
+        if (params.preferredTimeOfDay === 'morning') return hour >= 0 && hour < 12;
+        if (params.preferredTimeOfDay === 'afternoon') return hour >= 12 && hour < 17;
+        if (params.preferredTimeOfDay === 'evening') return hour >= 17 && hour < 24;
+        return true;
+      });
+    }
+
+    // 6. Sort by startTime
+    filteredSlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    // 7. Return result
+    return {
+      service: {
+        id: service.id,
+        name: service.name,
+        durationMinutes: service.durationMinutes,
+      },
+      slots: filteredSlots,
+      totalAvailable: filteredSlots.length,
+    };
   },
 };
