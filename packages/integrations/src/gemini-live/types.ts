@@ -83,10 +83,10 @@ export interface GeminiSetupMessage {
 /** Send raw PCM audio to Gemini */
 export interface GeminiAudioInputMessage {
   realtimeInput: {
-    mediaChunks: Array<{
+    audio: {
       data: string; // base64-encoded PCM 16kHz
       mimeType: 'audio/pcm;rate=16000';
-    }>;
+    };
   };
 }
 

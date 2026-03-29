@@ -127,12 +127,10 @@ export class GeminiLiveSession extends EventEmitter {
 
     const message = {
       realtimeInput: {
-        mediaChunks: [
-          {
-            data: pcm16kBuffer.toString('base64'),
-            mimeType: 'audio/pcm;rate=16000' as const,
-          },
-        ],
+        audio: {
+          data: pcm16kBuffer.toString('base64'),
+          mimeType: 'audio/pcm;rate=16000' as const,
+        },
       },
     };
     this.ws.send(JSON.stringify(message));
