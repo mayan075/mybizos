@@ -41,6 +41,7 @@ import { estimateRoutes } from './routes/estimates.js';
 import { notificationRoutes } from './routes/notifications.js';
 import { socialRoutes } from './routes/social.js';
 import { geminiRoutes } from './routes/gemini.js';
+import { bookableServiceRoutes } from './routes/bookable-services.js';
 import { handleTwilioMediaStream } from './services/media-stream-handler.js';
 import { startScheduler } from './scheduler.js';
 import { orgRateLimit } from './middleware/rate-limit.js';
@@ -157,6 +158,7 @@ app.route('/orgs/:orgId/estimates', estimateRoutes);
 app.route('/orgs/:orgId/notifications', notificationRoutes);
 app.route('/orgs/:orgId/social', socialRoutes);
 app.route('/orgs/:orgId/gemini', geminiRoutes);
+app.route('/orgs/:orgId/bookable-services', bookableServiceRoutes);
 
 // Scheduling and forms have both authenticated and public routes
 app.route('/', schedulingRoutes);
