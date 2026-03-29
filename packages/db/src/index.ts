@@ -20,6 +20,9 @@ export * from "./schema/notifications.js";
 export * from "./schema/social.js";
 export * from "./schema/wallet.js";
 export * from "./schema/audit-log.js";
+export * from "./schema/bookable-services.js";
+export * from "./schema/waitlist.js";
+export * from "./schema/google-calendar.js";
 
 // Helpers
 export { withOrgScope } from "./helpers.js";
