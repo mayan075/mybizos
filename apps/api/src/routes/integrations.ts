@@ -275,15 +275,17 @@ integrations.get('/:provider/callback', async (c) => {
           );
 
         // Validate required non-null fields before persisting
-        if (tokens.refreshToken === null || tokens.expiresAt === null) {
+        const refreshToken = tokens.refreshToken;
+        const expiresAt = tokens.expiresAt;
+        if (!refreshToken || !expiresAt) {
           logger.warn('Google Calendar tokens missing refreshToken or expiresAt — skipping DB persist', { orgId });
         } else if (existing) {
           await db
             .update(googleCalendarConnections)
             .set({
               accessToken: tokens.accessToken,
-              refreshToken: tokens.refreshToken,
-              expiresAt: tokens.expiresAt,
+              refreshToken,
+              expiresAt,
               syncEnabled: true,
               updatedAt: new Date(),
             })
@@ -294,8 +296,8 @@ integrations.get('/:provider/callback', async (c) => {
             userId: user.id,
             calendarId: 'primary',
             accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresAt: tokens.expiresAt,
+            refreshToken,
+            expiresAt,
           });
         }
 
