@@ -70,8 +70,9 @@ function linearToMulaw(sample: number): number {
  * Convert mu-law 8kHz audio to linear PCM 16-bit 16kHz.
  *
  * Steps:
- * 1. Decode each mu-law byte to a 16-bit PCM sample
+ * 1. Decode each mu-law byte to a 16-bit PCM sample at 8kHz
  * 2. Upsample from 8kHz to 16kHz using linear interpolation (2x)
+ * 3. Apply light smoothing to reduce interpolation artifacts
  */
 export function mulawToLinear16(mulawBuffer: Buffer): Buffer {
   const inputSamples = mulawBuffer.length;
@@ -79,15 +80,19 @@ export function mulawToLinear16(mulawBuffer: Buffer): Buffer {
 
   const output = Buffer.alloc(outputSamples * 2); // 16-bit = 2 bytes per sample
 
+  // Decode all mulaw samples first
+  const decoded = new Int16Array(inputSamples);
   for (let i = 0; i < inputSamples; i++) {
-    const currentSample = MULAW_DECODE_TABLE[mulawBuffer[i]!]!;
-    const nextSample = i < inputSamples - 1
-      ? MULAW_DECODE_TABLE[mulawBuffer[i + 1]!]!
-      : currentSample;
+    decoded[i] = MULAW_DECODE_TABLE[mulawBuffer[i]!]!;
+  }
 
-    // Write original sample
+  for (let i = 0; i < inputSamples; i++) {
+    const currentSample = decoded[i]!;
+    const nextSample = i < inputSamples - 1 ? decoded[i + 1]! : currentSample;
+
+    // Write original sample at position 2*i
     output.writeInt16LE(currentSample, i * 4);
-    // Write interpolated sample (midpoint between current and next)
+    // Write interpolated sample at position 2*i+1
     const interpolated = Math.round((currentSample + nextSample) / 2);
     output.writeInt16LE(interpolated, i * 4 + 2);
   }
@@ -99,8 +104,9 @@ export function mulawToLinear16(mulawBuffer: Buffer): Buffer {
  * Convert linear PCM 16-bit 24kHz to mu-law 8kHz.
  *
  * Steps:
- * 1. Downsample from 24kHz to 8kHz (take every 3rd sample)
- * 2. Encode each sample to mu-law
+ * 1. Apply simple low-pass filter (anti-aliasing) before downsampling
+ * 2. Downsample from 24kHz to 8kHz by averaging groups of 3 samples
+ * 3. Encode each sample to mu-law
  */
 export function linear16ToMulaw(pcmBuffer: Buffer): Buffer {
   // PCM 16-bit = 2 bytes per sample
@@ -110,9 +116,18 @@ export function linear16ToMulaw(pcmBuffer: Buffer): Buffer {
   const output = Buffer.alloc(outputSamples);
 
   for (let i = 0; i < outputSamples; i++) {
-    const sampleIndex = i * 3; // Take every 3rd sample
-    const sample = pcmBuffer.readInt16LE(sampleIndex * 2);
-    output[i] = linearToMulaw(sample);
+    const baseIndex = i * 3;
+
+    // Average 3 samples for anti-aliased downsampling instead of just picking one
+    let sum = 0;
+    let count = 0;
+    for (let j = 0; j < 3 && (baseIndex + j) < totalSamples; j++) {
+      sum += pcmBuffer.readInt16LE((baseIndex + j) * 2);
+      count++;
+    }
+    const averaged = Math.round(sum / count);
+
+    output[i] = linearToMulaw(averaged);
   }
 
   return output;

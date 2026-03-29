@@ -151,6 +151,9 @@ export class GeminiCallBridge {
       this.setupGeminiHandlers();
       this.setupTwilioHandlers();
       this.setupTimers();
+
+      // Send initial text to prompt Gemini to start speaking its greeting
+      this.geminiSession.sendText('A new caller has connected. Please greet them now.');
     } catch (err) {
       logger.error('[GeminiBridge] Failed to start bridge', {
         orgId: this.orgId,
