@@ -29,7 +29,7 @@ export const waitlistService = {
         notes: waitlist.notes,
         createdAt: waitlist.createdAt,
         updatedAt: waitlist.updatedAt,
-        contactName: contacts.name,
+        contactName: contacts.firstName,
         contactEmail: contacts.email,
         contactPhone: contacts.phone,
         serviceName: bookableServices.name,

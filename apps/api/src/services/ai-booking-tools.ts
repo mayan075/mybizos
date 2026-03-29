@@ -406,8 +406,8 @@ async function handleConfirmBooking(
       .pushAppointmentToGoogle(appointment.id, ctx.orgId, input.teamMemberId, {
         summary: title,
         description: input.notes ?? '',
-        start: startTime.toISOString(),
-        end: endTime.toISOString(),
+        startTime,
+        endTime,
       })
       .catch((err: unknown) => {
         logger.error('Async Google Calendar push failed after confirm_booking', {
@@ -499,8 +499,8 @@ async function handleRescheduleAppointment(
           existing.assignedTo,
           existing.googleEventId,
           {
-            start: newStart.toISOString(),
-            end: newEnd.toISOString(),
+            startTime: newStart,
+            endTime: newEnd,
           },
         )
         .catch((err: unknown) => {
