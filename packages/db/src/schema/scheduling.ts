@@ -10,6 +10,7 @@ import {
 import { organizations } from "./organizations";
 import { contacts } from "./contacts";
 import { users } from "./auth";
+import { bookableServices } from "./bookable-services";
 
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "scheduled",
@@ -28,6 +29,22 @@ export const dayOfWeekEnum = pgEnum("day_of_week", [
   "friday",
   "saturday",
   "sunday",
+]);
+
+export const bookedViaEnum = pgEnum("booked_via", [
+  "ai_webchat",
+  "ai_sms",
+  "ai_whatsapp",
+  "ai_email",
+  "ai_call",
+  "manual",
+  "public_form",
+]);
+
+export const googleCalendarSyncStatusEnum = pgEnum("google_calendar_sync_status", [
+  "pending",
+  "synced",
+  "failed",
 ]);
 
 export const appointments = pgTable(
@@ -52,6 +69,13 @@ export const appointments = pgTable(
     notes: text("notes"),
     reminderSentAt: timestamp("reminder_sent_at"),
     googleEventId: text("google_event_id"),
+    serviceId: uuid("service_id").references(() => bookableServices.id, {
+      onDelete: "set null",
+    }),
+    bookedVia: bookedViaEnum("booked_via"),
+    googleCalendarSyncStatus: googleCalendarSyncStatusEnum(
+      "google_calendar_sync_status",
+    ).default("pending"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
