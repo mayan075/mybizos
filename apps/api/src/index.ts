@@ -22,6 +22,7 @@ import { twilioWebhookRoutes } from './routes/webhooks/twilio.js';
 import { emailWebhookRoutes } from './routes/webhooks/email.js';
 import { vapiWebhookRoutes } from './routes/webhooks/vapi.js';
 import { stripeWebhookRoutes } from './routes/webhooks/stripe.js';
+import { googleCalendarWebhookRoutes } from './routes/webhooks/google-calendar.js';
 import { integrationRoutes } from './routes/integrations.js';
 import { voiceTokenRoutes } from './routes/voice-token.js';
 import { voiceSetupRoutes } from './routes/voice-setup.js';
@@ -175,6 +176,7 @@ app.route('/webhooks/twilio', twilioWebhookRoutes);
 app.route('/webhooks/email', emailWebhookRoutes);
 app.route('/webhooks/vapi', vapiWebhookRoutes);
 app.route('/webhooks/stripe', stripeWebhookRoutes);
+app.route('/webhooks/google-calendar', googleCalendarWebhookRoutes);
 
 // ── 404 Catch-all ──
 

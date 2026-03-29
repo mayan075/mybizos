@@ -6,6 +6,7 @@ import { runReviewRequests } from './jobs/review-requests.js';
 import { runDailySummary } from './jobs/daily-summary.js';
 import { runStaleDealAlerts } from './jobs/stale-deal-alerts.js';
 import { runJob } from './jobs/index.js';
+import { runGoogleCalendarSync } from './jobs/google-calendar-sync.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════
 //  Job Scheduler
@@ -64,6 +65,12 @@ const jobs: ScheduledJob[] = [
     name: 'sequenceProcessor',
     cronExpression: '*/5 * * * *',    // Every 5 minutes
     handler: async () => runJob('sequenceProcessor'),
+    task: null,
+  },
+  {
+    name: 'googleCalendarSync',
+    cronExpression: '*/5 * * * *',   // Every 5 minutes
+    handler: runGoogleCalendarSync,
     task: null,
   },
 ];
