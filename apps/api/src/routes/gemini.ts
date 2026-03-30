@@ -229,4 +229,69 @@ geminiRoutes.post('/call-ended', async (c) => {
   return c.json({ received: true, actualCost: Number(actualCost.toFixed(4)) });
 });
 
+// ─── Test Session (Browser Dev Testing) ─────────────────────────────────────
+
+// In-memory rate limiter: orgId -> list of timestamps
+const testSessionRateLimiter = new Map<string, number[]>();
+
+// Clear stale entries every hour
+setInterval(() => {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [orgId, timestamps] of testSessionRateLimiter.entries()) {
+    const recent = timestamps.filter((t) => t > oneHourAgo);
+    if (recent.length === 0) {
+      testSessionRateLimiter.delete(orgId);
+    } else {
+      testSessionRateLimiter.set(orgId, recent);
+    }
+  }
+}, 60 * 60 * 1000);
+
+const testSessionSchema = z.object({
+  systemPrompt: z.string().min(1),
+  voiceName: z.string().optional(),
+});
+
+geminiRoutes.post('/test-session', async (c) => {
+  const orgId = c.get('orgId') as string;
+
+  let body: z.infer<typeof testSessionSchema>;
+  try {
+    body = testSessionSchema.parse(await c.req.json());
+  } catch {
+    return c.json({ error: 'systemPrompt is required', code: 'VALIDATION_ERROR', status: 422 }, 422);
+  }
+
+  // Rate limit: max 10 test calls per org per hour
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const timestamps = (testSessionRateLimiter.get(orgId) ?? []).filter((t) => t > oneHourAgo);
+  if (timestamps.length >= 10) {
+    return c.json({
+      error: 'Rate limit exceeded. Maximum 10 test calls per hour.',
+      code: 'RATE_LIMITED',
+      status: 429,
+    }, 429);
+  }
+  testSessionRateLimiter.set(orgId, [...timestamps, now]);
+
+  // Generate ephemeral token — does NOT debit wallet
+  const { token, expiresAt } = await generateEphemeralToken(config.GOOGLE_AI_API_KEY);
+
+  const voiceName = body.voiceName ?? config.GEMINI_DEFAULT_VOICE;
+
+  return c.json({
+    data: {
+      token,
+      expiresAt,
+      wsUrl: buildEphemeralWsUrl(token),
+      config: {
+        model: `models/${config.GEMINI_LIVE_MODEL}`,
+        systemPrompt: body.systemPrompt,
+        voiceName,
+      },
+    },
+  });
+});
+
 export { geminiRoutes };

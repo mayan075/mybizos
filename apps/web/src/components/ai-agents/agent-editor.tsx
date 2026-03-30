@@ -13,6 +13,7 @@ import { VoicePersonalitySection } from './voice-personality-section';
 import { CallSettingsSection } from './call-settings-section';
 import { AdvancedPromptSection } from './advanced-prompt-section';
 import { CallLogsSection } from './call-logs-section';
+import { TestCallPanel } from './test-call-panel';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -295,6 +296,8 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
         onModeChange={handlePromptModeChange}
         onResetToTemplate={handleResetToTemplate}
       />
+
+      <TestCallPanel systemPrompt={systemPrompt} voiceName={voiceName} />
 
       <CallLogsSection agentId={agent.id} />
     </div>
