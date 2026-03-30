@@ -16,7 +16,7 @@ Optional (for full functionality):
 
 ```bash
 git clone <repo-url>
-cd mybizos
+cd hararai
 ```
 
 ## 2. Install Dependencies
@@ -35,7 +35,7 @@ To connect real services, create `apps/api/.env`:
 
 ```bash
 # Database (PostgreSQL)
-DATABASE_URL=postgresql://user:password@localhost:5432/mybizos
+DATABASE_URL=postgresql://user:password@localhost:5432/hararai
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -57,7 +57,7 @@ VAPI_WEBHOOK_SECRET=...
 
 # Postmark (Email)
 POSTMARK_SERVER_TOKEN=...
-POSTMARK_DEFAULT_FROM=noreply@mybizos.com
+POSTMARK_DEFAULT_FROM=noreply@hararai.com
 
 # Stripe (Payments)
 STRIPE_SECRET_KEY=sk_test_...
@@ -115,7 +115,7 @@ pnpm db:generate
 pnpm db:migrate
 
 # Seed demo data
-pnpm --filter @mybizos/db tsx src/seed.ts
+pnpm --filter @hararai/db tsx src/seed.ts
 
 # Open Drizzle Studio (database GUI)
 pnpm db:studio
@@ -131,7 +131,7 @@ pnpm vitest run
 pnpm vitest
 
 # Run tests for a specific package
-pnpm --filter @mybizos/shared vitest run
+pnpm --filter @hararai/shared vitest run
 ```
 
 ## Available Scripts
@@ -156,7 +156,7 @@ Run from the monorepo root:
 ## Project Structure
 
 ```
-mybizos/
+hararai/
 ├── apps/
 │   ├── web/                    # Next.js 15 frontend
 │   │   └── src/

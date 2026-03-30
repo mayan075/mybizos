@@ -23,7 +23,6 @@ import {
   Zap,
   Plug,
   Facebook,
-  Instagram,
   Globe,
   ExternalLink,
 } from "lucide-react";
@@ -31,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
-import { env } from "@/lib/env";
+import { useAdminStats } from "@/lib/hooks/use-admin-api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,52 +67,12 @@ interface AdminSettings {
   };
 }
 
-interface PlatformStats {
-  totalOrgs: number;
-  totalPhoneNumbers: number;
-  totalEmailsSent: number;
-  totalAiCalls: number;
-  mrr: number;
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ADMIN_SETTINGS_KEY = "hararai_admin_settings";
-const ADMIN_STATUS_KEY = "hararai_admin_status";
-
-function loadAdminSettings(): AdminSettings {
-  if (typeof window === "undefined") return defaultSettings;
-  try {
-    const raw = localStorage.getItem(ADMIN_SETTINGS_KEY);
-    if (!raw) return defaultSettings;
-    return JSON.parse(raw) as AdminSettings;
-  } catch {
-    return defaultSettings;
-  }
-}
-
-function saveAdminSettings(settings: AdminSettings): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(settings));
-}
-
-function loadStatuses(): Record<string, ConnectionStatus> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(ADMIN_STATUS_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Record<string, ConnectionStatus>;
-  } catch {
-    return {};
-  }
-}
-
-function saveStatuses(statuses: Record<string, ConnectionStatus>): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ADMIN_STATUS_KEY, JSON.stringify(statuses));
-}
+const LEGACY_SETTINGS_KEY = "hararai_admin_settings";
+const LEGACY_STATUS_KEY = "hararai_admin_status";
 
 const defaultSettings: AdminSettings = {
   twilio: { accountSid: "", authToken: "" },
@@ -129,6 +88,41 @@ const defaultSettings: AdminSettings = {
     quickbooksClientSecret: "",
   },
 };
+
+/** Convert flat API settings (grouped by category) back to our AdminSettings shape */
+function apiSettingsToLocal(
+  apiSettings: Record<string, Record<string, string>>,
+): AdminSettings {
+  return {
+    twilio: {
+      accountSid: apiSettings["twilio"]?.["accountSid"] ?? "",
+      authToken: apiSettings["twilio"]?.["authToken"] ?? "",
+    },
+    resend: {
+      apiKey: apiSettings["resend"]?.["apiKey"] ?? "",
+    },
+    anthropic: {
+      apiKey: apiSettings["anthropic"]?.["apiKey"] ?? "",
+    },
+    stripe: {
+      secretKey: apiSettings["stripe"]?.["secretKey"] ?? "",
+      webhookSecret: apiSettings["stripe"]?.["webhookSecret"] ?? "",
+    },
+    oauth: {
+      facebookAppId: apiSettings["oauth"]?.["facebookAppId"] ?? "",
+      facebookAppSecret: apiSettings["oauth"]?.["facebookAppSecret"] ?? "",
+      googleClientId: apiSettings["oauth"]?.["googleClientId"] ?? "",
+      googleClientSecret: apiSettings["oauth"]?.["googleClientSecret"] ?? "",
+      quickbooksClientId: apiSettings["oauth"]?.["quickbooksClientId"] ?? "",
+      quickbooksClientSecret: apiSettings["oauth"]?.["quickbooksClientSecret"] ?? "",
+    },
+  };
+}
+
+/** Check if settings object has any non-empty values */
+function hasValues(obj: Record<string, string>): boolean {
+  return Object.values(obj).some((v) => v.length > 0);
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -231,40 +225,91 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const toast = useToast();
+  const { data: stats } = useAdminStats();
 
-  const stats: PlatformStats = {
-    totalOrgs: 1,
-    totalPhoneNumbers: 0,
-    totalEmailsSent: 0,
-    totalAiCalls: 0,
-    mrr: 0,
-  };
-
+  // ── Load from API on mount, with one-time localStorage migration ──
   useEffect(() => {
-    setSettings(loadAdminSettings());
-    setStatuses(loadStatuses());
-    setHydrated(true);
+    async function loadSettings() {
+      try {
+        const res = await tryFetch(() =>
+          apiClient.get<{
+            settings: Record<string, Record<string, string>>;
+            configured: Record<string, boolean>;
+            statuses: Record<string, ConnectionStatus>;
+          }>("/admin/settings"),
+        );
+
+        if (res) {
+          const apiSettings = apiSettingsToLocal(res.settings);
+          const hasApiData = Object.values(res.settings).some((cat) => hasValues(cat));
+
+          // One-time migration: if API is empty but localStorage has data, push it up
+          if (!hasApiData && typeof window !== "undefined") {
+            const legacyRaw = localStorage.getItem(LEGACY_SETTINGS_KEY);
+            if (legacyRaw) {
+              try {
+                const legacy = JSON.parse(legacyRaw) as AdminSettings;
+                setSettings(legacy);
+
+                // Push each category to the API
+                for (const [category, values] of Object.entries(legacy)) {
+                  const flatValues = values as Record<string, string>;
+                  if (hasValues(flatValues)) {
+                    await tryFetch(() =>
+                      apiClient.post("/admin/settings", {
+                        settings: flatValues,
+                        category,
+                      }),
+                    );
+                  }
+                }
+
+                // Clear legacy localStorage
+                localStorage.removeItem(LEGACY_SETTINGS_KEY);
+                localStorage.removeItem(LEGACY_STATUS_KEY);
+              } catch {
+                // Migration failed — fall back to defaults
+                setSettings(defaultSettings);
+              }
+            } else {
+              setSettings(defaultSettings);
+            }
+          } else {
+            setSettings(apiSettings);
+          }
+
+          setStatuses(res.statuses ?? {});
+        }
+      } catch {
+        // API unavailable — start with defaults
+      }
+      setHydrated(true);
+    }
+
+    loadSettings();
   }, []);
 
-  // ── Save handler ──
+  // ── Save handler — saves to API (DB) ──
+  async function handleSave(category: string) {
+    setSaving(category);
 
-  function handleSave(section: string) {
-    setSaving(section);
-    saveAdminSettings(settings);
+    const sectionSettings = settings[category as keyof AdminSettings];
+    const flatSettings =
+      typeof sectionSettings === "object"
+        ? (sectionSettings as Record<string, string>)
+        : {};
 
-    // Also try to persist to API
-    fetch(`${env.NEXT_PUBLIC_API_URL}/admin/settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ section, settings }),
-    }).catch(() => {
-      // API might not be running — that's fine, localStorage is the fallback
-    });
+    try {
+      await apiClient.post("/admin/settings", {
+        settings: flatSettings,
+        category,
+      });
+      toast.success(`${category} settings saved`);
+    } catch {
+      toast.error("Failed to save — API may be offline");
+    }
 
-    setTimeout(() => {
-      setSaving(null);
-      toast.success(`${section} settings saved`);
-    }, 500);
+    setSaving(null);
   }
 
   // ── Test handlers ──
@@ -276,34 +321,26 @@ export default function AdminSettingsPage() {
     }
     setTesting("twilio");
     try {
-      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/twilio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await apiClient.post<{ success: boolean; message: string }>(
+        "/admin/test/twilio",
+        {
           accountSid: settings.twilio.accountSid,
           authToken: settings.twilio.authToken,
-        }),
-      });
-      const data = await res.json();
+        },
+      );
       const status: ConnectionStatus = {
-        connected: data.success ?? false,
-        message: data.message ?? (data.success ? "Connected" : "Failed"),
+        connected: data.success,
+        message: data.message,
         lastTested: new Date().toISOString(),
       };
-      const updated = { ...statuses, twilio: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      status.connected ? toast.success("Twilio connected!") : toast.error("Twilio test failed");
+      setStatuses((s) => ({ ...s, twilio: status }));
+      data.success ? toast.success("Twilio connected!") : toast.error("Twilio test failed");
     } catch {
-      const status: ConnectionStatus = {
-        connected: false,
-        message: "API unreachable — credentials saved locally",
-        lastTested: new Date().toISOString(),
-      };
-      const updated = { ...statuses, twilio: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      toast.error("API offline \u2014 credentials saved locally");
+      setStatuses((s) => ({
+        ...s,
+        twilio: { connected: false, message: "API unreachable", lastTested: new Date().toISOString() },
+      }));
+      toast.error("API offline");
     }
     setTesting(null);
   }
@@ -315,31 +352,23 @@ export default function AdminSettingsPage() {
     }
     setTesting("resend");
     try {
-      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/resend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: settings.resend.apiKey }),
-      });
-      const data = await res.json();
+      const data = await apiClient.post<{ success: boolean; message: string }>(
+        "/admin/test/resend",
+        { apiKey: settings.resend.apiKey },
+      );
       const status: ConnectionStatus = {
-        connected: data.success ?? false,
-        message: data.message ?? "Tested",
+        connected: data.success,
+        message: data.message,
         lastTested: new Date().toISOString(),
       };
-      const updated = { ...statuses, resend: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      status.connected ? toast.success("Resend connected!") : toast.error("Resend test failed");
+      setStatuses((s) => ({ ...s, resend: status }));
+      data.success ? toast.success("Resend connected!") : toast.error("Resend test failed");
     } catch {
-      const status: ConnectionStatus = {
-        connected: false,
-        message: "API unreachable",
-        lastTested: new Date().toISOString(),
-      };
-      const updated = { ...statuses, resend: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      toast.error("API offline \u2014 credentials saved locally");
+      setStatuses((s) => ({
+        ...s,
+        resend: { connected: false, message: "API unreachable", lastTested: new Date().toISOString() },
+      }));
+      toast.error("API offline");
     }
     setTesting(null);
   }
@@ -351,31 +380,23 @@ export default function AdminSettingsPage() {
     }
     setTesting("anthropic");
     try {
-      const res = await fetch(`${env.NEXT_PUBLIC_API_URL}/admin/test/anthropic`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: settings.anthropic.apiKey }),
-      });
-      const data = await res.json();
+      const data = await apiClient.post<{ success: boolean; message: string }>(
+        "/admin/test/anthropic",
+        { apiKey: settings.anthropic.apiKey },
+      );
       const status: ConnectionStatus = {
-        connected: data.success ?? false,
-        message: data.message ?? "Tested",
+        connected: data.success,
+        message: data.message,
         lastTested: new Date().toISOString(),
       };
-      const updated = { ...statuses, anthropic: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      status.connected ? toast.success("Anthropic connected!") : toast.error("Anthropic test failed");
+      setStatuses((s) => ({ ...s, anthropic: status }));
+      data.success ? toast.success("Anthropic connected!") : toast.error("Anthropic test failed");
     } catch {
-      const status: ConnectionStatus = {
-        connected: false,
-        message: "API unreachable",
-        lastTested: new Date().toISOString(),
-      };
-      const updated = { ...statuses, anthropic: status };
-      setStatuses(updated);
-      saveStatuses(updated);
-      toast.error("API offline \u2014 credentials saved locally");
+      setStatuses((s) => ({
+        ...s,
+        anthropic: { connected: false, message: "API unreachable", lastTested: new Date().toISOString() },
+      }));
+      toast.error("API offline");
     }
     setTesting(null);
   }
@@ -383,24 +404,37 @@ export default function AdminSettingsPage() {
   // ── Danger zone ──
 
   function handleResetDemo() {
-    if (!window.confirm("Reset all demo data? This clears onboarding, settings, and admin config from localStorage.")) {
+    if (!window.confirm("Reset all demo data? This clears onboarding, settings, and admin config.")) {
       return;
     }
     localStorage.removeItem("hararai_onboarding");
     localStorage.removeItem("hararai_settings");
-    localStorage.removeItem(ADMIN_SETTINGS_KEY);
-    localStorage.removeItem(ADMIN_STATUS_KEY);
+    localStorage.removeItem(LEGACY_SETTINGS_KEY);
+    localStorage.removeItem(LEGACY_STATUS_KEY);
     setSettings(defaultSettings);
     setStatuses({});
     toast.success("All demo data cleared");
   }
 
-  function handleClearSettings() {
+  async function handleClearSettings() {
     if (!window.confirm("Clear all platform API keys? You will need to re-enter them.")) {
       return;
     }
-    localStorage.removeItem(ADMIN_SETTINGS_KEY);
-    localStorage.removeItem(ADMIN_STATUS_KEY);
+    // Clear from localStorage (legacy)
+    localStorage.removeItem(LEGACY_SETTINGS_KEY);
+    localStorage.removeItem(LEGACY_STATUS_KEY);
+
+    // Clear each category in the DB by saving empty values
+    for (const category of ["twilio", "resend", "anthropic", "stripe", "oauth"]) {
+      const sectionSettings = defaultSettings[category as keyof AdminSettings];
+      await tryFetch(() =>
+        apiClient.post("/admin/settings", {
+          settings: sectionSettings as Record<string, string>,
+          category,
+        }),
+      );
+    }
+
     setSettings(defaultSettings);
     setStatuses({});
     toast.success("Platform settings cleared");
@@ -673,8 +707,8 @@ export default function AdminSettingsPage() {
             </a>
           </div>
 
-          <div className="rounded-lg bg-blue-50/50 border border-blue-100 p-3">
-            <p className="text-xs text-blue-700">
+          <div className="rounded-lg bg-blue-50/50 border border-blue-100 p-3 dark:bg-blue-950/20 dark:border-blue-900">
+            <p className="text-xs text-blue-700 dark:text-blue-400">
               Create a Meta App at developers.facebook.com. Enable Facebook Login and add
               pages_manage_posts, pages_messaging, instagram_basic, and instagram_content_publish
               as permissions.
@@ -686,10 +720,7 @@ export default function AdminSettingsPage() {
               label="Facebook App ID"
               value={settings.oauth.facebookAppId}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, facebookAppId: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, facebookAppId: v } }))
               }
               placeholder="123456789012345"
             />
@@ -697,10 +728,7 @@ export default function AdminSettingsPage() {
               label="Facebook App Secret"
               value={settings.oauth.facebookAppSecret}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, facebookAppSecret: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, facebookAppSecret: v } }))
               }
               placeholder="abcdef1234567890abcdef1234567890"
             />
@@ -708,24 +736,11 @@ export default function AdminSettingsPage() {
 
           <button
             type="button"
-            onClick={async () => {
-              saveAdminSettings(settings);
-              // Sync to API backend
-              try {
-                await tryFetch(() =>
-                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
-                    credentials: [
-                      { key: "FACEBOOK_APP_ID", value: settings.oauth.facebookAppId },
-                      { key: "FACEBOOK_APP_SECRET", value: settings.oauth.facebookAppSecret },
-                    ],
-                  }),
-                );
-              } catch { /* API offline — saved locally */ }
-              toast.success("Meta credentials saved!");
-            }}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            onClick={() => handleSave("oauth")}
+            disabled={saving === "oauth"}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Save className="h-3.5 w-3.5" />
+            {saving === "oauth" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Save Meta Credentials
           </button>
         </div>
@@ -753,8 +768,8 @@ export default function AdminSettingsPage() {
             </a>
           </div>
 
-          <div className="rounded-lg bg-emerald-50/50 border border-emerald-100 p-3">
-            <p className="text-xs text-emerald-700">
+          <div className="rounded-lg bg-emerald-50/50 border border-emerald-100 p-3 dark:bg-emerald-950/20 dark:border-emerald-900">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
               Create a Google Cloud project. Enable the Google Business Profile, Google Ads,
               Analytics, and Calendar APIs. Create OAuth 2.0 credentials (Web application type)
               and add your redirect URIs.
@@ -766,10 +781,7 @@ export default function AdminSettingsPage() {
               label="Google Client ID"
               value={settings.oauth.googleClientId}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, googleClientId: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, googleClientId: v } }))
               }
               placeholder="xxxxx.apps.googleusercontent.com"
             />
@@ -777,10 +789,7 @@ export default function AdminSettingsPage() {
               label="Google Client Secret"
               value={settings.oauth.googleClientSecret}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, googleClientSecret: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, googleClientSecret: v } }))
               }
               placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
             />
@@ -788,23 +797,11 @@ export default function AdminSettingsPage() {
 
           <button
             type="button"
-            onClick={async () => {
-              saveAdminSettings(settings);
-              try {
-                await tryFetch(() =>
-                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
-                    credentials: [
-                      { key: "GOOGLE_CLIENT_ID", value: settings.oauth.googleClientId },
-                      { key: "GOOGLE_CLIENT_SECRET", value: settings.oauth.googleClientSecret },
-                    ],
-                  }),
-                );
-              } catch { /* API offline — saved locally */ }
-              toast.success("Google credentials saved!");
-            }}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            onClick={() => handleSave("oauth")}
+            disabled={saving === "oauth"}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Save className="h-3.5 w-3.5" />
+            {saving === "oauth" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Save Google Credentials
           </button>
         </div>
@@ -832,8 +829,8 @@ export default function AdminSettingsPage() {
             </a>
           </div>
 
-          <div className="rounded-lg bg-green-50/50 border border-green-100 p-3">
-            <p className="text-xs text-green-700">
+          <div className="rounded-lg bg-green-50/50 border border-green-100 p-3 dark:bg-green-950/20 dark:border-green-900">
+            <p className="text-xs text-green-700 dark:text-green-400">
               Create an Intuit Developer account. Register a new app and select the
               QuickBooks Online Accounting scope. Copy your Client ID and Client Secret.
             </p>
@@ -844,10 +841,7 @@ export default function AdminSettingsPage() {
               label="Intuit Client ID"
               value={settings.oauth.quickbooksClientId}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, quickbooksClientId: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, quickbooksClientId: v } }))
               }
               placeholder="ABxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             />
@@ -855,10 +849,7 @@ export default function AdminSettingsPage() {
               label="Intuit Client Secret"
               value={settings.oauth.quickbooksClientSecret}
               onChange={(v) =>
-                setSettings((s) => ({
-                  ...s,
-                  oauth: { ...s.oauth, quickbooksClientSecret: v },
-                }))
+                setSettings((s) => ({ ...s, oauth: { ...s.oauth, quickbooksClientSecret: v } }))
               }
               placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             />
@@ -866,29 +857,17 @@ export default function AdminSettingsPage() {
 
           <button
             type="button"
-            onClick={async () => {
-              saveAdminSettings(settings);
-              try {
-                await tryFetch(() =>
-                  apiClient.post("/orgs/demo/integrations/admin/credentials", {
-                    credentials: [
-                      { key: "QUICKBOOKS_CLIENT_ID", value: settings.oauth.quickbooksClientId },
-                      { key: "QUICKBOOKS_CLIENT_SECRET", value: settings.oauth.quickbooksClientSecret },
-                    ],
-                  }),
-                );
-              } catch { /* API offline — saved locally */ }
-              toast.success("QuickBooks credentials saved!");
-            }}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            onClick={() => handleSave("oauth")}
+            disabled={saving === "oauth"}
+            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Save className="h-3.5 w-3.5" />
+            {saving === "oauth" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Save QuickBooks Credentials
           </button>
         </div>
       </div>
 
-      {/* ── Platform Stats ── */}
+      {/* ── Platform Stats (Real data) ── */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-primary" />
@@ -896,10 +875,10 @@ export default function AdminSettingsPage() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <StatCard label="Total Customers" value={stats.totalOrgs} icon={Users} />
-          <StatCard label="Phone Numbers" value={stats.totalPhoneNumbers} icon={PhoneCall} />
-          <StatCard label="Emails Sent" value={stats.totalEmailsSent} icon={Mail} />
-          <StatCard label="AI Calls" value={stats.totalAiCalls} icon={Bot} />
-          <StatCard label="MRR" value={`$${stats.mrr}`} icon={DollarSign} />
+          <StatCard label="Total Users" value={stats.totalUsers} icon={PhoneCall} />
+          <StatCard label="Total Contacts" value={stats.totalContacts} icon={Mail} />
+          <StatCard label="Total Deals" value={stats.totalDeals} icon={Bot} />
+          <StatCard label="Wallet Balance" value={`$${Number(stats.totalWalletBalance).toFixed(2)}`} icon={DollarSign} />
         </div>
       </div>
 
@@ -931,7 +910,7 @@ export default function AdminSettingsPage() {
             <div>
               <p className="text-sm font-medium text-foreground">Clear All Settings</p>
               <p className="text-xs text-muted-foreground">
-                Remove all API keys. You&apos;ll need to re-enter them.
+                Remove all API keys from the database. You&apos;ll need to re-enter them.
               </p>
             </div>
             <button

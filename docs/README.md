@@ -38,7 +38,7 @@ Each vertical gets pre-configured pipeline stages, AI prompts, booking services,
 ```bash
 # Prerequisites: Node.js 20+, pnpm
 git clone <repo-url>
-cd mybizos
+cd hararai
 pnpm install
 
 # Start the frontend (port 3000)
@@ -60,7 +60,7 @@ For full setup instructions, see [Quick Start Guide](./quick-start.md).
 ## Project Structure
 
 ```
-mybizos/
+hararai/
 ├── apps/
 │   ├── web/          # Next.js 15 frontend (dashboard, auth, booking pages)
 │   ├── api/          # Hono REST API server

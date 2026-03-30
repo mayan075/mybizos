@@ -271,6 +271,7 @@ export default function AiOnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [config, setConfig] = useState<OnboardingConfig>(createEmptyOnboardingConfig());
   const [isFinishing, setIsFinishing] = useState(false);
+  const [showMobileConfig, setShowMobileConfig] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -473,13 +474,33 @@ export default function AiOnboardingPage() {
       <div className="fixed bottom-20 right-4 lg:hidden">
         <button
           className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-500/25"
-          onClick={() => {
-            // TODO: show config panel as bottom sheet on mobile
-          }}
+          onClick={() => setShowMobileConfig(true)}
         >
           <MessageSquare className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Mobile: config bottom sheet */}
+      {showMobileConfig && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowMobileConfig(false)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[75vh] overflow-y-auto rounded-t-2xl bg-card shadow-xl animate-in slide-in-from-bottom duration-300">
+            <div className="sticky top-0 flex items-center justify-between border-b border-border/40 bg-card px-4 py-3">
+              <span className="text-sm font-semibold">Agent Configuration</span>
+              <button
+                className="rounded-full p-1 hover:bg-muted"
+                onClick={() => setShowMobileConfig(false)}
+              >
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </div>
+            <ConfigPreview config={config} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

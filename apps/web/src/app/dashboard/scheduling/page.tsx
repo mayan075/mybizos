@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useAppointments, useCreateAppointment } from "@/lib/hooks/use-appointments";
-import { type MockAppointment } from "@/lib/mock-data";
+import { type MockAppointment } from "@/lib/types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SchedulingSkeleton } from "@/components/skeletons/scheduling-skeleton";
 

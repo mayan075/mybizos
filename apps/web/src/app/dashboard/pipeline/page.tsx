@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PipelineSkeleton } from "@/components/skeletons/pipeline-skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { MockDeal } from "@/lib/mock-data";
+import type { MockDeal } from "@/lib/types";
 
 /* -------------------------------------------------------------------------- */
 /*  Validation                                                                 */

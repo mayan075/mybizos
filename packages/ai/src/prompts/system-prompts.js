@@ -1,4 +1,4 @@
-import { AI_DISCLOSURE_PREFIX } from "@mybizos/shared";
+import { AI_DISCLOSURE_PREFIX } from "@hararai/shared";
 /**
  * Generate the disclosure prefix with the business name inserted.
  */

@@ -31,11 +31,11 @@ export interface AuthResult {
   token: string;
 }
 
-function generateToken(payload: JwtPayload): string {
+export function generateToken(payload: JwtPayload, expiresIn?: string): string {
   const secret = config.JWT_SECRET || 'dev-jwt-secret-change-in-production-must-be-32-chars';
   return jwt.sign(payload, secret, {
-    expiresIn: TOKEN_EXPIRY,
-  });
+    expiresIn: (expiresIn ?? TOKEN_EXPIRY) as unknown as number,
+  } as jwt.SignOptions);
 }
 
 /**

@@ -7,7 +7,6 @@ import {
   type MockContactDetail,
   type MockTimelineEntry,
 } from "@/lib/types";
-import { mockDefaultContact } from "@/lib/mock-data";
 
 // --------------------------------------------------------
 // useContacts — list with optional search / filter
@@ -60,7 +59,19 @@ interface ContactWithTimeline {
 
 function useContact(id: string) {
   const fallback: ContactWithTimeline = {
-    contact: { ...mockDefaultContact, id },
+    contact: {
+      id,
+      name: '',
+      phone: '',
+      email: '',
+      score: 0,
+      lastActivity: '',
+      tags: [],
+      source: '',
+      company: '',
+      address: '',
+      createdAt: '',
+    },
     timeline: [],
   };
 

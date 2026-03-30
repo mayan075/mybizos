@@ -1,7 +1,6 @@
 /**
  * Shared type definitions for the HararAI web app.
- * Extracted from mock-data.ts so that both real API responses
- * and mock fallback data use the same shapes.
+ * Shared type definitions used by API hooks and dashboard pages.
  */
 
 // ============================================================

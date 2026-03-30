@@ -16,7 +16,7 @@ Production: https://hararai.com
 
 HararAI is a Turborepo monorepo. The web app (`apps/web`) is the Next.js 15 frontend deployed to Vercel. The API (`apps/api`) is a Hono server that will be deployed separately (not yet deployed).
 
-The Vercel project root directory is set to `apps/web`, but `sourceFilesOutsideRootDirectory` is enabled so the build has access to the full monorepo (workspace packages like `@mybizos/ui` and `@mybizos/shared`).
+The Vercel project root directory is set to `apps/web`, but `sourceFilesOutsideRootDirectory` is enabled so the build has access to the full monorepo (workspace packages like `@hararai/ui` and `@hararai/shared`).
 
 ## Deployment Steps
 
@@ -34,8 +34,8 @@ The Vercel project root directory is set to `apps/web`, but `sourceFilesOutsideR
 
 3. Link the project (from the monorepo root):
    ```bash
-   cd mybizos
-   vercel link --project mybizos
+   cd hararai
+   vercel link --project hararai
    ```
 
 ### Deploy to production
@@ -49,7 +49,7 @@ vercel --prod --yes
 This will:
 - Upload files to Vercel
 - Install dependencies with pnpm
-- Run `turbo build --filter=@mybizos/web`
+- Run `turbo build --filter=@hararai/web`
 - Deploy the Next.js app
 
 ### Deploy a preview (for testing)
@@ -74,7 +74,7 @@ Set these in the Vercel dashboard (Settings > Environment Variables) or via CLI:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_API_URL` | Backend API URL | `https://api.mybizos.com` |
+| `NEXT_PUBLIC_API_URL` | Backend API URL | `https://api.hararai.com` |
 
 ### Future variables (when backend is deployed)
 
@@ -96,22 +96,22 @@ Set these in the Vercel dashboard (Settings > Environment Variables) or via CLI:
 echo "your-value" | vercel env add VARIABLE_NAME production
 
 # All environments
-vercel env add NEXT_PUBLIC_API_URL production --value "https://api.mybizos.com" --yes
+vercel env add NEXT_PUBLIC_API_URL production --value "https://api.hararai.com" --yes
 ```
 
 ## Custom Domain Setup
 
-1. Go to https://vercel.com > mybizos project > Settings > Domains
-2. Add your domain: `app.mybizos.com`
+1. Go to https://vercel.com > hararai project > Settings > Domains
+2. Add your domain: `app.hararai.com`
 3. Vercel will provide DNS records to add:
    - Option A: CNAME record pointing `app` to `cname.vercel-dns.com`
    - Option B: A record pointing to Vercel's IP (if using apex domain)
 4. Add the DNS records at your domain registrar
 5. Vercel will automatically provision an SSL certificate
 
-### For apex domain (mybizos.com)
+### For apex domain (hararai.com)
 
-1. Add `mybizos.com` as a domain in Vercel
+1. Add `hararai.com` as a domain in Vercel
 2. Set A record: `@` -> `76.76.21.21`
 3. Set AAAA record (optional): `@` -> `2606:4700:7::1`
 4. Vercel handles SSL automatically
@@ -124,7 +124,7 @@ The deployment is configured via `apps/web/vercel.json`:
 {
   "framework": "nextjs",
   "installCommand": "cd ../.. && npm i -g pnpm@10 && pnpm install --no-frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm turbo build --filter=@mybizos/web"
+  "buildCommand": "cd ../.. && pnpm turbo build --filter=@hararai/web"
 }
 ```
 
@@ -147,7 +147,7 @@ The middleware currently skips authentication on Vercel deployments because ther
 
 ### "No Next.js version detected"
 - Make sure the Vercel project root directory is set to `apps/web`
-- Check via: `vercel project inspect mybizos`
+- Check via: `vercel project inspect hararai`
 
 ### Symlink errors on local Windows build with `output: 'standalone'`
 - This is a known issue with pnpm + OneDrive on Windows

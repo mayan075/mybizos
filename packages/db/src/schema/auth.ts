@@ -19,6 +19,8 @@ export const users = pgTable(
     emailVerificationToken: text("email_verification_token"),
     emailVerificationExpiry: timestamp("email_verification_expiry"),
     isActive: boolean("is_active").default(true).notNull(),
+    disabledAt: timestamp("disabled_at"),
+    disabledReason: text("disabled_reason"),
     lastLoginAt: timestamp("last_login_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

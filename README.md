@@ -34,7 +34,7 @@ HararAI replaces GoHighLevel with a modern, integrated platform that combines CR
 ```bash
 # Clone and install
 git clone <repo-url>
-cd mybizos
+cd hararai
 pnpm install
 
 # Start frontend (port 3000)
@@ -74,7 +74,7 @@ For full setup details, see [docs/quick-start.md](docs/quick-start.md).
 ## Project Structure
 
 ```
-mybizos/
+hararai/
 ├── apps/
 │   ├── web/           # Next.js 15 frontend
 │   ├── api/           # Hono REST API

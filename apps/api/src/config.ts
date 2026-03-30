@@ -37,6 +37,8 @@ const envSchema = z.object({
   GEMINI_DEFAULT_VOICE: z.string().default('Kore'),
   GOOGLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_SECRET: z.string().default(''),
+  VAPI_API_KEY: z.string().default(''),
+  VAPI_WEBHOOK_SECRET: z.string().default(''),
   PLATFORM_ADMIN_EMAILS: z.string().default(''),
   ALLOWED_ORIGINS: z.string().default(''),
   ENABLE_SCHEDULER: z.enum(['true', 'false', '']).default('').transform((v) => v === 'true'),

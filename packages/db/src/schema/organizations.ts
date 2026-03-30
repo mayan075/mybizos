@@ -47,6 +47,8 @@ export const organizations = pgTable(
     address: text("address"),
     logoUrl: text("logo_url"),
     settings: jsonb("settings").default({}).notNull(),
+    suspendedAt: timestamp("suspended_at"),
+    suspendedReason: text("suspended_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

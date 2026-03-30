@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CalendarDays,
   Clock,
@@ -10,87 +10,38 @@ import {
   X as XIcon,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
 
-type AppointmentStatus = "confirmed" | "pending" | "completed" | "cancelled";
+type AppointmentStatus = "confirmed" | "pending" | "completed" | "cancelled" | "scheduled";
 
 interface Appointment {
   id: string;
-  service: string;
-  date: string;
-  time: string;
-  technician: string;
+  title: string;
+  contactName: string;
+  startTime: string;
+  endTime: string;
   status: AppointmentStatus;
-  isPast: boolean;
+  location?: string;
+  assignedTo?: string;
 }
 
-const appointments: Appointment[] = [
-  {
-    id: "apt-1",
-    service: "Full Load Pickup",
-    date: "Mar 28, 2026",
-    time: "10:00 AM - 11:30 AM",
-    technician: "Mike Rodriguez",
-    status: "confirmed",
-    isPast: false,
-  },
-  {
-    id: "apt-2",
-    service: "Single Item Removal",
-    date: "Apr 5, 2026",
-    time: "2:00 PM - 3:00 PM",
-    technician: "James Chen",
-    status: "pending",
-    isPast: false,
-  },
-  {
-    id: "apt-3",
-    service: "Partial Load Pickup",
-    date: "Mar 10, 2026",
-    time: "9:00 AM - 11:00 AM",
-    technician: "Mike Rodriguez",
-    status: "completed",
-    isPast: true,
-  },
-  {
-    id: "apt-4",
-    service: "Kitchen Faucet Installation",
-    date: "Feb 22, 2026",
-    time: "1:00 PM - 3:00 PM",
-    technician: "James Chen",
-    status: "completed",
-    isPast: true,
-  },
-  {
-    id: "apt-5",
-    service: "AC Filter Replacement",
-    date: "Jan 15, 2026",
-    time: "11:00 AM - 12:00 PM",
-    technician: "Mike Rodriguez",
-    status: "completed",
-    isPast: true,
-  },
-  {
-    id: "apt-6",
-    service: "Emergency Pipe Repair",
-    date: "Dec 28, 2025",
-    time: "3:00 PM - 5:30 PM",
-    technician: "James Chen",
-    status: "completed",
-    isPast: true,
-  },
-];
-
 const statusConfig: Record<
-  AppointmentStatus,
+  string,
   { label: string; className: string; icon: typeof CheckCircle2 }
 > = {
   confirmed: {
     label: "Confirmed",
     className: "bg-green-500/10 text-green-700 dark:text-green-400",
     icon: CheckCircle2,
+  },
+  scheduled: {
+    label: "Scheduled",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+    icon: CalendarDays,
   },
   pending: {
     label: "Pending",
@@ -113,10 +64,57 @@ type FilterTab = "upcoming" | "past";
 
 export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("upcoming");
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredAppointments = appointments.filter((apt) =>
-    activeTab === "upcoming" ? !apt.isPast : apt.isPast
-  );
+  useEffect(() => {
+    async function load() {
+      const orgId = getOrgId();
+      const data = await tryFetch<Appointment[]>(`/orgs/${orgId}/appointments`);
+      setAppointments(data ?? []);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const now = new Date();
+  const filteredAppointments = appointments.filter((apt) => {
+    const aptDate = new Date(apt.startTime);
+    const isPast = aptDate < now || apt.status === "completed" || apt.status === "cancelled";
+    return activeTab === "upcoming" ? !isPast : isPast;
+  });
+
+  const upcomingCount = appointments.filter((apt) => {
+    const aptDate = new Date(apt.startTime);
+    return aptDate >= now && apt.status !== "completed" && apt.status !== "cancelled";
+  }).length;
+  const pastCount = appointments.length - upcomingCount;
+
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function formatTime(startStr: string, endStr: string) {
+    const fmt = (d: string) =>
+      new Date(d).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    return `${fmt(startStr)} - ${fmt(endStr)}`;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -151,9 +149,7 @@ export default function AppointmentsPage() {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab} (
-            {appointments.filter((a) => (tab === "upcoming" ? !a.isPast : a.isPast)).length}
-            )
+            {tab} ({tab === "upcoming" ? upcomingCount : pastCount})
           </button>
         ))}
       </div>
@@ -161,8 +157,9 @@ export default function AppointmentsPage() {
       {/* Appointment list */}
       <div className="space-y-3">
         {filteredAppointments.map((apt) => {
-          const config = statusConfig[apt.status];
+          const config = statusConfig[apt.status] ?? statusConfig["scheduled"]!;
           const StatusIcon = config.icon;
+          const isPast = new Date(apt.startTime) < now;
           return (
             <div
               key={apt.id}
@@ -172,7 +169,7 @@ export default function AppointmentsPage() {
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-foreground">
-                      {apt.service}
+                      {apt.title}
                     </h3>
                     <span
                       className={cn(
@@ -187,22 +184,23 @@ export default function AppointmentsPage() {
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      {apt.date}
+                      {formatDate(apt.startTime)}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {apt.time}
+                      {formatTime(apt.startTime, apt.endTime)}
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <User className="h-3.5 w-3.5" />
-                      {apt.technician}
-                    </span>
+                    {apt.assignedTo && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5" />
+                        {apt.assignedTo}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 <div className="flex shrink-0 gap-2">
-                  {apt.isPast ? (
+                  {isPast ? (
                     <button
                       type="button"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground/80 transition-colors hover:bg-muted/50"

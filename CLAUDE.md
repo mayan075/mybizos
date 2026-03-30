@@ -73,7 +73,7 @@ packages/shared/src/
 - Functions/variables: `camelCase`
 - Database tables: `snake_case` (e.g., `contacts`, `pipeline_stages`, `ai_call_logs`)
 - API routes: `kebab-case` (e.g., `/api/contacts`, `/api/ai-agents`)
-- Packages: `@mybizos/package-name`
+- Packages: `@hararai/package-name`
 
 ### Commit Message Format
 ```
@@ -87,11 +87,11 @@ Example: `feat(api): add contacts CRUD endpoints with Zod validation`
 ## Package Dependencies (Internal)
 
 ```
-apps/web      → @mybizos/ui, @mybizos/shared, @mybizos/db (for types only)
-apps/api      → @mybizos/db, @mybizos/shared, @mybizos/ai, @mybizos/email, @mybizos/integrations
-apps/portal   → @mybizos/ui, @mybizos/shared
-packages/ai   → @mybizos/shared, @mybizos/db
-packages/email → @mybizos/shared
+apps/web      → @hararai/ui, @hararai/shared, @hararai/db (for types only)
+apps/api      → @hararai/db, @hararai/shared, @hararai/ai, @hararai/email, @hararai/integrations
+apps/portal   → @hararai/ui, @hararai/shared
+packages/ai   → @hararai/shared, @hararai/db
+packages/email → @hararai/shared
 ```
 
 ## Self-Debugging & Deployment Mindset (MUST Follow)

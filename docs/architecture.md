@@ -19,7 +19,7 @@ HararAI uses a Turborepo monorepo with pnpm workspaces. The dependency graph bet
               ┌────────────┼────────────┐
               v            v            v
         ┌──────────┐ ┌──────────┐ ┌──────────────┐
-        │ @mybizos │ │ @mybizos │ │   @mybizos   │
+        │ @hararai │ │ @hararai │ │   @hararai   │
         │   /db    │ │   /ai    │ │ /integrations│
         └──────────┘ └──────────┘ └──────────────┘
               │            │
@@ -32,11 +32,11 @@ HararAI uses a Turborepo monorepo with pnpm workspaces. The dependency graph bet
 ### Package Dependency Map
 
 ```
-apps/web       --> @mybizos/ui, @mybizos/shared, @mybizos/db (types only)
-apps/api       --> @mybizos/db, @mybizos/shared, @mybizos/ai, @mybizos/email, @mybizos/integrations
-apps/portal    --> @mybizos/ui, @mybizos/shared
-packages/ai    --> @mybizos/shared, @mybizos/db
-packages/email --> @mybizos/shared
+apps/web       --> @hararai/ui, @hararai/shared, @hararai/db (types only)
+apps/api       --> @hararai/db, @hararai/shared, @hararai/ai, @hararai/email, @hararai/integrations
+apps/portal    --> @hararai/ui, @hararai/shared
+packages/ai    --> @hararai/shared, @hararai/db
+packages/email --> @hararai/shared
 ```
 
 ### Package Descriptions
@@ -125,7 +125,7 @@ In development mode (`NODE_ENV=development`), the auth middleware bypasses token
 ```typescript
 const DEV_USER = {
   id: 'usr_01',
-  email: 'demo@mybizos.com',
+  email: 'demo@hararai.com',
   orgId: 'org_01',
   role: 'owner',
 };

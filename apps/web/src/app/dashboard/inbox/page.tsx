@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useConversations, useMessages, useSendMessage } from "@/lib/hooks/use-conversations";
-import { type MockConversation, type MockChatMessage } from "@/lib/mock-data";
+import { type MockConversation, type MockChatMessage } from "@/lib/types";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { InboxSkeleton } from "@/components/skeletons/inbox-skeleton";

@@ -1,8 +1,9 @@
 import type { Context, Next } from 'hono';
+import { cacheGet, cacheSet } from '../lib/redis.js';
 
 /**
- * Simple in-memory rate limiter middleware.
- * Limits requests per IP address (rateLimit) or per org ID (orgRateLimit) within a sliding time window.
+ * Redis-backed rate limiter middleware.
+ * Falls back to in-memory automatically via redis.ts when Redis is unavailable.
  */
 
 interface RateLimitEntry {
@@ -10,49 +11,47 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
-const store = new Map<string, RateLimitEntry>();
-
-// Clean up expired entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (now > entry.resetAt) {
-      store.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
 /**
- * Shared rate-limit check against the in-memory store.
- *
- * Returns the number of remaining requests if the request is allowed,
- * or -1 if the limit has been exceeded.
+ * Check and increment rate limit for a given key.
+ * Returns remaining requests if allowed, or -1 if limit exceeded.
  */
-function checkLimit(key: string, maxAttempts: number, windowMs: number): number {
+async function checkLimit(key: string, maxAttempts: number, windowMs: number): Promise<number> {
   const now = Date.now();
-  const entry = store.get(key);
+  const raw = await cacheGet(key);
 
-  if (entry && now < entry.resetAt) {
-    if (entry.count >= maxAttempts) {
-      return -1;
+  if (raw) {
+    const entry: RateLimitEntry = JSON.parse(raw);
+
+    if (now < entry.resetAt) {
+      if (entry.count >= maxAttempts) {
+        return -1;
+      }
+      entry.count++;
+      const remainingTtl = Math.ceil((entry.resetAt - now) / 1000);
+      await cacheSet(key, JSON.stringify(entry), remainingTtl);
+      return maxAttempts - entry.count;
     }
-    entry.count++;
-    return maxAttempts - entry.count;
+    // Window expired — fall through to create new entry
   }
 
-  store.set(key, { count: 1, resetAt: now + windowMs });
+  const entry: RateLimitEntry = { count: 1, resetAt: now + windowMs };
+  const ttlSeconds = Math.ceil(windowMs / 1000);
+  await cacheSet(key, JSON.stringify(entry), ttlSeconds);
   return maxAttempts - 1;
 }
 
+/**
+ * Rate limit by IP address (for unauthenticated routes like login).
+ */
 export function rateLimit(maxAttempts: number, windowMs: number) {
   return async (c: Context, next: Next) => {
     const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
       || c.req.header('x-real-ip')
       || 'unknown';
     const route = c.req.path;
-    const key = `ip:${ip}:${route}`;
+    const key = `rl:ip:${ip}:${route}`;
 
-    const remaining = checkLimit(key, maxAttempts, windowMs);
+    const remaining = await checkLimit(key, maxAttempts, windowMs);
 
     if (remaining === -1) {
       c.header('X-RateLimit-Remaining', '0');
@@ -71,6 +70,9 @@ export function rateLimit(maxAttempts: number, windowMs: number) {
   };
 }
 
+/**
+ * Rate limit by organization ID (for authenticated org-scoped routes).
+ */
 export function orgRateLimit(maxAttempts: number, windowMs: number) {
   return async (c: Context, next: Next) => {
     const orgId = c.get('orgId') as string | undefined;
@@ -81,9 +83,9 @@ export function orgRateLimit(maxAttempts: number, windowMs: number) {
       return;
     }
 
-    const key = `org:${orgId}`;
+    const key = `rl:org:${orgId}`;
 
-    const remaining = checkLimit(key, maxAttempts, windowMs);
+    const remaining = await checkLimit(key, maxAttempts, windowMs);
 
     if (remaining === -1) {
       c.header('X-Org-RateLimit-Remaining', '0');

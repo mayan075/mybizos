@@ -34,7 +34,7 @@ import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useToast } from "@/components/ui/toast";
 import { trackPageVisit } from "@/lib/recently-viewed";
 import type { LucideIcon } from "lucide-react";
-import type { MockTimelineEntry, MockChatMessage } from "@/lib/mock-data";
+import type { MockTimelineEntry, MockChatMessage } from "@/lib/types";
 
 // ============================================================
 // Icon map for timeline

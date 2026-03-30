@@ -95,9 +95,13 @@ const navSections: NavSection[] = [
   {
     title: "Admin",
     items: [
-      { label: "Platform Settings", href: "/dashboard/admin/settings", icon: Shield, badge: null },
-      { label: "Issues", href: "/dashboard/admin/issues", icon: AlertCircle, badge: null },
+      { label: "Overview", href: "/dashboard/admin", icon: Shield, badge: null },
+      { label: "Organizations", href: "/dashboard/admin/organizations", icon: LayoutDashboard, badge: null },
+      { label: "Users", href: "/dashboard/admin/users", icon: UsersRound, badge: null },
       { label: "System Health", href: "/dashboard/admin/health", icon: HeartPulse, badge: null },
+      { label: "Audit Logs", href: "/dashboard/admin/audit-logs", icon: Activity, badge: null },
+      { label: "Platform Settings", href: "/dashboard/admin/settings", icon: Settings, badge: null },
+      { label: "Issues", href: "/dashboard/admin/issues", icon: AlertCircle, badge: null },
     ],
   },
 ];

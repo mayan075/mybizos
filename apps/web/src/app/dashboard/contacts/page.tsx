@@ -28,7 +28,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ListSkeleton } from "@/components/skeletons/list-skeleton";
 import { useToast } from "@/components/ui/toast";
-import type { MockContact } from "@/lib/mock-data";
+import type { MockContact } from "@/lib/types";
 
 /* -------------------------------------------------------------------------- */
 /*  Validation helpers (Zod-based)                                             */

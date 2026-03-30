@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { FloatingDialer } from "@/components/dialer/floating-dialer";
 import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
+import { ImpersonateBanner } from "@/components/admin/impersonate-banner";
 import { isOnboardingComplete } from "@/lib/onboarding";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -191,6 +192,7 @@ export default function DashboardLayout({
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden">
+        <ImpersonateBanner />
         <Header
           onOpenCommandPalette={openCommandPalette}
           onToggleMobileSidebar={toggleMobileSidebar}

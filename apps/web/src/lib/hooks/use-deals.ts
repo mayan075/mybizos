@@ -5,7 +5,6 @@ import {
   type MockDeal,
   type MockPipelineColumn,
 } from "@/lib/types";
-import { mockPipelineColumns } from "@/lib/mock-data";
 
 // --------------------------------------------------------
 // usePipelines — fetch pipeline column definitions
@@ -14,7 +13,7 @@ import { mockPipelineColumns } from "@/lib/mock-data";
 function usePipelines() {
   return useApiQuery<MockPipelineColumn[]>(
     "/orgs/:orgId/pipelines",
-    mockPipelineColumns,
+    [],
   );
 }
 

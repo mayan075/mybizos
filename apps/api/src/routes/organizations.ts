@@ -192,10 +192,103 @@ organizations.post('/:orgId/invite', requireRole('owner', 'admin'), async (c) =>
       );
     }
 
-    // TODO: Create invitation record in database and send invite email
+    // Find or create user by email
+    let targetUserId: string;
+    const [existingUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, parsed.email));
+
+    if (existingUser) {
+      targetUserId = existingUser.id;
+    } else {
+      // Create placeholder user — they'll set a password when they accept
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: parsed.email,
+          name: parsed.name,
+          emailVerified: false,
+          isActive: false,
+        })
+        .returning({ id: users.id });
+      targetUserId = newUser!.id;
+    }
+
+    // Add to org as inactive (pending invite acceptance)
+    const [member] = await db
+      .insert(orgMembers)
+      .values({
+        orgId,
+        userId: targetUserId,
+        role: parsed.role as 'admin' | 'member',
+        isActive: false,
+      })
+      .returning();
+
+    // Send invite email
+    try {
+      const { ResendProvider } = await import('@hararai/email');
+      const { config: appConfig } = await import('../config.js');
+      const resend = new ResendProvider({
+        apiKey: appConfig.RESEND_API_KEY,
+        defaultFrom: appConfig.RESEND_DEFAULT_FROM,
+      });
+
+      // Get org name for the email
+      const { organizations: orgsTable } = await import('@hararai/db');
+      const [org] = await db
+        .select({ name: orgsTable.name })
+        .from(orgsTable)
+        .where(eq(orgsTable.id, orgId));
+      const orgName = org?.name ?? 'Your team';
+
+      const acceptUrl = `${appConfig.CORS_ORIGIN}/register?invite=${member!.id}&email=${encodeURIComponent(parsed.email)}`;
+
+      await resend.sendEmail(
+        undefined,
+        parsed.email,
+        `You've been invited to join ${orgName} on HararAI`,
+        `<!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;background:#f4f4f7;">
+          <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+            <div style="background:#1a56db;padding:24px 32px;text-align:center;"><h1 style="color:#fff;font-size:22px;margin:0;">${orgName}</h1></div>
+            <div style="padding:32px;font-size:15px;line-height:1.6;color:#333;">
+              <h2 style="font-size:20px;color:#1a1a1a;">You're Invited!</h2>
+              <p>Hi ${parsed.name},</p>
+              <p><strong>${orgName}</strong> has invited you to join their team on HararAI as a <strong>${parsed.role}</strong>.</p>
+              <div style="text-align:center;margin:24px 0;">
+                <a href="${acceptUrl}" style="display:inline-block;background:#1a56db;color:#fff!important;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;">Accept Invitation</a>
+              </div>
+              <p style="color:#64748b;font-size:13px;text-align:center;">This invitation doesn't expire, but the link is unique to you.</p>
+            </div>
+          </div>
+        </body></html>`,
+        undefined,
+        'team-invite',
+      );
+
+      logger.info('Invite email sent', { orgId, email: parsed.email });
+    } catch (emailErr) {
+      // Don't fail the request if email fails — the invite record is saved
+      logger.warn('Failed to send invite email', {
+        orgId,
+        email: parsed.email,
+        error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+      });
+    }
+
     logger.info('Member invited', { orgId, email: parsed.email, role: parsed.role });
 
-    return c.json({ data: { orgId, email: parsed.email, role: parsed.role, status: 'invited' } }, 201);
+    return c.json({
+      data: {
+        id: member!.id,
+        orgId,
+        email: parsed.email,
+        name: parsed.name,
+        role: parsed.role,
+        status: 'invited',
+      },
+    }, 201);
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);

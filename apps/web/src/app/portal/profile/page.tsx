@@ -1,34 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { Save, User, Mail, Phone, MapPin, Bell } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, User, Mail, Phone, MapPin, Bell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient, tryFetch } from "@/lib/api-client";
+import { getOrgId } from "@/lib/hooks/use-api";
+import { getUser } from "@/lib/auth";
 
 interface ProfileData {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  zip: string;
-  commPreference: "sms" | "email" | "both";
+  address: string;
 }
-
-const initialProfile: ProfileData = {
-  firstName: "Sarah",
-  lastName: "Mitchell",
-  email: "sarah.mitchell@email.com",
-  phone: "(555) 867-5309",
-  addressLine1: "456 Oak Avenue",
-  addressLine2: "",
-  city: "Anytown",
-  state: "TX",
-  zip: "75001",
-  commPreference: "both",
-};
 
 function FormField({
   label,
@@ -51,21 +36,101 @@ function FormField({
 }
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<ProfileData>(initialProfile);
+  const [profile, setProfile] = useState<ProfileData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const user = getUser();
+      if (user) {
+        const names = (user.name ?? "").split(" ");
+        setProfile((prev) => ({
+          ...prev,
+          firstName: names[0] ?? "",
+          lastName: names.slice(1).join(" "),
+          email: user.email ?? "",
+        }));
+      }
+
+      // Try to load contact data for richer profile
+      try {
+        const orgId = getOrgId();
+        const contacts = await tryFetch<Array<{ id: string; firstName: string; lastName: string; email: string; phone: string; address: string }>>(
+          `/orgs/${orgId}/contacts?search=${encodeURIComponent(user?.email ?? "")}`
+        );
+        if (contacts && contacts.length > 0) {
+          const c = contacts[0]!;
+          setProfile({
+            firstName: c.firstName ?? "",
+            lastName: c.lastName ?? "",
+            email: c.email ?? user?.email ?? "",
+            phone: c.phone ?? "",
+            address: c.address ?? "",
+          });
+        }
+      } catch {
+        // Use user data only
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
 
   function updateField(field: keyof ProfileData, value: string) {
     setProfile((prev) => ({ ...prev, [field]: value }));
     setSaved(false);
   }
 
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const user = getUser();
+      if (user) {
+        // Update via API — best effort
+        const orgId = getOrgId();
+        const contacts = await tryFetch<Array<{ id: string }>>(
+          `/orgs/${orgId}/contacts?search=${encodeURIComponent(user.email ?? "")}`
+        );
+        if (contacts && contacts.length > 0) {
+          await apiClient(`/orgs/${orgId}/contacts/${contacts[0]!.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              phone: profile.phone,
+            }),
+          });
+        }
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      // Save failed silently
+    } finally {
+      setSaving(false);
+    }
   }
 
   const inputClass =
     "w-full rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-ring/20";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const initials = `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || "?";
 
   return (
     <div className="space-y-6">
@@ -82,13 +147,13 @@ export default function ProfilePage() {
         {/* Avatar */}
         <div className="mb-6 flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
-            SM
+            {initials}
           </div>
           <div>
             <p className="text-lg font-semibold text-foreground">
               {profile.firstName} {profile.lastName}
             </p>
-            <p className="text-sm text-muted-foreground">Customer since January 2025</p>
+            <p className="text-sm text-muted-foreground">{profile.email}</p>
           </div>
         </div>
 
@@ -119,8 +184,8 @@ export default function ProfilePage() {
                 <input
                   type="email"
                   value={profile.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  className={inputClass}
+                  disabled
+                  className={cn(inputClass, "opacity-60 cursor-not-allowed")}
                 />
               </FormField>
               <FormField label="Phone" icon={Phone}>
@@ -139,108 +204,15 @@ export default function ProfilePage() {
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
               Address
             </h2>
-            <div className="grid gap-4">
-              <FormField label="Street Address" icon={MapPin}>
-                <input
-                  type="text"
-                  value={profile.addressLine1}
-                  onChange={(e) => updateField("addressLine1", e.target.value)}
-                  className={inputClass}
-                />
-              </FormField>
-              <FormField label="Apt / Suite / Unit">
-                <input
-                  type="text"
-                  value={profile.addressLine2}
-                  onChange={(e) => updateField("addressLine2", e.target.value)}
-                  className={inputClass}
-                  placeholder="Optional"
-                />
-              </FormField>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <FormField label="City">
-                  <input
-                    type="text"
-                    value={profile.city}
-                    onChange={(e) => updateField("city", e.target.value)}
-                    className={inputClass}
-                  />
-                </FormField>
-                <FormField label="State">
-                  <input
-                    type="text"
-                    value={profile.state}
-                    onChange={(e) => updateField("state", e.target.value)}
-                    className={inputClass}
-                  />
-                </FormField>
-                <FormField label="ZIP Code">
-                  <input
-                    type="text"
-                    value={profile.zip}
-                    onChange={(e) => updateField("zip", e.target.value)}
-                    className={inputClass}
-                  />
-                </FormField>
-              </div>
-            </div>
-          </div>
-
-          {/* Communication preferences */}
-          <div>
-            <h2 className="mb-4 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
-              <Bell className="h-3.5 w-3.5" />
-              Communication Preferences
-            </h2>
-            <p className="mb-3 text-sm text-muted-foreground">
-              How would you like to receive appointment reminders and updates?
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-              {(
-                [
-                  { value: "sms", label: "SMS Only" },
-                  { value: "email", label: "Email Only" },
-                  { value: "both", label: "Both SMS & Email" },
-                ] as const
-              ).map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2.5 rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
-                    profile.commPreference === option.value
-                      ? "border-primary/30 bg-primary/5 text-primary"
-                      : "border-border bg-card text-muted-foreground hover:bg-muted/50"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="commPreference"
-                    value={option.value}
-                    checked={profile.commPreference === option.value}
-                    onChange={() =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        commPreference: option.value,
-                      }))
-                    }
-                    className="sr-only"
-                  />
-                  <div
-                    className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-full border-2",
-                      profile.commPreference === option.value
-                        ? "border-primary"
-                        : "border-border"
-                    )}
-                  >
-                    {profile.commPreference === option.value && (
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                    )}
-                  </div>
-                  {option.label}
-                </label>
-              ))}
-            </div>
+            <FormField label="Address" icon={MapPin}>
+              <input
+                type="text"
+                value={profile.address}
+                onChange={(e) => updateField("address", e.target.value)}
+                className={inputClass}
+                placeholder="Enter your address"
+              />
+            </FormField>
           </div>
         </div>
 
@@ -249,9 +221,14 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            <Save className="h-4 w-4" />
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             Save Changes
           </button>
           {saved && (

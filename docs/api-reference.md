@@ -63,7 +63,7 @@ Returns API status information.
 ```json
 {
   "status": "ok",
-  "name": "mybizos-api",
+  "name": "hararai-api",
   "version": "0.1.0"
 }
 ```
@@ -234,7 +234,7 @@ List organization members.
       "id": "mem_01",
       "userId": "usr_01",
       "name": "Demo Owner",
-      "email": "demo@mybizos.com",
+      "email": "demo@hararai.com",
       "role": "owner",
       "status": "active",
       "joinedAt": "2026-01-01T00:00:00Z"

@@ -1,4 +1,4 @@
-import { AI_SCORE } from "@mybizos/shared";
+import { AI_SCORE } from "@hararai/shared";
 /**
  * Lead scoring engine that combines rule-based heuristics with
  * optional AI-powered scoring for complex evaluation.

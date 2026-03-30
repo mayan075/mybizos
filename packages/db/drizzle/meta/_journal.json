@@ -29,6 +29,13 @@
       "when": 1774786605699,
       "tag": "0003_rare_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774867916126,
+      "tag": "0004_narrow_toad_men",
+      "breakpoints": true
     }
   ]
 }
