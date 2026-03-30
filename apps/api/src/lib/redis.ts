@@ -57,8 +57,8 @@ async function getClient(): Promise<RedisClient | null> {
   if (initAttempted) return redisClient;
   initAttempted = true;
 
-  if (!config.REDIS_URL) {
-    logger.warn('REDIS_URL not set — using in-memory cache fallback');
+  if (!config.REDIS_URL || config.REDIS_URL === 'placeholder' || !config.REDIS_URL.startsWith('redis')) {
+    logger.info('Redis not configured — using in-memory cache');
     useMemFallback = true;
     return null;
   }
