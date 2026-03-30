@@ -29,7 +29,7 @@ interface ChatMessage {
 
 interface BusinessContext {
   orgName: string;
-  vertical: string;
+  industry: string;
   orgPhone: string | null;
   orgEmail: string | null;
   orgWebsite: string | null;
@@ -108,7 +108,7 @@ async function loadBusinessContext(orgId: string): Promise<BusinessContext> {
     db
       .select({
         name: organizations.name,
-        vertical: organizations.vertical,
+        industry: organizations.industry,
         phone: organizations.phone,
         email: organizations.email,
         website: organizations.website,
@@ -212,7 +212,7 @@ async function loadBusinessContext(orgId: string): Promise<BusinessContext> {
 
   return {
     orgName: org?.name ?? 'Your Business',
-    vertical: org?.vertical ?? 'general',
+    industry: org?.industry ?? 'general',
     orgPhone: org?.phone ?? null,
     orgEmail: org?.email ?? null,
     orgWebsite: org?.website ?? null,
@@ -427,7 +427,7 @@ async function loadBookableServicesContext(orgId: string): Promise<string> {
 
 function buildSystemPrompt(ctx: BusinessContext): string {
   const lines: string[] = [
-    `You are the AI office manager for "${ctx.orgName}", a ${ctx.vertical.replace(/_/g, ' ')} business.`,
+    `You are the AI office manager for "${ctx.orgName}", a ${ctx.industry.replace(/_/g, ' ')} business.`,
     `You have access to all CRM data and are here to help the business owner manage their operations.`,
     `Answer questions helpfully and specifically using the real data below.`,
     `Be concise — most answers should be 2-4 sentences unless the user asks for detail.`,
@@ -436,7 +436,7 @@ function buildSystemPrompt(ctx: BusinessContext): string {
     '',
     '=== BUSINESS PROFILE ===',
     `Business Name: ${ctx.orgName}`,
-    `Industry: ${ctx.vertical.replace(/_/g, ' ')}`,
+    `Industry: ${ctx.industry.replace(/_/g, ' ')}`,
     ctx.orgPhone ? `Phone: ${ctx.orgPhone}` : '',
     ctx.orgEmail ? `Email: ${ctx.orgEmail}` : '',
     ctx.orgWebsite ? `Website: ${ctx.orgWebsite}` : '',
@@ -799,7 +799,7 @@ export const platformAssistantService = {
     let orgName = 'Your Business';
     try {
       const [org] = await db
-        .select({ name: organizations.name, vertical: organizations.vertical })
+        .select({ name: organizations.name, industry: organizations.industry })
         .from(organizations)
         .where(eq(organizations.id, orgId))
         .limit(1);
@@ -867,16 +867,16 @@ export const platformAssistantService = {
 
     // Load org info
     let orgName = 'Your Business';
-    let vertical = 'general';
+    let industry = 'general';
     try {
       const [org] = await db
-        .select({ name: organizations.name, vertical: organizations.vertical })
+        .select({ name: organizations.name, industry: organizations.industry })
         .from(organizations)
         .where(eq(organizations.id, orgId))
         .limit(1);
       if (org) {
         orgName = org.name;
-        vertical = org.vertical;
+        industry = org.industry;
       }
     } catch {
       // Use defaults
@@ -899,7 +899,7 @@ export const platformAssistantService = {
       const isSms = params.type === 'sms';
       const prompt = isSms
         ? [
-            `Write a marketing SMS message for "${orgName}" (${vertical.replace(/_/g, ' ')} business).`,
+            `Write a marketing SMS message for "${orgName}" (${industry.replace(/_/g, ' ')} business).`,
             `Audience: ${params.audience}`,
             `Topic: ${params.topic}`,
             'MUST be under 160 characters total.',
@@ -908,7 +908,7 @@ export const platformAssistantService = {
             'Return ONLY the SMS text, nothing else.',
           ].join('\n')
         : [
-            `Write a marketing email for "${orgName}" (${vertical.replace(/_/g, ' ')} business).`,
+            `Write a marketing email for "${orgName}" (${industry.replace(/_/g, ' ')} business).`,
             `Audience: ${params.audience}`,
             `Topic: ${params.topic}`,
             'Return the result as JSON with "subject" and "body" fields.',

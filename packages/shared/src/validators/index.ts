@@ -2,18 +2,11 @@ import { z } from "zod";
 
 // ─── Enum Schemas ───────────────────────────────────────────────────
 
-export const verticalSchema = z.enum([
-  "rubbish_removals",
-  "moving_company",
-  "plumbing",
-  "hvac",
-  "electrical",
-  "roofing",
-  "landscaping",
-  "pest_control",
-  "cleaning",
-  "general_contractor",
-]);
+export const industrySchema = z.string().min(1).max(100);
+export const industryCategorySchema = z.string().max(50).nullable().optional();
+
+/** @deprecated Use industrySchema instead */
+export const verticalSchema = industrySchema;
 
 export const contactSourceSchema = z.enum([
   "manual",
@@ -108,7 +101,8 @@ export const organizationSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(255),
   slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
-  vertical: verticalSchema,
+  industry: industrySchema,
+  industryCategory: industryCategorySchema,
   timezone: z.string().min(1),
   phone: z.string().nullable(),
   email: z.string().email().nullable(),
@@ -263,7 +257,7 @@ export const aiAgentSchema = z.object({
   type: aiAgentTypeSchema,
   name: z.string().min(1).max(255),
   systemPrompt: z.string().min(1),
-  vertical: verticalSchema,
+  industry: industrySchema,
   settings: z.record(z.unknown()),
   isActive: z.boolean(),
   createdAt: z.coerce.date(),

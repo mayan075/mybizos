@@ -1,6 +1,6 @@
-export * from "./types/index.js";
-export * from "./validators/index.js";
-export * from "./constants/index.js";
-export { BRAND } from "./brand.js";
-export { STORAGE_KEYS, AUTH_COOKIE_NAME, APP_EVENTS } from "./storage-keys.js";
-export * from './prompt-templates/index.js';
+export * from "./types/index";
+export * from "./validators/index";
+export * from "./constants/index";
+export { BRAND } from "./brand";
+export { STORAGE_KEYS, AUTH_COOKIE_NAME, APP_EVENTS } from "./storage-keys";
+export * from "./prompt-templates/index";

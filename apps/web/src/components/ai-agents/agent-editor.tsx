@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Phone, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AiAgent, AgentSettings, Vertical, PromptMode, GeminiVoice } from '@hararai/shared';
+import type { AiAgent, AgentSettings, PromptMode, GeminiVoice } from '@hararai/shared';
 import { DEFAULT_AGENT_SETTINGS, buildPromptFromTemplate } from '@hararai/shared';
 import { useUpdateAgent, useDeleteAgent } from '@/lib/hooks/use-ai-agents';
 import { useToast } from '@/components/ui/toast';
@@ -18,10 +18,22 @@ import { TestCallPanel } from './test-call-panel';
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Safely extract AgentSettings from the agent's Record<string, unknown>. */
-function parseSettings(raw: Record<string, unknown>): AgentSettings {
+function parseSettings(raw: Record<string, unknown> | null | undefined): AgentSettings {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_AGENT_SETTINGS };
+
+  const partial = raw as Partial<AgentSettings>;
   return {
-    ...DEFAULT_AGENT_SETTINGS,
-    ...(raw as Partial<AgentSettings>),
+    tone: partial.tone ?? DEFAULT_AGENT_SETTINGS.tone,
+    greeting: typeof partial.greeting === 'string' ? partial.greeting : DEFAULT_AGENT_SETTINGS.greeting,
+    services: Array.isArray(partial.services) ? partial.services : DEFAULT_AGENT_SETTINGS.services,
+    emergencyKeywords: Array.isArray(partial.emergencyKeywords) ? partial.emergencyKeywords : DEFAULT_AGENT_SETTINGS.emergencyKeywords,
+    escalationThreshold: typeof partial.escalationThreshold === 'number' ? partial.escalationThreshold : DEFAULT_AGENT_SETTINGS.escalationThreshold,
+    promptMode: partial.promptMode ?? DEFAULT_AGENT_SETTINGS.promptMode,
+    customPrompt: typeof partial.customPrompt === 'string' ? partial.customPrompt : DEFAULT_AGENT_SETTINGS.customPrompt,
+    voiceConfig: {
+      voice: partial.voiceConfig?.voice ?? DEFAULT_AGENT_SETTINGS.voiceConfig.voice,
+      languageCode: partial.voiceConfig?.languageCode ?? DEFAULT_AGENT_SETTINGS.voiceConfig.languageCode,
+    },
   };
 }
 
@@ -43,7 +55,7 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
 
   // ── Local state derived from agent prop ──────────────────────────────
   const [name, setName] = useState(agent.name);
-  const [vertical, setVertical] = useState<Vertical>(agent.vertical);
+  const [industry, setIndustry] = useState<string>(agent.industry);
   const [settings, setSettings] = useState<AgentSettings>(() => parseSettings(agent.settings));
   const [voiceName, setVoiceName] = useState<GeminiVoice>(settings.voiceConfig.voice);
   const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt);
@@ -52,13 +64,13 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
   // ── Dirty tracking ───────────────────────────────────────────────────
   const isDirty = useMemo(() => {
     if (name !== agent.name) return true;
-    if (vertical !== agent.vertical) return true;
+    if (industry !== agent.industry) return true;
     if (systemPrompt !== agent.systemPrompt) return true;
     if (isActive !== agent.isActive) return true;
     if (voiceName !== parseSettings(agent.settings).voiceConfig.voice) return true;
     if (JSON.stringify(settings) !== JSON.stringify(parseSettings(agent.settings))) return true;
     return false;
-  }, [name, vertical, settings, voiceName, systemPrompt, isActive, agent]);
+  }, [name, industry, settings, voiceName, systemPrompt, isActive, agent]);
 
   // ── Unsaved changes warning ──────────────────────────────────────────
   useEffect(() => {
@@ -77,11 +89,11 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
     const prompt = buildPromptFromTemplate({
       agentName: name,
       businessName,
-      vertical,
+      industry,
       settings,
     });
     setSystemPrompt(prompt);
-  }, [name, businessName, vertical, settings]);
+  }, [name, businessName, industry, settings]);
 
   // Trigger regeneration when relevant fields change in template mode
   useEffect(() => {
@@ -91,7 +103,7 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     name,
-    vertical,
+    industry,
     settings.tone,
     settings.greeting,
     settings.escalationThreshold,
@@ -131,7 +143,7 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
     const prompt = buildPromptFromTemplate({
       agentName: name,
       businessName,
-      vertical,
+      industry,
       settings: { ...settings, promptMode: 'template' },
     });
     setSystemPrompt(prompt);
@@ -141,7 +153,7 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
   const handleSave = async () => {
     const result = await updateAgent({
       name,
-      vertical,
+      industry,
       systemPrompt,
       isActive,
       settings: {
@@ -267,10 +279,10 @@ export function AgentEditor({ agent, businessName, onSaved }: AgentEditorProps) 
       {/* ── Sections ────────────────────────────────────────────────────── */}
 
       <BusinessContextSection
-        vertical={vertical}
+        industry={industry}
         businessName={businessName}
         settings={settings}
-        onVerticalChange={setVertical}
+        onIndustryChange={setIndustry}
         onSettingsChange={handleBusinessSettingsChange}
         disabled={isCustomMode}
       />

@@ -14,7 +14,8 @@ interface ServicesListEditorProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function ServicesListEditor({ services, onChange, disabled }: ServicesListEditorProps) {
+export function ServicesListEditor({ services: rawServices, onChange, disabled }: ServicesListEditorProps) {
+  const services = Array.isArray(rawServices) ? rawServices : [];
   const handleAdd = () => {
     onChange([...services, { name: '', priceLow: 0, priceHigh: 0 }]);
   };

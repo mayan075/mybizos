@@ -34,23 +34,8 @@ const registerSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1, 'Name is required'),
   businessName: z.string().min(1, 'Business name is required'),
-  vertical: z.enum([
-    'rubbish_removals',
-    'moving_company',
-    'plumbing',
-    'hvac',
-    'electrical',
-    'roofing',
-    'landscaping',
-    'pest_control',
-    'cleaning',
-    'general_contractor',
-    'salon_spa',
-    'dental',
-    'auto_repair',
-    'real_estate',
-    'other',
-  ], { message: 'Invalid business vertical' }),
+  industry: z.string().min(1, 'Industry is required').max(100),
+  industryCategory: z.string().max(50).optional(),
 });
 
 const loginSchema = z.object({
@@ -97,7 +82,8 @@ auth.post('/register', registerLimiter, async (c) => {
       parsed.data.password,
       parsed.data.name,
       parsed.data.businessName,
-      parsed.data.vertical,
+      parsed.data.industry,
+      parsed.data.industryCategory,
     );
 
     return c.json({ data: result }, 201);

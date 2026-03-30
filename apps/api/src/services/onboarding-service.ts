@@ -8,7 +8,9 @@ interface BusinessHoursEntry {
 
 interface OnboardingData {
   businessName?: string;
-  vertical?: string;
+  vertical?: string; // deprecated, kept for backward compat
+  industry?: string;
+  industryCategory?: string;
   role?: string;
   country?: string;
   city?: string;
@@ -66,18 +68,22 @@ export async function processOnboardingData(
   } = await import('@hararai/db');
   const { eq, and } = await import('drizzle-orm');
 
-  // 1. Update org name and vertical if provided
-  if (data.businessName || data.vertical) {
+  // 1. Update org name and industry if provided
+  const industry = data.industry ?? data.vertical;
+  if (data.businessName || industry) {
     const updateFields: Record<string, unknown> = { updatedAt: new Date() };
     if (data.businessName) updateFields['name'] = data.businessName;
-    if (data.vertical) updateFields['vertical'] = data.vertical;
+    if (industry) {
+      updateFields['industry'] = industry;
+      if (data.industryCategory) updateFields['industryCategory'] = data.industryCategory;
+    }
 
     await db
       .update(organizations)
       .set(updateFields)
       .where(withOrgScope(organizations.id, orgId));
 
-    logger.info('Org updated from onboarding', { orgId, name: data.businessName, vertical: data.vertical });
+    logger.info('Org updated from onboarding', { orgId, name: data.businessName, industry });
   }
 
   // 2. Create default pipeline if none exists

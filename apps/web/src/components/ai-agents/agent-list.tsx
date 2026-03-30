@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Bot, Phone, MessageSquare, Star, Plus, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AiAgent, AiAgentType } from '@hararai/shared';
-import { VERTICAL_LABELS } from '@hararai/shared';
+import { INDUSTRY_LABELS } from '@hararai/shared';
 
 // ── Icon map for agent type ──────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ interface AgentCardProps {
 
 function AgentCard({ agent, onClick }: AgentCardProps) {
   const TypeIcon = AGENT_TYPE_ICONS[agent.type] ?? Bot;
-  const verticalLabel = VERTICAL_LABELS[agent.vertical] ?? agent.vertical;
+  const industryLabel = INDUSTRY_LABELS[agent.industry] ?? agent.industry;
   const typeLabel = AGENT_TYPE_LABELS[agent.type] ?? agent.type;
 
   return (
@@ -92,7 +92,7 @@ function AgentCard({ agent, onClick }: AgentCardProps) {
       <div className="flex items-center gap-2 text-[11px] text-zinc-400">
         <span>{typeLabel}</span>
         <span className="text-zinc-600">·</span>
-        <span>{verticalLabel}</span>
+        <span>{industryLabel}</span>
       </div>
     </button>
   );

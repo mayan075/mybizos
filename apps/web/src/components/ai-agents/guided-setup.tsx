@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, Mic, Rocket, Check } from 'lucide-react';
 import {
-  VERTICAL_LABELS,
+  INDUSTRY_LABELS,
   GEMINI_VOICES,
   DEFAULT_AGENT_SETTINGS,
-  getVerticalDefaults,
+  getIndustryDefaults,
   buildPromptFromTemplate,
 } from '@hararai/shared';
-import type { Vertical, GeminiVoice } from '@hararai/shared';
+import type { GeminiVoice } from '@hararai/shared';
 import { VoiceCard } from './voice-card';
 import { useCreateAgent } from '@/lib/hooks/use-ai-agents';
 import { useToast } from '@/components/ui/toast';
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 interface GuidedSetupProps {
   businessName: string;
-  orgVertical?: Vertical;
+  orgIndustry?: string;
 }
 
 // ── Progress Indicator ────────────────────────────────────────────────────────
@@ -64,35 +64,35 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
+export function GuidedSetup({ businessName, orgIndustry }: GuidedSetupProps) {
   const router = useRouter();
   const toast = useToast();
   const { mutate, isLoading } = useCreateAgent();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [vertical, setVertical] = useState<Vertical | null>(orgVertical ?? null);
+  const [industry, setIndustry] = useState<string | null>(orgIndustry ?? null);
   const [agentName, setAgentName] = useState('');
   const [voiceName, setVoiceName] = useState<GeminiVoice>('Aoede');
   const [greeting, setGreeting] = useState('');
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  function handleVerticalSelect(v: Vertical) {
-    setVertical(v);
-    const defaults = getVerticalDefaults(v);
+  function handleIndustrySelect(v: string) {
+    setIndustry(v);
+    const defaults = getIndustryDefaults(v);
     setAgentName(defaults.defaultAgentName);
   }
 
   function handleCreate() {
-    if (!vertical) return;
+    if (!industry) return;
 
-    const verticalDefaults = getVerticalDefaults(vertical);
+    const industryDefaults = getIndustryDefaults(industry);
     const settings = {
       ...DEFAULT_AGENT_SETTINGS,
       greeting,
-      services: verticalDefaults.defaultServices,
-      emergencyKeywords: verticalDefaults.defaultEmergencyKeywords,
+      services: industryDefaults.defaultServices,
+      emergencyKeywords: industryDefaults.defaultEmergencyKeywords,
       voiceConfig: {
         voice: voiceName,
         languageCode: 'en-US' as const,
@@ -102,14 +102,14 @@ export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
     const systemPrompt = buildPromptFromTemplate({
       agentName,
       businessName,
-      vertical,
+      industry,
       settings,
     });
 
     const agentData = {
       name: agentName,
       type: 'phone' as const,
-      vertical,
+      industry,
       systemPrompt,
       settings,
       isActive: true,
@@ -163,15 +163,15 @@ export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
             Industry
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {(Object.entries(VERTICAL_LABELS) as [Vertical, string][]).map(([v, label]) => (
+            {Object.entries(INDUSTRY_LABELS).map(([v, label]) => (
               <button
                 key={v}
                 type="button"
-                onClick={() => handleVerticalSelect(v)}
+                onClick={() => handleIndustrySelect(v)}
                 className={cn(
                   'rounded-lg border px-3 py-2.5 text-sm font-medium text-left transition-all',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-                  vertical === v
+                  industry === v
                     ? 'border-blue-500 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40'
                     : 'border-zinc-700 bg-zinc-800/40 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800/60',
                 )}
@@ -184,12 +184,12 @@ export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
 
         <button
           type="button"
-          disabled={!vertical}
+          disabled={!industry}
           onClick={() => setStep(2)}
           className={cn(
             'mt-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-            vertical
+            industry
               ? 'bg-blue-600 text-white hover:bg-blue-500'
               : 'bg-zinc-800 text-zinc-500 cursor-not-allowed',
           )}
@@ -295,8 +295,8 @@ export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
   // ── Step 3: Review & Create ───────────────────────────────────────────────
 
   function Step3() {
-    const verticalDefaults = vertical ? getVerticalDefaults(vertical) : null;
-    const servicesCount = verticalDefaults?.defaultServices.length ?? 0;
+    const industryDefaults = industry ? getIndustryDefaults(industry) : null;
+    const servicesCount = industryDefaults?.defaultServices.length ?? 0;
 
     return (
       <div className="flex flex-col gap-6">
@@ -314,7 +314,7 @@ export function GuidedSetup({ businessName, orgVertical }: GuidedSetupProps) {
         <div className="rounded-xl border border-zinc-700 bg-zinc-800/40 divide-y divide-zinc-700/60">
           <SummaryRow label="Agent Name" value={agentName} />
           <SummaryRow label="Business" value={businessName} />
-          <SummaryRow label="Industry" value={vertical ? VERTICAL_LABELS[vertical] : '—'} />
+          <SummaryRow label="Industry" value={industry ? (INDUSTRY_LABELS[industry] ?? industry) : '—'} />
           <SummaryRow label="Voice" value={voiceName} />
           <SummaryRow label="Services" value={`${servicesCount} pre-configured`} />
         </div>

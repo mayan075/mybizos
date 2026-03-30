@@ -61,7 +61,7 @@ export interface AiReceptionistConfig {
 export interface OnboardingData {
   /** Step 1 */
   businessName: string;
-  vertical: string;
+  industry: string;
   role: string;
 
   /** Step 2 */
@@ -92,7 +92,7 @@ export interface OnboardingData {
 
 const STORAGE_KEY = "hararai_onboarding";
 
-export const VERTICALS = [
+export const INDUSTRIES = [
   { value: "rubbish_removals", label: "Rubbish Removals", icon: "Trash2" },
   { value: "moving_company", label: "Moving Company", icon: "Truck" },
   { value: "plumbing", label: "Plumbing", icon: "Wrench" },
@@ -107,7 +107,7 @@ export const VERTICALS = [
   { value: "other", label: "Other", icon: "Building2" },
 ] as const;
 
-export const VERTICAL_SERVICES: Record<string, Omit<OnboardingService, "enabled" | "custom">[]> = {
+export const INDUSTRY_SERVICES: Record<string, Omit<OnboardingService, "enabled" | "custom">[]> = {
   rubbish_removals: [
     { id: "single-item", name: "Single Item Pickup", priceMin: 50, priceMax: 120 },
     { id: "partial-load", name: "Partial Load", priceMin: 150, priceMax: 300 },
@@ -356,9 +356,9 @@ export function detectTimezone(): string {
   }
 }
 
-/** Build initial services list from a vertical. */
-export function getServicesForVertical(vertical: string): OnboardingService[] {
-  const defs = VERTICAL_SERVICES[vertical] ?? VERTICAL_SERVICES["other"] ?? [];
+/** Build initial services list from an industry. */
+export function getServicesForIndustry(industry: string): OnboardingService[] {
+  const defs = INDUSTRY_SERVICES[industry] ?? INDUSTRY_SERVICES["other"] ?? [];
   return defs.map((s) => ({ ...s, enabled: true, custom: false }));
 }
 

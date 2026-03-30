@@ -42,10 +42,10 @@ interface BookingForm {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Mock Data — Vertical-aware service sets                                   */
+/*  Mock Data — Industry-aware service sets                                   */
 /* -------------------------------------------------------------------------- */
 
-const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
+const SERVICES_BY_INDUSTRY: Record<string, Service[]> = {
   rubbish_removals: [
     {
       id: "single-item-pickup",
@@ -193,11 +193,11 @@ const SERVICES_BY_VERTICAL: Record<string, Service[]> = {
 };
 
 /**
- * Detect the vertical from the slug.
+ * Detect the industry from the slug.
  * In production this would come from the API, but for the booking page
  * we infer it from well-known slug patterns.
  */
-function detectVerticalFromSlug(slug: string): string {
+function detectIndustryFromSlug(slug: string): string {
   const lower = slug.toLowerCase();
   if (lower.includes("remov") || lower.includes("rubbish") || lower.includes("junk") || lower.includes("waste") || lower.includes("skip")) {
     return "rubbish_removals";
@@ -212,8 +212,8 @@ function detectVerticalFromSlug(slug: string): string {
 }
 
 function getServicesForSlug(slug: string): Service[] {
-  const vertical = detectVerticalFromSlug(slug);
-  return SERVICES_BY_VERTICAL[vertical] ?? SERVICES_BY_VERTICAL["default"]!;
+  const industry = detectIndustryFromSlug(slug);
+  return SERVICES_BY_INDUSTRY[industry] ?? SERVICES_BY_INDUSTRY["default"]!;
 }
 
 const TIME_SLOTS = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
@@ -673,7 +673,7 @@ export default function BookingPage() {
   const fallbackName = slugToBusinessName(slug);
   const fallbackServices = useMemo(() => getServicesForSlug(slug), [slug]);
 
-  // Fetch real org info from API (business name + phone + vertical + services)
+  // Fetch real org info from API (business name + phone + industry + services)
   const [orgInfo, setOrgInfo] = useState<{ name: string; phone: string } | null>(null);
   const [orgServices, setOrgServices] = useState<Service[] | null>(null);
 
@@ -696,10 +696,10 @@ export default function BookingPage() {
               phone: (d.phone as string) || "",
             });
 
-            // Use vertical from API instead of slug heuristic
-            const vertical = (d.vertical as string) || detectVerticalFromSlug(slug);
-            const verticalServices = SERVICES_BY_VERTICAL[vertical] ?? SERVICES_BY_VERTICAL["default"]!;
-            setOrgServices(verticalServices);
+            // Use industry from API instead of slug heuristic
+            const industry = (d.industry as string) || (d.vertical as string) || detectIndustryFromSlug(slug);
+            const industryServices = SERVICES_BY_INDUSTRY[industry] ?? SERVICES_BY_INDUSTRY["default"]!;
+            setOrgServices(industryServices);
 
             // If org has custom services in settings, use those instead
             const settings = d.settings as Record<string, unknown> | undefined;

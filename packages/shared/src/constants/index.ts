@@ -15,35 +15,93 @@ import type {
   MessageStatus,
   OrgMemberRole,
   Vertical,
-} from "../types/index.js";
+} from "../types/index";
 
-/** Supported business verticals */
-export const VERTICALS: readonly Vertical[] = [
-  "rubbish_removals",
-  "moving_company",
-  "plumbing",
-  "hvac",
-  "electrical",
-  "roofing",
-  "landscaping",
-  "pest_control",
-  "cleaning",
-  "general_contractor",
+/* -------------------------------------------------------------------------- */
+/*  Industry Categories — broad groupings for template matching & UI          */
+/* -------------------------------------------------------------------------- */
+
+export interface IndustryOption {
+  value: string;
+  label: string;
+  group: string;
+}
+
+export const INDUSTRY_GROUPS = [
+  "Trades & Home Services",
+  "Health & Wellness",
+  "Professional Services",
+  "Automotive",
+  "Hospitality & Retail",
+  "Education",
+  "Other",
 ] as const;
 
-/** Vertical display labels */
-export const VERTICAL_LABELS: Record<Vertical, string> = {
-  rubbish_removals: "Rubbish Removals",
-  moving_company: "Moving Company",
-  plumbing: "Plumbing",
-  hvac: "HVAC",
-  electrical: "Electrical",
-  roofing: "Roofing",
-  landscaping: "Landscaping",
-  pest_control: "Pest Control",
-  cleaning: "Cleaning",
-  general_contractor: "General Contractor",
-};
+export type IndustryGroup = (typeof INDUSTRY_GROUPS)[number];
+
+/** All industry options, grouped for UI display. Value is the key used in DB/templates. */
+export const INDUSTRY_OPTIONS: readonly IndustryOption[] = [
+  // Trades & Home Services
+  { value: "plumbing", label: "Plumbing", group: "Trades & Home Services" },
+  { value: "hvac", label: "HVAC", group: "Trades & Home Services" },
+  { value: "electrical", label: "Electrical", group: "Trades & Home Services" },
+  { value: "roofing", label: "Roofing", group: "Trades & Home Services" },
+  { value: "landscaping", label: "Landscaping", group: "Trades & Home Services" },
+  { value: "cleaning", label: "Cleaning", group: "Trades & Home Services" },
+  { value: "pest_control", label: "Pest Control", group: "Trades & Home Services" },
+  { value: "general_contractor", label: "General Contractor", group: "Trades & Home Services" },
+  { value: "rubbish_removals", label: "Rubbish Removals", group: "Trades & Home Services" },
+  { value: "moving_company", label: "Moving Company", group: "Trades & Home Services" },
+  { value: "painting", label: "Painting", group: "Trades & Home Services" },
+  { value: "locksmith", label: "Locksmith", group: "Trades & Home Services" },
+  // Health & Wellness
+  { value: "salon_spa", label: "Salon / Spa", group: "Health & Wellness" },
+  { value: "dental", label: "Dental", group: "Health & Wellness" },
+  { value: "chiropractic", label: "Chiropractic", group: "Health & Wellness" },
+  { value: "fitness_gym", label: "Fitness / Gym", group: "Health & Wellness" },
+  { value: "mental_health", label: "Mental Health", group: "Health & Wellness" },
+  { value: "physiotherapy", label: "Physiotherapy", group: "Health & Wellness" },
+  // Professional Services
+  { value: "consulting", label: "Consulting", group: "Professional Services" },
+  { value: "accounting", label: "Accounting", group: "Professional Services" },
+  { value: "legal", label: "Legal", group: "Professional Services" },
+  { value: "real_estate", label: "Real Estate", group: "Professional Services" },
+  { value: "marketing_agency", label: "Marketing Agency", group: "Professional Services" },
+  { value: "photography", label: "Photography", group: "Professional Services" },
+  // Automotive
+  { value: "auto_repair", label: "Auto Repair", group: "Automotive" },
+  { value: "auto_detailing", label: "Auto Detailing", group: "Automotive" },
+  { value: "towing", label: "Towing", group: "Automotive" },
+  // Hospitality & Retail
+  { value: "restaurant_cafe", label: "Restaurant / Cafe", group: "Hospitality & Retail" },
+  { value: "retail_store", label: "Retail Store", group: "Hospitality & Retail" },
+  { value: "event_planning", label: "Event Planning", group: "Hospitality & Retail" },
+  // Education
+  { value: "tutoring", label: "Tutoring", group: "Education" },
+  { value: "music_lessons", label: "Music Lessons", group: "Education" },
+  { value: "driving_school", label: "Driving School", group: "Education" },
+  // Other
+  { value: "other", label: "Other", group: "Other" },
+] as const;
+
+/** Quick lookup: industry value → display label */
+export const INDUSTRY_LABELS: Record<string, string> = Object.fromEntries(
+  INDUSTRY_OPTIONS.map((o) => [o.value, o.label]),
+);
+
+/** Quick lookup: industry value → group */
+export const INDUSTRY_TO_GROUP: Record<string, string> = Object.fromEntries(
+  INDUSTRY_OPTIONS.map((o) => [o.value, o.group]),
+);
+
+/** @deprecated Use INDUSTRY_LABELS instead */
+export const VERTICAL_LABELS = INDUSTRY_LABELS as Record<Vertical, string>;
+
+/** @deprecated Use INDUSTRY_OPTIONS instead */
+export const VERTICALS: readonly Vertical[] = [
+  "rubbish_removals", "moving_company", "plumbing", "hvac", "electrical",
+  "roofing", "landscaping", "pest_control", "cleaning", "general_contractor",
+] as const;
 
 /** Default pipeline deal stages in order */
 export const DEAL_STAGES: readonly DealStage[] = [
@@ -225,23 +283,21 @@ export const AI_SCORE = {
   COLD_LEAD: 20,
 } as const;
 
-/** Emergency keywords that trigger instant owner alert */
-export const EMERGENCY_KEYWORDS = [
+/** Universal urgent keywords that trigger instant owner alert (any industry) */
+export const URGENT_KEYWORDS = [
+  "emergency",
+  "urgent",
+  "fire",
   "flooding",
   "flood",
   "gas leak",
   "gas smell",
-  "fire",
   "carbon monoxide",
-  "co detector",
-  "burst pipe",
-  "sewage",
-  "no heat",
-  "no hot water",
-  "electrical fire",
-  "sparking",
   "smoke",
 ] as const;
+
+/** @deprecated Use URGENT_KEYWORDS instead */
+export const EMERGENCY_KEYWORDS = URGENT_KEYWORDS;
 
 /** Max AI misunderstandings before escalation to human */
 export const AI_MAX_MISUNDERSTANDINGS = 2;
@@ -272,8 +328,8 @@ export interface PipelineTemplate {
   stages: PipelineStageTemplate[];
 }
 
-/** Vertical-specific pipeline templates. Falls back to default if not found. */
-export const PIPELINE_TEMPLATES: Partial<Record<Vertical, PipelineTemplate>> & { default: PipelineTemplate } = {
+/** Industry-specific pipeline templates. Falls back to default if not found. */
+export const PIPELINE_TEMPLATES: Record<string, PipelineTemplate> = {
   rubbish_removals: {
     name: "Removals Pipeline",
     stages: [
@@ -343,19 +399,14 @@ export const GEMINI_VOICES: readonly GeminiVoice[] = [
 ] as const;
 
 export const DEFAULT_EMERGENCY_KEYWORDS: readonly string[] = [
+  'emergency',
+  'urgent',
+  'fire',
   'flooding',
   'flood',
   'gas leak',
   'gas smell',
-  'fire',
   'carbon monoxide',
-  'co detector',
-  'burst pipe',
-  'sewage',
-  'no heat',
-  'no hot water',
-  'electrical fire',
-  'sparking',
   'smoke',
 ] as const;
 
@@ -373,8 +424,30 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
   },
 };
 
-/** Drip sequence templates by vertical. */
-export const DRIP_SEQUENCE_TEMPLATES: Partial<Record<Vertical, DripSequenceTemplate[]>> = {
+/** Drip sequence templates by industry. */
+export const DRIP_SEQUENCE_TEMPLATES: Record<string, DripSequenceTemplate[]> = {
+  default: [
+    {
+      name: "New Lead Follow-Up",
+      messages: [
+        { id: "def-new-1", trigger: "lead_created", delayMinutes: 5, channel: "sms", template: "Thanks for reaching out to {businessName}! We'll get back to you shortly. In the meantime, is there anything specific you'd like us to know?" },
+        { id: "def-new-2", trigger: "lead_created", delayMinutes: 1440, channel: "sms", template: "Hi {firstName}, just following up on your inquiry with {businessName}. Would you like to schedule a time to chat?" },
+      ],
+    },
+    {
+      name: "Quote Follow-Up",
+      messages: [
+        { id: "def-quote-1", trigger: "quote_sent", delayMinutes: 1440, channel: "sms", template: "Hi {firstName}, just checking if you had any questions about the quote we sent?" },
+        { id: "def-quote-2", trigger: "quote_sent", delayMinutes: 4320, channel: "sms", template: "Hi {firstName}, wanted to follow up on your quote. We'd love to help — let us know if you have any questions!" },
+      ],
+    },
+    {
+      name: "Post-Service Review Request",
+      messages: [
+        { id: "def-review-1", trigger: "job_completed", delayMinutes: 120, channel: "sms", template: "Thanks for choosing {businessName}! We hope everything went well. Would you mind leaving a quick Google review? It really helps us out: {reviewLink}" },
+      ],
+    },
+  ],
   rubbish_removals: [
     {
       name: "New Lead Follow-Up",

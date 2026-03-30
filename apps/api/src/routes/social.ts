@@ -137,11 +137,11 @@ socialRoutes.post('/suggestions', async (c) => {
   try {
     const { db, organizations, withOrgScope } = await import('@hararai/db');
 
-    const [org] = await db.select({ name: organizations.name, vertical: organizations.vertical })
+    const [org] = await db.select({ name: organizations.name, industry: organizations.industry })
       .from(organizations).where(withOrgScope(organizations.id, orgId));
 
     const businessName = org?.name ?? 'Our Business';
-    const vertical = org?.vertical ?? 'general';
+    const industry = org?.industry ?? 'general';
 
     // Generate suggestions using Claude
     const { Anthropic } = await import('@anthropic-ai/sdk');
@@ -153,7 +153,7 @@ socialRoutes.post('/suggestions', async (c) => {
       max_tokens: 500,
       messages: [{
         role: 'user',
-        content: `Generate 3 short social media post ideas for a ${vertical} business called "${businessName}". Each post should be engaging and under 280 characters. Return as JSON array: [{"text": "...", "category": "educational|promotional|social_proof"}]`,
+        content: `Generate 3 short social media post ideas for a ${industry} business called "${businessName}". Each post should be engaging and under 280 characters. Return as JSON array: [{"text": "...", "category": "educational|promotional|social_proof"}]`,
       }],
     });
 

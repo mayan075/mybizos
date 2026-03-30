@@ -1,4 +1,3 @@
-import type { Vertical } from "@hararai/shared";
 import type { ClaudeClient } from "../providers/claude.js";
 import { BaseAgent, type AgentAction, type AgentContext } from "./base-agent.js";
 import { getPhoneAgentPrompt } from "../prompts/system-prompts.js";
@@ -9,16 +8,16 @@ import { getPhoneAgentPrompt } from "../prompts/system-prompts.js";
  * This agent's responses are converted to speech by the Vapi platform.
  */
 export class PhoneAgent extends BaseAgent {
-  private vertical: Vertical;
+  private industry: string;
   private businessName: string;
   private agentName: string;
 
   constructor(
     client: ClaudeClient,
-    config: { vertical: Vertical; businessName: string; agentName: string },
+    config: { industry: string; businessName: string; agentName: string },
   ) {
     super(client, "phone");
-    this.vertical = config.vertical;
+    this.industry = config.industry;
     this.businessName = config.businessName;
     this.agentName = config.agentName;
   }
@@ -26,7 +25,7 @@ export class PhoneAgent extends BaseAgent {
   protected buildSystemPrompt(_context: AgentContext): string {
     return getPhoneAgentPrompt({
       businessName: this.businessName,
-      vertical: this.vertical,
+      industry: this.industry,
       agentName: this.agentName,
     });
   }

@@ -172,7 +172,7 @@ scheduling.get('/public/org/:slug', async (c) => {
         phone: organizations.phone,
         email: organizations.email,
         website: organizations.website,
-        vertical: organizations.vertical,
+        industry: organizations.industry,
         logoUrl: organizations.logoUrl,
       })
       .from(organizations)

@@ -2,8 +2,6 @@
 
 // ─── Enums ──────────────────────────────────────────────────────────
 
-export type Vertical = "rubbish_removals" | "moving_company" | "plumbing" | "hvac" | "electrical" | "roofing" | "landscaping" | "pest_control" | "cleaning" | "general_contractor";
-
 export type ContactSource =
   | "manual"
   | "phone"
@@ -67,7 +65,8 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
-  vertical: Vertical;
+  industry: string;
+  industryCategory: string | null;
   timezone: string;
   phone: string | null;
   email: string | null;
@@ -222,6 +221,8 @@ export interface AiAgent {
   type: AiAgentType;
   name: string;
   systemPrompt: string;
+  industry: string;
+  /** @deprecated Use `industry` instead */
   vertical: Vertical;
   settings: Record<string, unknown>;
   isActive: boolean;
@@ -283,3 +284,9 @@ export interface AgentSettings {
   customPrompt: string;
   voiceConfig: GeminiVoiceConfig;
 }
+
+// ─── Backward Compatibility ─────────────────────────────────────────
+// These aliases support existing frontend code that hasn't migrated yet.
+
+/** @deprecated Use `industry: string` on AiAgent instead */
+export type Vertical = "rubbish_removals" | "moving_company" | "plumbing" | "hvac" | "electrical" | "roofing" | "landscaping" | "pest_control" | "cleaning" | "general_contractor";

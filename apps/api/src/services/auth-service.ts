@@ -26,7 +26,7 @@ export interface AuthResult {
     id: string;
     name: string;
     slug: string;
-    vertical: string;
+    industry: string;
   };
   token: string;
 }
@@ -47,7 +47,8 @@ export async function register(
   _password: string,
   name: string,
   businessName: string,
-  vertical: string,
+  industry: string,
+  industryCategory?: string,
 ): Promise<AuthResult> {
   try {
     const { db, users, sessions, organizations, orgMembers } = await import('@hararai/db');
@@ -95,9 +96,10 @@ export async function register(
       .values({
         name: businessName,
         slug: `${slug}-${newUser.id.slice(0, 8)}`,
-        vertical: vertical as 'plumbing' | 'hvac',
+        industry,
+        industryCategory: industryCategory ?? null,
       })
-      .returning({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical });
+      .returning({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry });
 
     if (!newOrg) throw new AuthError('Failed to create organization', 'INTERNAL_ERROR', 500);
 
@@ -139,7 +141,7 @@ export async function register(
     await db.insert(sessions).values({ userId: newUser.id, token, expiresAt });
 
     logger.info('User registered via REAL DATABASE', { userId: newUser.id, orgId: newOrg.id });
-    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner', emailVerified: newUser.emailVerified }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, vertical: newOrg.vertical }, token };
+    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner', emailVerified: newUser.emailVerified }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, industry: newOrg.industry }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for registration', {
@@ -180,7 +182,7 @@ export async function login(
     const [membership] = await db.select({ orgId: orgMembers.orgId, role: orgMembers.role }).from(orgMembers).where(eq(orgMembers.userId, user.id)).limit(1);
     if (!membership) throw new AuthError('User has no organization membership', 'FORBIDDEN', 403);
 
-    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
+    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
     const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
@@ -190,7 +192,7 @@ export async function login(
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via REAL DATABASE', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for login', {
@@ -213,7 +215,7 @@ export async function logout(_token: string): Promise<void> {
 
 export async function getMe(_userId: string): Promise<{
   user: { id: string; email: string; name: string; avatarUrl: string | null; emailVerified: boolean; role: 'owner' | 'admin' | 'manager' | 'member' };
-  org: { id: string; name: string; slug: string; vertical: string };
+  org: { id: string; name: string; slug: string; industry: string };
 }> {
   try {
     const { db, users, organizations, orgMembers } = await import('@hararai/db');
@@ -225,7 +227,7 @@ export async function getMe(_userId: string): Promise<{
     const [membership] = await db.select({ orgId: orgMembers.orgId, role: orgMembers.role }).from(orgMembers).where(eq(orgMembers.userId, _userId)).limit(1);
     if (!membership) throw new AuthError('User has no organization', 'NOT_FOUND', 404);
 
-    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
+    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
     return { user: { ...user, role: membership.role }, org };
@@ -318,9 +320,9 @@ export async function loginOrCreateWithGoogle(
           .values({
             name: `${googleProfile.name}'s Business`,
             slug: `${slug}-${userId.slice(0, 8)}`,
-            vertical: 'other' as 'plumbing',
+            industry: 'other',
           })
-          .returning({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical });
+          .returning({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry });
 
         if (!newOrg) throw new AuthError('Failed to create organization', 'INTERNAL_ERROR', 500);
 
@@ -341,7 +343,7 @@ export async function loginOrCreateWithGoogle(
     const [membership] = await db.select({ orgId: orgMembers.orgId, role: orgMembers.role }).from(orgMembers).where(eq(orgMembers.userId, userId)).limit(1);
     if (!membership) throw new AuthError('User has no organization membership', 'FORBIDDEN', 403);
 
-    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, vertical: organizations.vertical }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
+    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
     const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
@@ -351,7 +353,7 @@ export async function loginOrCreateWithGoogle(
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via Google OAuth', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: true }, org: { id: org.id, name: org.name, slug: org.slug, vertical: org.vertical }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: true }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Google OAuth login failed', {

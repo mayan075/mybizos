@@ -1,7 +1,7 @@
-import type { AgentSettings, AgentTone, Vertical } from '../types/index.js';
-import { VERTICAL_TEMPLATES, type VerticalTemplate } from './verticals.js';
+import type { AgentSettings, AgentTone } from '../types/index';
+import { INDUSTRY_TEMPLATES, findBestTemplate, type IndustryTemplate } from './verticals';
 
-export { VERTICAL_TEMPLATES, type VerticalTemplate } from './verticals.js';
+export { INDUSTRY_TEMPLATES, VERTICAL_TEMPLATES, findBestTemplate, type IndustryTemplate, type VerticalTemplate } from './verticals';
 
 const TONE_MAP: Record<AgentTone, string> = {
   professional: 'professional and polished',
@@ -21,16 +21,20 @@ function buildServicesBlock(services: AgentSettings['services']): string {
 export interface PromptBuildInput {
   agentName: string;
   businessName: string;
-  vertical: Vertical;
+  /** Industry slug (e.g. 'plumbing', 'hvac'). Accepts legacy `vertical` field too. */
+  industry?: string;
+  /** @deprecated Use `industry` instead */
+  vertical?: string;
   settings: AgentSettings;
 }
 
 export function buildPromptFromTemplate(input: PromptBuildInput): string {
-  const { agentName, businessName, vertical, settings } = input;
-  const verticalTemplate = VERTICAL_TEMPLATES[vertical] ?? VERTICAL_TEMPLATES.general_contractor;
+  const { agentName, businessName, settings } = input;
+  const industry = input.industry ?? input.vertical ?? 'general';
+  const verticalTemplate = findBestTemplate(industry);
   const tone = TONE_MAP[settings.tone] ?? TONE_MAP.balanced;
-  const servicesBlock = buildServicesBlock(settings.services);
-  const emergencyKeywords = settings.emergencyKeywords.join(', ');
+  const servicesBlock = buildServicesBlock(settings.services ?? []);
+  const emergencyKeywords = (settings.emergencyKeywords ?? []).join(', ');
 
   const greeting = settings.greeting ||
     `Hi, this is ${agentName} from ${businessName}. This call may be recorded. How can I help you today?`;
@@ -62,8 +66,13 @@ VOICE STYLE:
 - End calls warmly: "Thanks for calling ${businessName}. Have a great day!"`.trim();
 }
 
-export function getVerticalDefaults(vertical: Vertical): VerticalTemplate {
-  return VERTICAL_TEMPLATES[vertical] ?? VERTICAL_TEMPLATES.general_contractor;
+export function getIndustryDefaults(industry: string): IndustryTemplate {
+  return findBestTemplate(industry);
+}
+
+/** @deprecated Use getIndustryDefaults instead */
+export function getVerticalDefaults(vertical: string): IndustryTemplate {
+  return findBestTemplate(vertical);
 }
 
 export interface PromptValidationIssue {

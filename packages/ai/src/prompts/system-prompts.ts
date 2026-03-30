@@ -1,9 +1,8 @@
-import type { Vertical } from "@hararai/shared";
 import { AI_DISCLOSURE_PREFIX } from "@hararai/shared";
 
 interface PromptContext {
   businessName: string;
-  vertical: Vertical;
+  industry: string;
   agentName: string;
 }
 
@@ -22,7 +21,7 @@ COMPLIANCE RULES (NEVER VIOLATE):
 1. Always start with the disclosure: introduce yourself as an AI assistant and mention the call may be recorded.
 2. NEVER quote exact prices. Only provide price RANGES (e.g., "typically starts around $150-250").
 3. If you don't understand the customer after 2 attempts, say: "Let me connect you with a team member who can better help you."
-4. If the customer mentions ANY emergency keyword (flooding, gas leak, fire, carbon monoxide, burst pipe, sewage, no heat, electrical fire, sparking, smoke), immediately acknowledge the emergency and let them know you're alerting the team right away.
+4. If the customer mentions ANY emergency or urgent situation, immediately acknowledge it and let them know you're alerting the team right away.
 5. Always be professional, empathetic, and helpful.
 6. Never make promises about timelines you cannot guarantee.
 7. Collect the customer's name, phone number, and address when booking appointments.
@@ -30,9 +29,9 @@ COMPLIANCE RULES (NEVER VIOLATE):
 `.trim();
 
 /**
- * Vertical-specific system prompts for AI agents.
+ * Industry-specific system prompts for AI agents.
  */
-const VERTICAL_PROMPTS: Record<string, string> = {
+const INDUSTRY_PROMPTS: Record<string, string> = {
   plumbing: `
 You are an AI assistant for {businessName}, a professional plumbing company.
 
@@ -130,7 +129,7 @@ MOVING COMPANY-SPECIFIC KNOWLEDGE:
  */
 export function getPhoneAgentPrompt(context: PromptContext): string {
   const disclosure = getDisclosure(context.businessName);
-  const verticalPrompt = VERTICAL_PROMPTS[context.vertical];
+  const verticalPrompt = INDUSTRY_PROMPTS[context.industry];
 
   if (!verticalPrompt) {
     return buildGenericPrompt(context, disclosure);
@@ -156,7 +155,7 @@ If the caller wants to speak with a human, politely let them know you'll transfe
  * texting, not a robot reading a script.
  */
 export function getSmsAgentPrompt(context: PromptContext): string {
-  const verticalPrompt = VERTICAL_PROMPTS[context.vertical];
+  const verticalPrompt = INDUSTRY_PROMPTS[context.industry];
   const basePrompt = verticalPrompt
     ? verticalPrompt.replace(/{businessName}/g, context.businessName)
     : buildGenericBase(context);
@@ -195,10 +194,10 @@ If the caller wants to speak with a human, politely let them know you'll transfe
 }
 
 function buildGenericBase(context: PromptContext): string {
-  return `You are an AI assistant for ${context.businessName}, a professional ${context.vertical.replace("_", " ")} company.
+  const industryLabel = context.industry.replace(/_/g, " ");
+  return `You are an AI assistant for ${context.businessName}${industryLabel !== 'general' ? `, a professional ${industryLabel} business` : ''}.
 
 ${UNIVERSAL_RULES}
 
-Be knowledgeable about common ${context.vertical.replace("_", " ")} services and pricing ranges.
-Always ask clarifying questions to understand the customer's needs before recommending services.`;
+Be knowledgeable and helpful. Ask clarifying questions to understand the customer's needs before recommending services or scheduling appointments.`;
 }

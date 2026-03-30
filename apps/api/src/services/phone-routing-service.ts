@@ -37,7 +37,7 @@ interface OrgSettings {
 export interface ResolvedOrg {
   orgId: string;
   orgName: string;
-  vertical: string;
+  industry: string;
   settings: OrgSettings;
 }
 
@@ -97,7 +97,7 @@ export async function resolveOrgByPhoneNumber(
       .select({
         id: organizations.id,
         name: organizations.name,
-        vertical: organizations.vertical,
+        industry: organizations.industry,
         phone: organizations.phone,
         settings: organizations.settings,
       })
@@ -114,7 +114,7 @@ export async function resolveOrgByPhoneNumber(
             const resolved: ResolvedOrg = {
               orgId: org.id,
               orgName: org.name,
-              vertical: org.vertical,
+              industry: org.industry,
               settings: settings,
             };
             await setCache(normalized, resolved);
@@ -135,7 +135,7 @@ export async function resolveOrgByPhoneNumber(
             const resolved: ResolvedOrg = {
               orgId: org.id,
               orgName: org.name,
-              vertical: org.vertical,
+              industry: org.industry,
               settings: settings,
             };
             await setCache(normalized, resolved);
@@ -154,7 +154,7 @@ export async function resolveOrgByPhoneNumber(
         const resolved: ResolvedOrg = {
           orgId: org.id,
           orgName: org.name,
-          vertical: org.vertical,
+          industry: org.industry,
           settings: settings ?? {},
         };
         await setCache(normalized, resolved);

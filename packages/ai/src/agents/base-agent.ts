@@ -1,10 +1,10 @@
-import type { AiAgentType, Vertical } from "@hararai/shared";
+import type { AiAgentType } from "@hararai/shared";
 import type { ClaudeClient, ClaudeMessage, ClaudeResponse } from "../providers/claude.js";
 
 export interface AgentContext {
   orgId: string;
   orgName: string;
-  vertical: Vertical;
+  industry: string;
   contactName: string | null;
   contactPhone: string | null;
   conversationHistory: ClaudeMessage[];

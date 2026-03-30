@@ -1,17 +1,17 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { AgentSettings, Vertical } from '@hararai/shared';
-import { VERTICAL_LABELS, getVerticalDefaults } from '@hararai/shared';
+import type { AgentSettings } from '@hararai/shared';
+import { INDUSTRY_LABELS, getIndustryDefaults } from '@hararai/shared';
 import { ServicesListEditor } from './services-list-editor';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface BusinessContextSectionProps {
-  vertical: Vertical;
+  industry: string;
   businessName: string;
   settings: AgentSettings;
-  onVerticalChange: (vertical: Vertical) => void;
+  onIndustryChange: (industry: string) => void;
   onSettingsChange: (settings: AgentSettings) => void;
   disabled?: boolean;
 }
@@ -19,23 +19,23 @@ interface BusinessContextSectionProps {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function BusinessContextSection({
-  vertical,
+  industry,
   businessName,
   settings,
-  onVerticalChange,
+  onIndustryChange,
   onSettingsChange,
   disabled,
 }: BusinessContextSectionProps) {
-  const handleVerticalChange = (newVertical: Vertical) => {
+  const handleIndustryChange = (newIndustry: string) => {
     if (settings.services.length > 0) {
       const confirmed = window.confirm(
-        `Switching to "${VERTICAL_LABELS[newVertical]}" will replace your current services list with defaults for that vertical. Continue?`,
+        `Switching to "${INDUSTRY_LABELS[newIndustry] ?? newIndustry}" will replace your current services list with defaults for that industry. Continue?`,
       );
       if (!confirmed) return;
     }
 
-    const defaults = getVerticalDefaults(newVertical);
-    onVerticalChange(newVertical);
+    const defaults = getIndustryDefaults(newIndustry);
+    onIndustryChange(newIndustry);
     onSettingsChange({
       ...settings,
       services: defaults.defaultServices,
@@ -75,14 +75,14 @@ export function BusinessContextSection({
         </p>
       </div>
 
-      {/* Vertical dropdown */}
+      {/* Industry dropdown */}
       <div className="space-y-1.5">
         <label className="block text-xs font-medium text-zinc-400">
-          Business Vertical
+          Industry
         </label>
         <select
-          value={vertical}
-          onChange={(e) => handleVerticalChange(e.target.value as Vertical)}
+          value={industry}
+          onChange={(e) => handleIndustryChange(e.target.value)}
           disabled={disabled}
           className={cn(
             'w-full rounded-lg border bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100',
@@ -91,7 +91,7 @@ export function BusinessContextSection({
             'disabled:opacity-50 disabled:cursor-not-allowed',
           )}
         >
-          {(Object.entries(VERTICAL_LABELS) as [Vertical, string][]).map(
+          {Object.entries(INDUSTRY_LABELS).map(
             ([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -100,7 +100,7 @@ export function BusinessContextSection({
           )}
         </select>
         <p className="text-[11px] text-zinc-600">
-          Changing the vertical will load default services for that industry.
+          Changing the industry will load default services for that industry.
         </p>
       </div>
 

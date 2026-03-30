@@ -51,22 +51,22 @@ import {
   type DayOfWeek,
   type PhoneSetupMode,
   type AiReceptionistConfig,
-  VERTICALS,
+  INDUSTRIES,
   COUNTRIES,
   TIMEZONES,
   DEFAULT_BUSINESS_HOURS,
   saveOnboardingData,
   isOnboardingComplete,
-  getServicesForVertical,
+  getServicesForIndustry,
   detectTimezone,
   slugify,
 } from "@/lib/onboarding";
 
 // ---------------------------------------------------------------------------
-// Icon mapping for verticals
+// Icon mapping for industries
 // ---------------------------------------------------------------------------
 
-const verticalIconMap: Record<string, React.ElementType> = {
+const industryIconMap: Record<string, React.ElementType> = {
   Wrench,
   Flame,
   Zap,
@@ -111,7 +111,7 @@ const ROLES = ["Owner", "Manager", "Admin"] as const;
 
 const onboardingStep0Schema = z.object({
   businessName: z.string().min(1, "Business name is required"),
-  vertical: z.string().min(1, "Please select a business type"),
+  industry: z.string().min(1, "Please select a business type"),
 });
 
 const onboardingStep1Schema = z.object({
@@ -142,7 +142,7 @@ export default function OnboardingPage() {
 
   // Step 1 — Your business
   const [businessName, setBusinessName] = useState(user?.orgName ?? "");
-  const [vertical, setVertical] = useState("");
+  const [industry, setIndustry] = useState("");
   const [role, setRole] = useState<string>("Owner");
 
   // Step 2 — Location
@@ -174,12 +174,12 @@ export default function OnboardingPage() {
   // Step 7 — Confetti
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Load services when vertical changes
+  // Load services when industry changes
   useEffect(() => {
-    if (vertical) {
-      setServices(getServicesForVertical(vertical));
+    if (industry) {
+      setServices(getServicesForIndustry(industry));
     }
-  }, [vertical]);
+  }, [industry]);
 
   // Auto-generate AI greeting when business name changes
   useEffect(() => {
@@ -199,7 +199,7 @@ export default function OnboardingPage() {
       case 0:
         return onboardingStep0Schema.safeParse({
           businessName: businessName.trim(),
-          vertical,
+          industry,
         }).success;
       case 1:
         return onboardingStep1Schema.safeParse({
@@ -217,7 +217,7 @@ export default function OnboardingPage() {
       default:
         return true;
     }
-  }, [step, businessName, vertical, country, city, services, aiGreeting]);
+  }, [step, businessName, industry, country, city, services, aiGreeting]);
 
   function handleNext() {
     if (!canAdvance()) return;
@@ -237,13 +237,13 @@ export default function OnboardingPage() {
   function handleSkip() {
     const skipData: OnboardingData = {
       businessName: businessName.trim() || "My Business",
-      vertical: vertical || "other",
+      industry: industry || "other",
       role: role || "Owner",
       country: country || "US",
       city: city.trim() || "New York",
       serviceArea: "",
       timezone: detectTimezone(),
-      services: getServicesForVertical(vertical || "other").filter((s) => s.enabled),
+      services: getServicesForIndustry(industry || "other").filter((s) => s.enabled),
       businessHours: DEFAULT_BUSINESS_HOURS,
       aiReceptionist: {
         greeting: `Hi, thanks for calling! This is our AI assistant. How can I help you today?`,
@@ -267,7 +267,7 @@ export default function OnboardingPage() {
   function handleFinish() {
     const data: OnboardingData = {
       businessName: businessName.trim(),
-      vertical,
+      industry,
       role,
       country,
       city: city.trim(),
@@ -395,20 +395,20 @@ export default function OnboardingPage() {
           />
         </div>
 
-        {/* Vertical selector */}
+        {/* Industry selector */}
         <div className="space-y-3">
           <label className="text-sm font-medium text-foreground">
             What type of business?
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {VERTICALS.map((v) => {
-              const Icon = verticalIconMap[v.icon] ?? Building2;
-              const isSelected = vertical === v.value;
+            {INDUSTRIES.map((v) => {
+              const Icon = industryIconMap[v.icon] ?? Building2;
+              const isSelected = industry === v.value;
               return (
                 <button
                   key={v.value}
                   type="button"
-                  onClick={() => setVertical(v.value)}
+                  onClick={() => setIndustry(v.value)}
                   className={cn(
                     "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all",
                     isSelected
@@ -1044,7 +1044,7 @@ export default function OnboardingPage() {
   function renderStep7() {
     const enabledServices = services.filter((s) => s.enabled);
     const openDays = DAYS.filter(({ key }) => hours[key].open);
-    const verticalLabel = VERTICALS.find((v) => v.value === vertical)?.label ?? vertical;
+    const industryLabel = INDUSTRIES.find((v) => v.value === industry)?.label ?? industry;
     const bookingSlug = slugify(businessName);
 
     return (
@@ -1088,7 +1088,7 @@ export default function OnboardingPage() {
             <div>
               <p className="text-sm font-medium text-foreground">{businessName}</p>
               <p className="text-xs text-muted-foreground">
-                {verticalLabel} &middot; {city}, {COUNTRIES.find((c) => c.value === country)?.label}
+                {industryLabel} &middot; {city}, {COUNTRIES.find((c) => c.value === country)?.label}
               </p>
             </div>
           </div>

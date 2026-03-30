@@ -1,4 +1,4 @@
-import type { Contact, Vertical } from "@hararai/shared";
+import type { Contact } from "@hararai/shared";
 import { AI_SCORE } from "@hararai/shared";
 import type { ClaudeClient } from "../providers/claude.js";
 
@@ -123,12 +123,12 @@ export class LeadScoringEngine {
   async scoreWithAi(
     contact: Pick<Contact, "firstName" | "lastName" | "source" | "phone" | "email">,
     factors: ScoringFactors,
-    vertical: Vertical,
+    industry: string,
   ): Promise<ScoringResult> {
     // Start with heuristic score as a baseline
     const heuristic = this.score(contact, factors);
 
-    const prompt = `You are a lead scoring AI for a ${vertical} business.
+    const prompt = `You are a lead scoring AI for a ${industry} business.
 Score this lead from 0-100 and explain why.
 
 Contact: ${contact.firstName} ${contact.lastName}

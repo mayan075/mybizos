@@ -57,7 +57,7 @@ export const aiService = {
       type: typeof aiAgents.type.enumValues[number];
       name: string;
       systemPrompt: string;
-      vertical: typeof aiAgents.vertical.enumValues[number];
+      industry: string;
       settings?: Record<string, unknown>;
       isActive?: boolean;
     },
@@ -69,7 +69,7 @@ export const aiService = {
         type: data.type,
         name: data.name,
         systemPrompt: data.systemPrompt,
-        vertical: data.vertical,
+        industry: data.industry,
         settings: data.settings ?? {},
         geminiConfig: buildDefaultGeminiConfig(),
         isActive: data.isActive ?? true,
@@ -90,7 +90,7 @@ export const aiService = {
     data: {
       name?: string;
       systemPrompt?: string;
-      vertical?: typeof aiAgents.vertical.enumValues[number];
+      industry?: string;
       settings?: Record<string, unknown>;
       geminiConfig?: Record<string, unknown>;
       isActive?: boolean;
@@ -99,7 +99,7 @@ export const aiService = {
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (data.name !== undefined) updateData.name = data.name;
     if (data.systemPrompt !== undefined) updateData.systemPrompt = data.systemPrompt;
-    if (data.vertical !== undefined) updateData.vertical = data.vertical;
+    if (data.industry !== undefined) updateData.industry = data.industry;
     if (data.settings !== undefined) updateData.settings = data.settings;
     if (data.geminiConfig !== undefined) updateData.geminiConfig = data.geminiConfig;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;

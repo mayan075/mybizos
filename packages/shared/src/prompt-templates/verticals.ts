@@ -1,13 +1,32 @@
-import type { AgentService, Vertical } from '../types/index.js';
+import type { AgentService } from '../types/index';
 
-export interface VerticalTemplate {
+export interface IndustryTemplate {
   knowledge: string;
   defaultServices: AgentService[];
   defaultAgentName: string;
   defaultEmergencyKeywords: string[];
 }
 
-export const VERTICAL_TEMPLATES: Record<Vertical, VerticalTemplate> = {
+/** @deprecated Use IndustryTemplate instead */
+export type VerticalTemplate = IndustryTemplate;
+
+/**
+ * Industry-specific AI agent templates.
+ * Keyed by industry slug. Includes a `general` fallback for unknown industries.
+ */
+export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
+  general: {
+    defaultAgentName: 'Alex',
+    defaultEmergencyKeywords: ['emergency', 'urgent', 'fire', 'flooding', 'gas leak', 'smoke'],
+    defaultServices: [],
+    knowledge: `GENERAL BUSINESS KNOWLEDGE:
+- Ask the customer what service or product they're interested in
+- Collect their name, phone number, and preferred contact method
+- Ask about their timeline and any specific requirements
+- Offer to schedule a consultation or appointment
+- If unsure about pricing, offer to have someone follow up with a detailed quote
+- Be helpful, professional, and focus on understanding the customer's needs`,
+  },
   plumbing: {
     defaultAgentName: 'Alex',
     defaultEmergencyKeywords: ['flooding', 'flood', 'gas leak', 'gas smell', 'burst pipe', 'sewage', 'no hot water', 'water damage'],
@@ -167,3 +186,49 @@ export const VERTICAL_TEMPLATES: Record<Vertical, VerticalTemplate> = {
 - All work comes with warranty`,
   },
 };
+
+/** @deprecated Use INDUSTRY_TEMPLATES instead */
+export const VERTICAL_TEMPLATES = INDUSTRY_TEMPLATES;
+
+/**
+ * Find the best matching industry template for a given industry string.
+ * 1. Exact match
+ * 2. Partial match (e.g., "plumber" matches "plumbing")
+ * 3. Falls back to "general"
+ */
+export function findBestTemplate(industry: string): IndustryTemplate {
+  const normalized = industry.toLowerCase().replace(/[\s-]/g, '_');
+
+  // Exact match
+  if (INDUSTRY_TEMPLATES[normalized]) {
+    return INDUSTRY_TEMPLATES[normalized];
+  }
+
+  // Partial / fuzzy match
+  const keys = Object.keys(INDUSTRY_TEMPLATES);
+  for (const key of keys) {
+    if (key === 'general') continue;
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return INDUSTRY_TEMPLATES[key];
+    }
+  }
+
+  // Stem-based matching (e.g., "plumber" → "plumbing", "electrician" → "electrical")
+  const stemMap: Record<string, string> = {
+    plumber: 'plumbing',
+    electrician: 'electrical',
+    roofer: 'roofing',
+    landscaper: 'landscaping',
+    cleaner: 'cleaning',
+    mover: 'moving_company',
+    contractor: 'general_contractor',
+    exterminator: 'pest_control',
+  };
+  for (const [stem, key] of Object.entries(stemMap)) {
+    if (normalized.includes(stem)) {
+      return INDUSTRY_TEMPLATES[key];
+    }
+  }
+
+  return INDUSTRY_TEMPLATES.general;
+}

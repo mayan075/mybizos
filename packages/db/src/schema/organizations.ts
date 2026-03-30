@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
+/** @deprecated Kept for migration compatibility. Use industry text column instead. */
 export const verticalEnum = pgEnum("vertical", [
   "rubbish_removals",
   "moving_company",
@@ -36,7 +37,9 @@ export const organizations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
-    vertical: verticalEnum("vertical").notNull(),
+    vertical: verticalEnum("vertical"),
+    industry: text("industry").notNull().default("general"),
+    industryCategory: text("industry_category"),
     timezone: text("timezone").notNull().default("America/New_York"),
     phone: text("phone"),
     email: text("email"),

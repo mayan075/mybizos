@@ -163,7 +163,7 @@ export function CallSettingsSection({
         </label>
         <input
           type="text"
-          value={settings.emergencyKeywords.join(', ')}
+          value={(settings.emergencyKeywords ?? []).join(', ')}
           onChange={(e) => handleKeywordsChange(e.target.value)}
           disabled={disabled}
           placeholder="flooding, gas leak, fire, burst pipe…"

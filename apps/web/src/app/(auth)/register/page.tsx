@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,24 +16,14 @@ import {
   Loader2,
   Play,
   RefreshCw,
+  Search,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { storeToken } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { isOnboardingComplete } from "@/lib/onboarding";
-
-const VERTICALS = [
-  { value: "rubbish_removals", label: "Rubbish Removals" },
-  { value: "moving_company", label: "Moving Company" },
-  { value: "plumbing", label: "Plumbing" },
-  { value: "hvac", label: "HVAC" },
-  { value: "electrical", label: "Electrical" },
-  { value: "roofing", label: "Roofing" },
-  { value: "landscaping", label: "Landscaping" },
-  { value: "pest_control", label: "Pest Control" },
-  { value: "cleaning", label: "Cleaning" },
-  { value: "general_contractor", label: "General Contractor" },
-] as const;
+import { INDUSTRY_OPTIONS, INDUSTRY_GROUPS } from "@hararai/shared";
 
 interface RegisterResponse {
   data: {
@@ -48,7 +38,7 @@ interface RegisterResponse {
       id: string;
       name: string;
       slug: string;
-      vertical: string;
+      industry: string;
     };
     token: string;
   };
@@ -59,7 +49,7 @@ const DEMO_FORM = {
   businessName: "Northern Removals",
   email: "mayan@northernremovals.com.au",
   password: "demo1234",
-  vertical: "rubbish_removals",
+  industry: "rubbish_removals",
 };
 
 export default function RegisterPage() {
@@ -77,8 +67,37 @@ export default function RegisterPage() {
     businessName: "",
     email: "",
     password: "",
-    vertical: "",
+    industry: "",
   });
+
+  // Industry combobox state
+  const [industrySearch, setIndustrySearch] = useState("");
+  const [industryOpen, setIndustryOpen] = useState(false);
+  const comboboxRef = useRef<HTMLDivElement>(null);
+
+  const filteredIndustries = useMemo(() => {
+    const q = industrySearch.toLowerCase();
+    if (!q) return INDUSTRY_OPTIONS;
+    return INDUSTRY_OPTIONS.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.group.toLowerCase().includes(q),
+    );
+  }, [industrySearch]);
+
+  const selectedIndustryLabel = useMemo(
+    () => INDUSTRY_OPTIONS.find((o) => o.value === form.industry)?.label ?? "",
+    [form.industry],
+  );
+
+  // Close combobox on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setIndustryOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const update = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -100,7 +119,7 @@ export default function RegisterPage() {
         businessName: data.businessName,
         email: data.email,
         password: data.password,
-        vertical: data.vertical,
+        industry: data.industry,
       },
     );
 
@@ -406,41 +425,87 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <label
-                htmlFor="vertical"
+                htmlFor="industry"
                 className="text-sm font-medium text-foreground"
               >
                 Business type
               </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <select
-                  id="vertical"
-                  value={form.vertical}
-                  onChange={(e) => update("vertical", e.target.value)}
+              <div className="relative" ref={comboboxRef}>
+                <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                <input
+                  id="industry"
+                  type="text"
+                  value={industryOpen ? industrySearch : selectedIndustryLabel}
+                  onChange={(e) => {
+                    setIndustrySearch(e.target.value);
+                    if (!industryOpen) setIndustryOpen(true);
+                  }}
+                  onFocus={() => {
+                    setIndustryOpen(true);
+                    setIndustrySearch("");
+                  }}
+                  placeholder="Search your industry..."
                   className={cn(
-                    "h-11 w-full appearance-none rounded-lg border bg-background pl-10 pr-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
-                    !form.vertical && "text-muted-foreground",
-                    fieldErrors["vertical"]
+                    "h-11 w-full rounded-lg border bg-background pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors",
+                    !form.industry && !industryOpen && "text-muted-foreground",
+                    fieldErrors["industry"]
                       ? "border-destructive"
                       : "border-input",
                   )}
-                  required
+                  autoComplete="off"
                   disabled={isLoading}
-                >
-                  <option value="" disabled>
-                    Select your industry
-                  </option>
-                  {VERTICALS.map((v) => (
-                    <option key={v.value} value={v.value}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                />
+                <ChevronDown className={cn(
+                  "absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none transition-transform",
+                  industryOpen && "rotate-180",
+                )} />
+
+                {/* Dropdown */}
+                {industryOpen && (
+                  <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
+                    {filteredIndustries.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No industries found
+                      </div>
+                    ) : (
+                      INDUSTRY_GROUPS.filter((group) =>
+                        filteredIndustries.some((o) => o.group === group),
+                      ).map((group) => (
+                        <div key={group}>
+                          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
+                            {group}
+                          </div>
+                          {filteredIndustries
+                            .filter((o) => o.group === group)
+                            .map((o) => (
+                              <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => {
+                                  update("industry", o.value);
+                                  setIndustrySearch("");
+                                  setIndustryOpen(false);
+                                }}
+                                className={cn(
+                                  "flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors",
+                                  form.industry === o.value && "bg-primary/5 text-primary font-medium",
+                                )}
+                              >
+                                {form.industry === o.value && (
+                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                )}
+                                <span className={form.industry === o.value ? "" : "pl-5.5"}>{o.label}</span>
+                              </button>
+                            ))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              {fieldErrors["vertical"] && (
+              {fieldErrors["industry"] && (
                 <p className="text-xs text-destructive">
-                  {fieldErrors["vertical"]}
+                  {fieldErrors["industry"]}
                 </p>
               )}
             </div>

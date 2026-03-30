@@ -28,7 +28,7 @@ export default function AgentEditorPage({
     );
   }
 
-  if (!agent) {
+  if (!agent || !agent.id) {
     return (
       <div className="mx-auto max-w-4xl p-6 text-center">
         <p className="text-zinc-400">Agent not found</p>
@@ -36,5 +36,11 @@ export default function AgentEditorPage({
     );
   }
 
-  return <AgentEditor agent={agent} businessName={businessName} onSaved={refetch} />;
+  // Ensure settings is always a valid object (DB may return null/string in edge cases)
+  const safeAgent = {
+    ...agent,
+    settings: (typeof agent.settings === 'object' && agent.settings !== null ? agent.settings : {}) as Record<string, unknown>,
+  };
+
+  return <AgentEditor agent={safeAgent} businessName={businessName} onSaved={refetch} />;
 }

@@ -18,7 +18,6 @@ import { ClaudeClient } from '@hararai/ai';
 import type { ClaudeMessage } from '@hararai/ai';
 import { getPhoneAgentPrompt, getSmsAgentPrompt } from '@hararai/ai';
 import { TwilioClient } from '@hararai/integrations';
-import type { Vertical } from '@hararai/shared';
 import { resolveOrgByPhoneNumber, type ResolvedOrg } from '../../services/phone-routing-service.js';
 import { resolveContact } from '../../services/contact-resolution-service.js';
 import { conversationService } from '../../services/conversation-service.js';
@@ -47,7 +46,7 @@ const VALID_VERTICALS: Set<string> = new Set([
 
 async function getBusinessConfig(calledNumber: string): Promise<{
   name: string;
-  vertical: Vertical;
+  industry: string;
   agentName: string;
   orgId: string | null;
 }> {
@@ -63,11 +62,11 @@ async function getBusinessConfig(calledNumber: string): Promise<{
       if (org) {
         const settings = (org.settings ?? {}) as Record<string, unknown>;
         const onboarding = (settings['onboarding'] ?? {}) as Record<string, unknown>;
-        const rawVertical = (org as Record<string, unknown>).vertical as string || 'general_contractor';
-        const vertical = (VALID_VERTICALS.has(rawVertical) ? rawVertical : 'general_contractor') as Vertical;
+        const rawIndustry = (org as Record<string, unknown>).industry as string || 'general_contractor';
+        const industry = VALID_VERTICALS.has(rawIndustry) ? rawIndustry : 'general_contractor';
         return {
           name: org.name || 'our business',
-          vertical,
+          industry,
           agentName: typeof onboarding['agentName'] === 'string' ? onboarding['agentName'] : 'the AI assistant',
           orgId: org.id,
         };
@@ -80,13 +79,13 @@ async function getBusinessConfig(calledNumber: string): Promise<{
     });
   }
   // Fallback defaults
-  return { name: 'our business', vertical: 'general_contractor' as Vertical, agentName: 'the AI assistant', orgId: null };
+  return { name: 'our business', industry: 'general_contractor', agentName: 'the AI assistant', orgId: null };
 }
 
 /** @deprecated — use getBusinessConfig() for dynamic resolution */
 const DEFAULT_BUSINESS = {
   name: 'Northern Removals',
-  vertical: 'rubbish_removals' as const,
+  industry: 'rubbish_removals' as const,
   agentName: 'Sam',
 };
 
@@ -403,7 +402,7 @@ twilioWebhooks.post('/voice/respond', async (c) => {
     const claude = getClaudeClient();
     const systemPrompt = getPhoneAgentPrompt({
       businessName: bizConfig.name,
-      vertical: bizConfig.vertical,
+      industry: bizConfig.industry,
       agentName: bizConfig.agentName,
     });
 
@@ -504,7 +503,7 @@ twilioWebhooks.post('/sms', async (c) => {
   // ── Step 1: Resolve org from the Twilio "To" number ─────────────────────
   let resolvedOrg: ResolvedOrg | null = null;
   let businessName = DEFAULT_BUSINESS.name;
-  let businessVertical: string = DEFAULT_BUSINESS.vertical;
+  let businessIndustry: string = DEFAULT_BUSINESS.industry;
   let agentName = DEFAULT_BUSINESS.agentName;
 
   logger.info('[SMS DB] Step 1: Resolving org for number', { to: To });
@@ -513,7 +512,7 @@ twilioWebhooks.post('/sms', async (c) => {
     resolvedOrg = await resolveOrgByPhoneNumber(To);
     if (resolvedOrg) {
       businessName = resolvedOrg.orgName;
-      businessVertical = resolvedOrg.vertical;
+      businessIndustry = resolvedOrg.industry;
       // Use agent name from settings if available, else default
       agentName = (resolvedOrg.settings as Record<string, unknown>)?.agentName as string ?? DEFAULT_BUSINESS.agentName;
       logger.info('[SMS DB] Step 1 OK: Org resolved', {
@@ -664,7 +663,7 @@ twilioWebhooks.post('/sms', async (c) => {
     const claude = getClaudeClient();
     const systemPrompt = getSmsAgentPrompt({
       businessName,
-      vertical: businessVertical as Parameters<typeof getSmsAgentPrompt>[0]['vertical'],
+      industry: businessIndustry,
       agentName,
     });
 
