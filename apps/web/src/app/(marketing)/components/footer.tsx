@@ -2,27 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Zap } from "lucide-react";
+import { Lightning } from "@phosphor-icons/react";
 
 export function Footer() {
   const [email, setEmail] = useState("");
 
   return (
-    <footer className="relative bg-[#06061a]">
+    <footer className="relative bg-[#060614]">
       {/* Gradient line at top */}
-      <div className="gradient-line-h" />
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-sky-500/30 to-transparent" />
 
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-2 md:grid-cols-5 lg:gap-12">
           {/* Brand */}
           <div className="col-span-2 sm:col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
-                <Zap className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-teal-500 text-white shadow-lg shadow-sky-500/20">
+                <Lightning className="h-4 w-4" weight="fill" />
               </div>
               <span className="text-lg font-bold text-white">HararAI</span>
             </Link>
-            <p className="mt-3 text-sm text-white/30">
+            <p className="mt-3 text-sm text-white/25">
               The AI-powered operating system for local service businesses.
             </p>
 
@@ -35,7 +35,7 @@ export function Footer() {
                 <a
                   key={social.label}
                   href="#"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/30 transition-colors hover:bg-indigo-500/20 hover:text-indigo-400"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/25 transition-colors hover:bg-sky-500/15 hover:text-sky-400"
                   aria-label={social.label}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,7 +48,7 @@ export function Footer() {
 
           {/* Product */}
           <div>
-            <h4 className="text-sm font-semibold text-white/80">Product</h4>
+            <h4 className="text-sm font-semibold text-white/70">Product</h4>
             <ul className="mt-4 space-y-3">
               {[
                 { label: "Features", href: "#features" },
@@ -57,7 +57,7 @@ export function Footer() {
                 { label: "AI Phone Agent", href: "#how-ai-works" },
               ].map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm text-white/30 transition-colors hover:text-white/60">
+                  <a href={link.href} className="text-sm text-white/25 transition-colors hover:text-white/50">
                     {link.label}
                   </a>
                 </li>
@@ -67,11 +67,11 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <h4 className="text-sm font-semibold text-white/80">Company</h4>
+            <h4 className="text-sm font-semibold text-white/70">Company</h4>
             <ul className="mt-4 space-y-3">
               {["About", "Blog", "Careers", "Partners"].map((label) => (
                 <li key={label}>
-                  <a href="#" className="text-sm text-white/30 transition-colors hover:text-white/60">
+                  <a href="#" className="text-sm text-white/25 transition-colors hover:text-white/50">
                     {label}
                   </a>
                 </li>
@@ -81,7 +81,7 @@ export function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-sm font-semibold text-white/80">Support</h4>
+            <h4 className="text-sm font-semibold text-white/70">Support</h4>
             <ul className="mt-4 space-y-3">
               {[
                 { label: "Help Center", href: "#" },
@@ -91,7 +91,7 @@ export function Footer() {
                 { label: "Terms", href: "#" },
               ].map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm text-white/30 transition-colors hover:text-white/60">
+                  <a href={link.href} className="text-sm text-white/25 transition-colors hover:text-white/50">
                     {link.label}
                   </a>
                 </li>
@@ -101,13 +101,13 @@ export function Footer() {
         </div>
 
         {/* Newsletter */}
-        <div className="mt-14 glass-card p-6 sm:p-8">
+        <div className="mt-14 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm sm:p-8">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h4 className="text-base font-semibold text-white/90">
+              <h4 className="text-base font-semibold text-white/85">
                 Get growth tips for service businesses
               </h4>
-              <p className="mt-1 text-sm text-white/30">
+              <p className="mt-1 text-sm text-white/25">
                 Weekly insights on AI, marketing, and running a better business. No spam.
               </p>
             </div>
@@ -117,11 +117,11 @@ export function Footer() {
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 sm:w-64"
+                className="w-full min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:w-64"
               />
               <button
                 type="submit"
-                className="shrink-0 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
+                className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
               >
                 Subscribe
               </button>
@@ -130,12 +130,12 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 border-t border-white/5 pt-6">
+        <div className="mt-10 border-t border-white/[0.04] pt-6">
           <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm text-white/25">
+            <p className="text-sm text-white/20">
               Built for local businesses by people who understand local businesses.
             </p>
-            <p className="text-xs text-white/15">
+            <p className="text-xs text-white/10">
               &copy; 2026 HararAI. All rights reserved.
             </p>
           </div>
