@@ -522,19 +522,37 @@ export async function resendVerificationEmail(userId: string): Promise<void> {
  * Refresh a session using a valid refresh token.
  * Issues a new access token + rotates the refresh token (old one invalidated).
  */
+/**
+ * Grace period (in seconds) during which the previous refresh token
+ * is still accepted. This handles multi-tab race conditions: if tab A
+ * rotates the token and tab B sends the old one a moment later, tab B
+ * still succeeds within this window.
+ */
+const REFRESH_GRACE_PERIOD_SECONDS = 30;
+
 export async function refreshSession(oldRefreshToken: string): Promise<AuthResult> {
   try {
     const { db, users, sessions, organizations, orgMembers } = await import('@hararai/db');
-    const { eq, and, gte } = await import('drizzle-orm');
+    const { eq, and, gte, or } = await import('drizzle-orm');
 
-    // Find session by refresh token that hasn't expired
+    const now = new Date();
+
+    // Find session by current refresh token OR by previous token within grace period
     const [session] = await db
-      .select({ id: sessions.id, userId: sessions.userId })
+      .select({ id: sessions.id, userId: sessions.userId, refreshToken: sessions.refreshToken })
       .from(sessions)
       .where(
-        and(
-          eq(sessions.refreshToken, oldRefreshToken),
-          gte(sessions.refreshTokenExpiresAt, new Date()),
+        or(
+          // Current refresh token
+          and(
+            eq(sessions.refreshToken, oldRefreshToken),
+            gte(sessions.refreshTokenExpiresAt, now),
+          ),
+          // Previous refresh token within grace period (multi-tab race)
+          and(
+            eq(sessions.previousRefreshToken, oldRefreshToken),
+            gte(sessions.previousRefreshTokenExpiresAt, now),
+          ),
         ),
       )
       .limit(1);
@@ -542,6 +560,10 @@ export async function refreshSession(oldRefreshToken: string): Promise<AuthResul
     if (!session) {
       throw new AuthError('Invalid or expired refresh token', 'REFRESH_TOKEN_EXPIRED', 401);
     }
+
+    // If this was a grace-period hit (previous token), return the current token
+    // without rotating again — another tab already rotated
+    const isGraceHit = session.refreshToken !== oldRefreshToken;
 
     // Fetch user + membership + org
     const [user] = await db
@@ -559,19 +581,30 @@ export async function refreshSession(oldRefreshToken: string): Promise<AuthResul
     const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
-    // Issue new access token + rotate refresh token
+    // Issue new access token
     const newAccessToken = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
-    const newRefreshToken = generateRefreshToken();
-    const newRefreshTokenExpiresAt = getRefreshTokenExpiry();
 
-    // Update the session with new tokens
-    await db.update(sessions).set({
-      token: newAccessToken,
-      refreshToken: newRefreshToken,
-      refreshTokenExpiresAt: newRefreshTokenExpiresAt,
-    }).where(eq(sessions.id, session.id));
+    let newRefreshToken: string;
 
-    logger.info('Session refreshed', { userId: user.id, sessionId: session.id });
+    if (isGraceHit) {
+      // Grace period hit — reuse the current refresh token (don't rotate again)
+      newRefreshToken = session.refreshToken as string;
+    } else {
+      // Normal rotation — generate new refresh token, keep old one as grace
+      newRefreshToken = generateRefreshToken();
+      const newRefreshTokenExpiresAt = getRefreshTokenExpiry();
+      const graceExpiry = new Date(now.getTime() + REFRESH_GRACE_PERIOD_SECONDS * 1000);
+
+      await db.update(sessions).set({
+        token: newAccessToken,
+        refreshToken: newRefreshToken,
+        refreshTokenExpiresAt: newRefreshTokenExpiresAt,
+        previousRefreshToken: oldRefreshToken,
+        previousRefreshTokenExpiresAt: graceExpiry,
+      }).where(eq(sessions.id, session.id));
+    }
+
+    logger.info('Session refreshed', { userId: user.id, sessionId: session.id, graceHit: isGraceHit });
     return {
       user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified },
       org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry },
@@ -619,14 +652,15 @@ export async function revokeAllSessions(userId: string, keepSessionToken?: strin
 export async function cleanupExpiredSessions(): Promise<number> {
   try {
     const { db, sessions } = await import('@hararai/db');
-    const { lt, isNull, or } = await import('drizzle-orm');
+    const { lt, isNull, or, and } = await import('drizzle-orm');
 
+    const now = new Date();
     const result = await db.delete(sessions).where(
       or(
         // Refresh token expired
-        lt(sessions.refreshTokenExpiresAt, new Date()),
-        // Legacy sessions without refresh token that have expired
-        isNull(sessions.refreshToken),
+        lt(sessions.refreshTokenExpiresAt, now),
+        // Legacy sessions (no refresh token) that have passed their original expiresAt
+        and(isNull(sessions.refreshToken), lt(sessions.expiresAt, now)),
       ),
     ).returning({ id: sessions.id });
 

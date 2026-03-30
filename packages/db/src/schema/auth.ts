@@ -40,6 +40,8 @@ export const sessions = pgTable(
     token: text("token").notNull().unique(),
     refreshToken: text("refresh_token").unique(),
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    previousRefreshToken: text("previous_refresh_token"),
+    previousRefreshTokenExpiresAt: timestamp("previous_refresh_token_expires_at"),
     expiresAt: timestamp("expires_at").notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),

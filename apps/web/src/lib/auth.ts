@@ -84,14 +84,52 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 /**
+ * Cross-tab token synchronization via BroadcastChannel.
+ * When one tab refreshes, all other tabs receive the new access token
+ * without making their own refresh call (which would fail due to rotation).
+ */
+const AUTH_CHANNEL_NAME = 'hararai_auth';
+
+function getAuthChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null;
+  try {
+    return new BroadcastChannel(AUTH_CHANNEL_NAME);
+  } catch {
+    return null;
+  }
+}
+
+// Listen for token updates from other tabs
+if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+  try {
+    const listener = new BroadcastChannel(AUTH_CHANNEL_NAME);
+    listener.onmessage = (event: MessageEvent) => {
+      const { type, token } = event.data as { type: string; token?: string };
+      if (type === 'TOKEN_REFRESHED' && token) {
+        storeToken(token);
+      } else if (type === 'LOGGED_OUT') {
+        localStorage.removeItem(TOKEN_KEY);
+        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+        window.location.href = '/login';
+      }
+    };
+  } catch {
+    // BroadcastChannel not supported — each tab refreshes independently
+  }
+}
+
+/**
  * Attempt to refresh the access token via the HttpOnly cookie proxy.
  * The refresh token is read from the HttpOnly cookie server-side — JS never sees it.
  * Returns the new access token on success, null on failure.
+ *
+ * Uses BroadcastChannel to sync across tabs so only one tab refreshes
+ * (preventing race conditions from token rotation).
  */
 let refreshPromise: Promise<string | null> | null = null;
 
 export async function refreshAccessToken(): Promise<string | null> {
-  // Deduplicate concurrent refresh calls
+  // Deduplicate concurrent refresh calls within the same tab
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = doRefresh();
@@ -120,8 +158,16 @@ async function doRefresh(): Promise<string | null> {
 
     const json = (await res.json()) as { data: { token: string } };
 
-    // Store the new access token (refresh token was already rotated server-side into HttpOnly cookie)
+    // Store the new access token
     storeToken(json.data.token);
+
+    // Broadcast to other tabs so they don't try to refresh with the old (rotated) token
+    const channel = getAuthChannel();
+    if (channel) {
+      channel.postMessage({ type: 'TOKEN_REFRESHED', token: json.data.token });
+      channel.close();
+    }
+
     return json.data.token;
   } catch {
     // Network error — don't clear tokens (might be temporary)
