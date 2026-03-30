@@ -1,8 +1,10 @@
 'use client';
 
-import { use } from 'react';
+import { use, useMemo } from 'react';
 import { useAiAgent } from '@/lib/hooks/use-ai-agents';
 import { AgentEditor } from '@/components/ai-agents/agent-editor';
+import { getUser } from '@/lib/auth';
+import { getOnboardingData } from '@/lib/onboarding';
 
 export default function AgentEditorPage({
   params,
@@ -12,7 +14,11 @@ export default function AgentEditorPage({
   const { id } = use(params);
   const { data: agent, isLoading, refetch } = useAiAgent(id);
 
-  const businessName = 'Northern Removals'; // TODO: get from org settings
+  const businessName = useMemo(() => {
+    const user = typeof window !== 'undefined' ? getUser() : null;
+    const onboarding = typeof window !== 'undefined' ? getOnboardingData() : null;
+    return user?.orgName || onboarding?.businessName || 'My Business';
+  }, []);
 
   if (isLoading) {
     return (
