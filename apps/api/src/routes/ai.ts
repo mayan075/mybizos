@@ -25,7 +25,12 @@ const createAgentSchema = z.object({
 const updateAgentSchema = z.object({
   name: z.string().min(1).optional(),
   systemPrompt: z.string().min(1).optional(),
+  vertical: z.enum([
+    'rubbish_removals', 'moving_company', 'plumbing', 'hvac', 'electrical',
+    'roofing', 'landscaping', 'pest_control', 'cleaning', 'general_contractor',
+  ]).optional(),
   settings: z.record(z.unknown()).optional(),
+  geminiConfig: z.record(z.unknown()).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -122,6 +127,19 @@ ai.patch('/ai-agents/:id', async (c) => {
     return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: errors }, 422);
   }
 
+  if (parsed.data.systemPrompt) {
+    const { validatePromptCompliance } = await import('@hararai/shared');
+    const issues = validatePromptCompliance(parsed.data.systemPrompt);
+    const errors = issues.filter((i) => i.type === 'error');
+    if (errors.length > 0) {
+      return c.json({
+        error: errors[0]!.message,
+        code: 'PROMPT_COMPLIANCE_ERROR',
+        status: 422,
+      }, 422);
+    }
+  }
+
   try {
     const { aiService } = await import('../services/ai-service.js');
     const agent = await aiService.updateAgent(orgId, agentId, parsed.data);
@@ -174,6 +192,35 @@ ai.delete('/ai-agents/:id/unlink-phone', async (c) => {
     code: 'DEPRECATED',
     status: 410,
   }, 410);
+});
+
+/**
+ * GET /orgs/:orgId/ai-agents/:id/call-logs — list recent call logs
+ */
+ai.get('/ai-agents/:id/call-logs', async (c) => {
+  const orgId = c.get('orgId');
+  const agentId = c.req.param('id');
+  const limit = Number(c.req.query('limit') ?? '10');
+
+  try {
+    const { db, aiCallLogs } = await import('@hararai/db');
+    const { and, eq, desc } = await import('drizzle-orm');
+
+    const logs = await db
+      .select()
+      .from(aiCallLogs)
+      .where(and(
+        eq(aiCallLogs.orgId, orgId),
+        eq(aiCallLogs.agentId, agentId),
+      ))
+      .orderBy(desc(aiCallLogs.createdAt))
+      .limit(Math.min(limit, 50));
+
+    return c.json({ data: logs });
+  } catch (err) {
+    logger.error('Failed to list call logs', { error: err instanceof Error ? err.message : String(err) });
+    return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
 });
 
 /**

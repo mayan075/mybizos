@@ -90,16 +90,23 @@ export const aiService = {
     data: {
       name?: string;
       systemPrompt?: string;
+      vertical?: typeof aiAgents.vertical.enumValues[number];
       settings?: Record<string, unknown>;
+      geminiConfig?: Record<string, unknown>;
       isActive?: boolean;
     },
   ) {
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.systemPrompt !== undefined) updateData.systemPrompt = data.systemPrompt;
+    if (data.vertical !== undefined) updateData.vertical = data.vertical;
+    if (data.settings !== undefined) updateData.settings = data.settings;
+    if (data.geminiConfig !== undefined) updateData.geminiConfig = data.geminiConfig;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
     const [updated] = await db
       .update(aiAgents)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(and(
         withOrgScope(aiAgents.orgId, orgId),
         eq(aiAgents.id, agentId),
