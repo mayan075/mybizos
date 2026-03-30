@@ -257,10 +257,10 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
           'password-reset',
         );
       } catch (emailErr) {
-        logger.error({ err: emailErr, email: parsed.data.email }, 'Failed to send password reset email');
+        logger.error(`Failed to send password reset email to ${parsed.data.email}: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`);
       }
     } catch (dbErr) {
-      logger.error({ err: dbErr }, 'Database error during password reset flow');
+      logger.error(`Database error during password reset flow: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
     }
 
     return c.json(successResponse);
