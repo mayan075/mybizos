@@ -11,7 +11,7 @@ import {
   buildPromptFromTemplate,
 } from '@hararai/shared';
 import type { GeminiVoice } from '@hararai/shared';
-import { VoiceCard } from './voice-card';
+import { VoiceCard, usePrefetchVoiceSamples } from './voice-card';
 import { useCreateAgent } from '@/lib/hooks/use-ai-agents';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,7 @@ export function GuidedSetup({ businessName, orgIndustry }: GuidedSetupProps) {
   const router = useRouter();
   const toast = useToast();
   const { mutate, isLoading } = useCreateAgent();
+  usePrefetchVoiceSamples(GEMINI_VOICES);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [step, setStep] = useState<1 | 2 | 3>(1);

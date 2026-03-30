@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import type { AgentSettings, AgentTone, GeminiVoice } from '@hararai/shared';
 import { GEMINI_VOICES } from '@hararai/shared';
-import { VoiceCard } from './voice-card';
+import { VoiceCard, usePrefetchVoiceSamples } from './voice-card';
 
 // ── Tone options ─────────────────────────────────────────────────────────────
 
@@ -32,6 +32,8 @@ export function VoicePersonalitySection({
   onSettingsChange,
   disabled,
 }: VoicePersonalitySectionProps) {
+  usePrefetchVoiceSamples(GEMINI_VOICES);
+
   return (
     <div className="space-y-5 rounded-xl border border-zinc-700/50 bg-zinc-800/20 p-5">
       <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">

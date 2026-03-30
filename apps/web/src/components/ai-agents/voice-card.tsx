@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { Volume2, Play, Loader2, Square } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Volume2, Play, Loader2, Square, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/api-client';
 import { getUser } from '@/lib/auth';
@@ -20,14 +20,63 @@ const VOICE_META: Record<GeminiVoice, { description: string; tone: string }> = {
   Zephyr:  { description: 'Bright & expressive',   tone: 'Lively'       },
 };
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Shared in-memory audio cache ─────────────────────────────────────────────
+// Persists across re-renders and across VoiceCard instances so each sample is
+// fetched at most once per page session.
 
-interface VoiceSampleResponse {
-  audio: string;
-  mimeType: string;
+interface CacheEntry {
+  status: 'loading' | 'ready' | 'error';
+  objectUrl?: string;
+  promise?: Promise<string | null>;
 }
 
-// ── Props ────────────────────────────────────────────────────────────────────
+const audioCache = new Map<string, CacheEntry>();
+
+function fetchAndCacheSample(voice: string): Promise<string | null> {
+  const existing = audioCache.get(voice);
+  if (existing?.promise) return existing.promise;
+
+  const promise = (async (): Promise<string | null> => {
+    try {
+      const user = getUser();
+      if (!user?.orgId) return null;
+
+      const response = await apiClient.get<{ audio: string; mimeType: string }>(
+        `/orgs/${user.orgId}/gemini/voice-sample`,
+        { params: { voiceName: voice } },
+      );
+
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(response.audio), (c) => c.charCodeAt(0))],
+        { type: response.mimeType },
+      );
+      const objectUrl = URL.createObjectURL(audioBlob);
+
+      audioCache.set(voice, { status: 'ready', objectUrl });
+      return objectUrl;
+    } catch {
+      audioCache.set(voice, { status: 'error' });
+      return null;
+    }
+  })();
+
+  audioCache.set(voice, { status: 'loading', promise });
+  return promise;
+}
+
+// ── Prefetch hook — call once in the parent to warm all samples ──────────────
+
+export function usePrefetchVoiceSamples(voices: readonly string[]) {
+  useEffect(() => {
+    for (const voice of voices) {
+      if (!audioCache.has(voice)) {
+        fetchAndCacheSample(voice);
+      }
+    }
+  }, [voices]);
+}
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface VoiceCardProps {
   voice: GeminiVoice;
@@ -41,10 +90,17 @@ interface VoiceCardProps {
 export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProps) {
   const meta = VOICE_META[voice];
   const [playState, setPlayState] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const [sampleError, setSampleError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Sync error state from cache (for prefetch failures)
+  useEffect(() => {
+    const entry = audioCache.get(voice);
+    if (entry?.status === 'error') setSampleError(true);
+  }, [voice]);
+
   const handlePlay = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation(); // don't trigger onSelect
+    e.stopPropagation();
 
     // If already playing, stop
     if (playState === 'playing' && audioRef.current) {
@@ -56,39 +112,39 @@ export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProp
 
     if (playState === 'loading') return;
 
-    setPlayState('loading');
-    try {
-      const user = getUser();
-      if (!user?.orgId) throw new Error('No org');
+    // Check if already cached
+    const cached = audioCache.get(voice);
+    if (cached?.status === 'error') {
+      setSampleError(true);
+      return;
+    }
 
-      const response = await apiClient.get<VoiceSampleResponse>(
-        `/orgs/${user.orgId}/gemini/voice-sample`,
-        { params: { voiceName: voice } },
-      );
-
-      // Create audio from base64
-      const audioBlob = new Blob(
-        [Uint8Array.from(atob(response.audio), (c) => c.charCodeAt(0))],
-        { type: response.mimeType },
-      );
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+    if (cached?.status === 'ready' && cached.objectUrl) {
+      // Instant playback from cache
+      const audio = new Audio(cached.objectUrl);
       audioRef.current = audio;
-
-      audio.onended = () => {
-        setPlayState('idle');
-        URL.revokeObjectURL(audioUrl);
-      };
-      audio.onerror = () => {
-        setPlayState('idle');
-        URL.revokeObjectURL(audioUrl);
-      };
-
+      audio.onended = () => setPlayState('idle');
+      audio.onerror = () => setPlayState('idle');
       await audio.play();
       setPlayState('playing');
-    } catch {
-      setPlayState('idle');
+      return;
     }
+
+    // Not cached yet — fetch (shows loading spinner)
+    setPlayState('loading');
+    const objectUrl = await fetchAndCacheSample(voice);
+    if (!objectUrl) {
+      setSampleError(true);
+      setPlayState('idle');
+      return;
+    }
+
+    const audio = new Audio(objectUrl);
+    audioRef.current = audio;
+    audio.onended = () => setPlayState('idle');
+    audio.onerror = () => setPlayState('idle');
+    await audio.play();
+    setPlayState('playing');
   }, [playState, voice]);
 
   return (
@@ -125,18 +181,28 @@ export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProp
         <button
           type="button"
           onClick={(e) => void handlePlay(e)}
-          disabled={disabled || playState === 'loading'}
+          disabled={disabled || playState === 'loading' || sampleError}
           className={cn(
             'ml-auto flex h-5 w-5 items-center justify-center rounded-full transition-all',
             'hover:bg-zinc-600/50 focus:outline-none',
             'disabled:opacity-40',
-            playState === 'playing'
-              ? 'text-blue-400'
-              : 'text-zinc-500 hover:text-zinc-300',
+            sampleError
+              ? 'text-red-500 cursor-not-allowed'
+              : playState === 'playing'
+                ? 'text-blue-400'
+                : 'text-zinc-500 hover:text-zinc-300',
           )}
-          title={playState === 'playing' ? 'Stop sample' : 'Play sample'}
+          title={
+            sampleError
+              ? 'Sample unavailable'
+              : playState === 'playing'
+                ? 'Stop sample'
+                : 'Play sample'
+          }
         >
-          {playState === 'loading' ? (
+          {sampleError ? (
+            <AlertCircle className="h-3 w-3" />
+          ) : playState === 'loading' ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : playState === 'playing' ? (
             <Square className="h-2.5 w-2.5 fill-current" />
