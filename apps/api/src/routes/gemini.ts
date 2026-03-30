@@ -301,6 +301,41 @@ import { cacheGet, cacheSet } from '../lib/redis.js';
 const SAMPLE_TEXT = 'Hello! I\'m your AI assistant. How can I help you today?';
 const SAMPLE_CACHE_TTL = 60 * 60 * 24; // 24 hours
 
+/** Wrap raw PCM 16-bit LE samples in a WAV header so browsers can play it. */
+function pcmToWav(pcmBase64: string, sampleRate: number): Buffer {
+  const pcm = Buffer.from(pcmBase64, 'base64');
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcm.length;
+  const headerSize = 44;
+
+  const wav = Buffer.alloc(headerSize + dataSize);
+
+  // RIFF header
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(36 + dataSize, 4);
+  wav.write('WAVE', 8);
+
+  // fmt chunk
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);           // chunk size
+  wav.writeUInt16LE(1, 20);            // PCM format
+  wav.writeUInt16LE(numChannels, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(byteRate, 28);
+  wav.writeUInt16LE(blockAlign, 32);
+  wav.writeUInt16LE(bitsPerSample, 34);
+
+  // data chunk
+  wav.write('data', 36);
+  wav.writeUInt32LE(dataSize, 40);
+  pcm.copy(wav, headerSize);
+
+  return wav;
+}
+
 const voiceSampleSchema = z.object({
   voiceName: z.string().min(1),
 });
@@ -321,7 +356,7 @@ geminiRoutes.get('/voice-sample', async (c) => {
   // Check cache first
   const cached = await cacheGet(cacheKey);
   if (cached) {
-    return c.json({ audio: cached, mimeType: 'audio/mp3' });
+    return c.json({ audio: cached, mimeType: 'audio/wav' });
   }
 
   // Generate via Gemini REST API (generateContent with audio response)
@@ -360,17 +395,22 @@ geminiRoutes.get('/voice-sample', async (c) => {
       }>;
     };
 
-    const audioData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    const mimeType = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
-
-    if (!audioData) {
+    const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+    if (!inlineData?.data) {
       return c.json({ error: 'No audio in response', code: 'UPSTREAM_ERROR', status: 502 }, 502);
     }
 
-    // Cache the audio for 24 hours
-    await cacheSet(cacheKey, audioData, SAMPLE_CACHE_TTL);
+    // Gemini TTS returns raw PCM (audio/L16;rate=24000) — wrap in WAV header
+    const sampleRate = inlineData.mimeType?.includes('rate=')
+      ? Number(inlineData.mimeType.split('rate=')[1])
+      : 24000;
+    const wavBuffer = pcmToWav(inlineData.data, sampleRate);
+    const wavBase64 = wavBuffer.toString('base64');
 
-    return c.json({ audio: audioData, mimeType });
+    // Cache the WAV for 24 hours
+    await cacheSet(cacheKey, wavBase64, SAMPLE_CACHE_TTL);
+
+    return c.json({ audio: wavBase64, mimeType: 'audio/wav' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error('[Gemini] Voice sample error', { error: message });
