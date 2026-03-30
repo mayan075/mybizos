@@ -63,9 +63,11 @@ export default function ProfilePage() {
       // Try to load contact data for richer profile
       try {
         const orgId = getOrgId();
-        const contacts = await tryFetch(() => apiClient.get<Array<{ id: string; firstName: string; lastName: string; email: string; phone: string; address: string }>>(
-          `/orgs/${orgId}/contacts?search=${encodeURIComponent(user?.email ?? "")}`
-        ));
+        const contacts = await tryFetch(() =>
+          apiClient.get<Array<{ id: string; firstName: string; lastName: string; email: string; phone: string; address: string }>>(
+            `/orgs/${orgId}/contacts?search=${encodeURIComponent(user?.email ?? "")}`
+          )
+        );
         if (contacts && contacts.length > 0) {
           const c = contacts[0]!;
           setProfile({
@@ -96,14 +98,16 @@ export default function ProfilePage() {
       if (user) {
         // Update via API — best effort
         const orgId = getOrgId();
-        const contacts = await tryFetch(() => apiClient.get<Array<{ id: string }>>(
-          `/orgs/${orgId}/contacts?search=${encodeURIComponent(user.email ?? "")}`
-        ));
+        const contacts = await tryFetch(() =>
+          apiClient.get<Array<{ id: string }>>(
+            `/orgs/${orgId}/contacts?search=${encodeURIComponent(user.email ?? "")}`
+          )
+        );
         if (contacts && contacts.length > 0) {
           await apiClient.patch(`/orgs/${orgId}/contacts/${contacts[0]!.id}`, {
-              firstName: profile.firstName,
-              lastName: profile.lastName,
-              phone: profile.phone,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            phone: profile.phone,
           });
         }
       }

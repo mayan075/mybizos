@@ -32,7 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { apiClient, tryFetch } from "@/lib/api-client";
-import { useSocialPosts, useCreatePost, useAiSuggestions, type SocialPost, type AiSuggestion as ApiAiSuggestion } from "@/lib/hooks/use-social";
+import { useSocialPosts, useCreatePost, useAiSuggestions, useSocialAccounts, type SocialPost, type SocialAccount, type AiSuggestion as ApiAiSuggestion } from "@/lib/hooks/use-social";
 
 // ── Types ──
 
@@ -201,7 +201,6 @@ export default function SocialPage() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<number | null>(null);
-  const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, IntegrationConnectionStatus>>({});
   const [statusLoading, setStatusLoading] = useState(true);
   const [aiSuggestions, setAiSuggestions] = useState<ApiAiSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -212,52 +211,27 @@ export default function SocialPage() {
   const { mutate: createPost } = useCreatePost();
   const { mutate: fetchSuggestionsApi } = useAiSuggestions();
 
-  // Fetch real integration statuses from API
-  const fetchIntegrationStatuses = useCallback(async () => {
-    setStatusLoading(true);
-    try {
-      const result = await tryFetch(() =>
-        apiClient.get<{ status: Record<string, IntegrationConnectionStatus> }>(
-          "/orgs/demo/integrations/status",
-        ),
-      );
-      if (result) {
-        setIntegrationStatuses(result.status);
-      }
-    } catch {
-      // Fall back to mock data silently
-    } finally {
-      setStatusLoading(false);
-    }
-  }, []);
+  // Fetch real connected accounts from API
+  const { data: socialAccountsData, isLoading: accountsLoading } = useSocialAccounts();
 
   useEffect(() => {
-    fetchIntegrationStatuses();
-  }, [fetchIntegrationStatuses]);
+    setStatusLoading(accountsLoading);
+  }, [accountsLoading]);
 
-  // Build connected accounts from real statuses, falling back to mock data
+  // Build connected accounts from real API data
   const CONNECTED_ACCOUNTS: ConnectedAccount[] = useMemo(() => {
-    if (Object.keys(integrationStatuses).length === 0) {
-      return FALLBACK_ACCOUNTS;
-    }
-
+    const accounts = socialAccountsData ?? [];
     return FALLBACK_ACCOUNTS.map((fallback) => {
-      const providerKey = PLATFORM_TO_PROVIDER[fallback.platform];
-      if (!providerKey) return fallback;
-
-      const apiStatus = integrationStatuses[providerKey];
-      if (!apiStatus) return fallback;
-
+      const realAccount = accounts.find((a: SocialAccount) => a.platform === fallback.platform);
+      if (!realAccount) return fallback;
       return {
         ...fallback,
-        connected: apiStatus.connected,
-        name: apiStatus.accountName ?? fallback.name,
-        avatarInitials: apiStatus.accountName
-          ? apiStatus.accountName.substring(0, 2).toUpperCase()
-          : fallback.avatarInitials,
+        connected: realAccount.isActive,
+        name: realAccount.accountName,
+        avatarInitials: realAccount.accountName.substring(0, 2).toUpperCase(),
       };
     });
-  }, [integrationStatuses]);
+  }, [socialAccountsData]);
 
   // Derive scheduled and recent posts from API data
   const scheduledPosts: ScheduledPost[] = useMemo(() => {

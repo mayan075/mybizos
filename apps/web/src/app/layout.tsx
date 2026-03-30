@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -49,7 +51,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background font-sans antialiased`}>
         <ToastProvider>
           <ErrorBoundary>
             {children}

@@ -53,9 +53,9 @@ export default function MessagesPage() {
     if (!selectedConvId) return;
     async function loadMessages() {
       const orgId = getOrgId();
-      const data = await tryFetch(() => apiClient.get<Message[]>(
-        `/orgs/${orgId}/conversations/${selectedConvId}/messages`
-      ));
+      const data = await tryFetch(() =>
+        apiClient.get<Message[]>(`/orgs/${orgId}/conversations/${selectedConvId}/messages`)
+      );
       setMessages(data ?? []);
     }
     loadMessages();
@@ -73,7 +73,10 @@ export default function MessagesPage() {
     setSending(true);
     try {
       const orgId = getOrgId();
-      await apiClient.post(`/orgs/${orgId}/conversations/${selectedConvId}/messages`, { body: text, channel: "sms" });
+      await apiClient.post(`/orgs/${orgId}/conversations/${selectedConvId}/messages`, {
+        body: text,
+        channel: "sms",
+      });
 
       // Optimistic add
       setMessages((prev) => [

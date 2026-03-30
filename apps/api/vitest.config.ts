@@ -7,6 +7,9 @@ export default defineConfig({
     environment: "node",
     root: __dirname,
     include: ["src/**/*.test.ts"],
+    env: {
+      NODE_ENV: "development",
+    },
   },
   resolve: {
     alias: {

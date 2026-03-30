@@ -67,5 +67,45 @@ function useAiSuggestions() {
   );
 }
 
-export { useSocialPosts, useCreatePost, useUpdatePost, useDeletePost, useAiSuggestions };
-export type { SocialPost, CreatePostInput, AiSuggestion };
+// ── Social Accounts ──
+
+interface SocialAccount {
+  id: string;
+  orgId: string;
+  platform: string;
+  accountName: string;
+  platformAccountId: string;
+  isActive: boolean;
+  connectedAt: string;
+}
+
+function useSocialAccounts() {
+  return useApiQuery<SocialAccount[]>(
+    "/orgs/:orgId/social/accounts",
+    [],
+  );
+}
+
+function useConnectPlatform() {
+  return useApiMutation<{ platform: string }, { authUrl: string; platform: string }>(
+    "/orgs/:orgId/social/connect",
+    "post",
+  );
+}
+
+function useDisconnectAccount(accountId: string) {
+  return useApiMutation<void, { message: string }>(
+    `/orgs/:orgId/social/accounts/${accountId}`,
+    "delete",
+  );
+}
+
+function usePublishPost(postId: string) {
+  return useApiMutation<void, { postId: string; status: string; results: Array<{ platform: string; success: boolean; error?: string }> }>(
+    `/orgs/:orgId/social/posts/${postId}/publish`,
+    "post",
+  );
+}
+
+export { useSocialPosts, useCreatePost, useUpdatePost, useDeletePost, useAiSuggestions, useSocialAccounts, useConnectPlatform, useDisconnectAccount, usePublishPost };
+export type { SocialPost, CreatePostInput, AiSuggestion, SocialAccount };
