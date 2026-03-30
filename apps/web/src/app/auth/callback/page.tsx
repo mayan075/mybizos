@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { storeToken } from "@/lib/auth";
+import { storeTokens } from "@/lib/auth";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -12,7 +12,13 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const token = searchParams.get("token");
+    const refreshToken = searchParams.get("refreshToken");
     const errorMsg = searchParams.get("error");
+
+    // Immediately scrub tokens from browser history/URL bar
+    if (token || refreshToken) {
+      window.history.replaceState({}, "", "/auth/callback");
+    }
 
     if (errorMsg) {
       setError(errorMsg);
@@ -21,8 +27,9 @@ export default function AuthCallbackPage() {
     }
 
     if (token) {
-      storeToken(token);
-      router.push("/dashboard");
+      storeTokens(token, refreshToken ?? "").then(() => {
+        router.push("/dashboard");
+      });
     } else {
       setError("No authentication token received.");
       setTimeout(() => router.push("/login"), 3000);

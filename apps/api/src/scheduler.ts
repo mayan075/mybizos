@@ -7,6 +7,7 @@ import { runDailySummary } from './jobs/daily-summary.js';
 import { runStaleDealAlerts } from './jobs/stale-deal-alerts.js';
 import { runJob } from './jobs/index.js';
 import { runGoogleCalendarSync } from './jobs/google-calendar-sync.js';
+import { cleanupExpiredSessions } from './services/auth-service.js';
 
 // ═════════════════════════════════════════════════════════════════════════════════
 //  Job Scheduler
@@ -71,6 +72,12 @@ const jobs: ScheduledJob[] = [
     name: 'googleCalendarSync',
     cronExpression: '*/5 * * * *',   // Every 5 minutes
     handler: runGoogleCalendarSync,
+    task: null,
+  },
+  {
+    name: 'sessionCleanup',
+    cronExpression: '0 */6 * * *',   // Every 6 hours
+    handler: cleanupExpiredSessions,
     task: null,
   },
 ];

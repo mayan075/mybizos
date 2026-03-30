@@ -38,6 +38,8 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     token: text("token").notNull().unique(),
+    refreshToken: text("refresh_token").unique(),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
     expiresAt: timestamp("expires_at").notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
@@ -46,6 +48,7 @@ export const sessions = pgTable(
   (table) => [
     index("sessions_user_id_idx").on(table.userId),
     index("sessions_token_idx").on(table.token),
+    index("sessions_refresh_token_idx").on(table.refreshToken),
   ],
 );
 

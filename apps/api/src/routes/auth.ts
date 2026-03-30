@@ -10,6 +10,8 @@ import {
   loginOrCreateWithGoogle,
   verifyEmail,
   resendVerificationEmail,
+  refreshSession,
+  revokeAllSessions,
   AuthError,
 } from '../services/auth-service.js';
 import { config } from '../config.js';
@@ -22,6 +24,7 @@ const auth = new Hono();
 const loginLimiter = rateLimit(5, 60 * 1000);    // 5 attempts per minute
 const registerLimiter = rateLimit(3, 60 * 1000);  // 3 attempts per minute
 const resetLimiter = rateLimit(3, 60 * 1000);     // 3 attempts per minute
+const refreshLimiter = rateLimit(10, 60 * 1000);  // 10 refreshes per minute
 const resendVerificationLimiter = rateLimit(1, 60 * 1000); // 1 per minute
 
 // Password reset tokens are stored in the database (password_reset_tokens table)
@@ -147,6 +150,65 @@ auth.post('/logout', authMiddleware, async (c) => {
     const token = c.get('token');
     await logout(token);
     return c.json({ data: { message: 'Logged out successfully' } });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return c.json(
+        { error: err.message, code: err.code, status: err.status },
+        err.status as 400 | 401 | 403 | 404 | 409 | 500 | 503,
+      );
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /auth/revoke-all — log out of all sessions (or all except current)
+ */
+auth.post('/revoke-all', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const token = c.get('token');
+    const body = await c.req.json().catch(() => ({})) as { keepCurrent?: boolean };
+
+    const count = await revokeAllSessions(
+      user.id,
+      body.keepCurrent ? token : undefined,
+    );
+
+    return c.json({
+      data: {
+        message: `Revoked ${count} session${count !== 1 ? 's' : ''}`,
+        revokedCount: count,
+      },
+    });
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return c.json(
+        { error: err.message, code: err.code, status: err.status },
+        err.status as 400 | 401 | 403 | 404 | 409 | 500 | 503,
+      );
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /auth/refresh — exchange a refresh token for a new access token + refresh token
+ */
+auth.post('/refresh', refreshLimiter, async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = z.object({ refreshToken: z.string().min(1) }).safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        { error: 'Refresh token is required', code: 'VALIDATION_ERROR', status: 422 },
+        422,
+      );
+    }
+
+    const result = await refreshSession(parsed.data.refreshToken);
+    return c.json({ data: result });
   } catch (err) {
     if (err instanceof AuthError) {
       return c.json(
@@ -448,9 +510,9 @@ auth.get('/google/callback', async (c) => {
       userAgent,
     );
 
-    // Redirect to frontend with token
+    // Redirect to frontend with token + refresh token
     const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
-    return c.redirect(`${frontendUrl}/auth/callback?token=${result.token}`);
+    return c.redirect(`${frontendUrl}/auth/callback?token=${result.token}&refreshToken=${result.refreshToken}`);
   } catch (err) {
     if (err instanceof AuthError) {
       const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';

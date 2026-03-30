@@ -20,7 +20,7 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { storeToken } from "@/lib/auth";
+import { storeTokens } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { isOnboardingComplete } from "@/lib/onboarding";
 import { INDUSTRY_OPTIONS, INDUSTRY_GROUPS } from "@hararai/shared";
@@ -41,6 +41,7 @@ interface RegisterResponse {
       industry: string;
     };
     token: string;
+    refreshToken: string;
   };
 }
 
@@ -123,7 +124,7 @@ export default function RegisterPage() {
       },
     );
 
-    storeToken(response.data.token);
+    await storeTokens(response.data.token, response.data.refreshToken);
 
     // If email is already verified (dev mode / auto-verify), go straight to onboarding
     if (response.data.user.emailVerified) {

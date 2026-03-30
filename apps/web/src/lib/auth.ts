@@ -13,18 +13,33 @@ export interface TokenPayload {
 }
 
 /**
- * Store JWT token in localStorage and set a cookie
+ * Store JWT access token in localStorage and a short-lived cookie
  * so Next.js middleware can read it for route protection.
  */
 export function storeToken(token: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOKEN_KEY, token);
 
-  // Set cookie for Next.js middleware (HttpOnly not possible from JS,
-  // but this cookie is only used for route protection checks, not auth)
   const payload = decodeToken(token);
-  const maxAge = payload ? payload.exp - Math.floor(Date.now() / 1000) : 7 * 24 * 60 * 60;
+  const maxAge = payload ? payload.exp - Math.floor(Date.now() / 1000) : 15 * 60;
   document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+/**
+ * Store both access token (localStorage) and refresh token (HttpOnly cookie via server route).
+ * The refresh token NEVER touches JavaScript — it's set as HttpOnly by the Next.js API route.
+ */
+export async function storeTokens(token: string, refreshToken: string): Promise<void> {
+  storeToken(token);
+
+  // Send refresh token to our server-side route which sets it as HttpOnly cookie
+  await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  }).catch(() => {
+    // If this fails, we still have the access token — refresh will fail gracefully later
+  });
 }
 
 /**
@@ -33,14 +48,11 @@ export function storeToken(token: string): void {
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
 
-  // Try localStorage first
   const localToken = localStorage.getItem(TOKEN_KEY);
   if (localToken) return localToken;
 
-  // Fall back to cookie
   const cookieToken = getCookieValue(COOKIE_NAME);
   if (cookieToken) {
-    // Sync back to localStorage for consistency
     localStorage.setItem(TOKEN_KEY, cookieToken);
     return cookieToken;
   }
@@ -49,12 +61,15 @@ export function getToken(): string | null {
 }
 
 /**
- * Remove JWT token from localStorage and cookie (logout).
+ * Remove access token from localStorage/cookie and clear HttpOnly refresh cookie.
  */
 export function removeToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+
+  // Clear the HttpOnly refresh cookie via server route (fire-and-forget)
+  fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
 }
 
 /**
@@ -69,8 +84,53 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 /**
+ * Attempt to refresh the access token via the HttpOnly cookie proxy.
+ * The refresh token is read from the HttpOnly cookie server-side — JS never sees it.
+ * Returns the new access token on success, null on failure.
+ */
+let refreshPromise: Promise<string | null> | null = null;
+
+export async function refreshAccessToken(): Promise<string | null> {
+  // Deduplicate concurrent refresh calls
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = doRefresh();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+async function doRefresh(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) {
+      // Refresh token is invalid/expired — clear access token too
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY);
+        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+      }
+      return null;
+    }
+
+    const json = (await res.json()) as { data: { token: string } };
+
+    // Store the new access token (refresh token was already rotated server-side into HttpOnly cookie)
+    storeToken(json.data.token);
+    return json.data.token;
+  } catch {
+    // Network error — don't clear tokens (might be temporary)
+    return null;
+  }
+}
+
+/**
  * Decode JWT payload without verification (client-side only).
- * Returns null if token is missing, malformed, or expired.
  */
 function decodeToken(token: string): TokenPayload | null {
   try {
@@ -80,7 +140,6 @@ function decodeToken(token: string): TokenPayload | null {
     const payload = parts[1];
     if (!payload) return null;
 
-    // Base64url decode
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = JSON.parse(atob(base64)) as TokenPayload;
 
@@ -100,7 +159,23 @@ function getCookieValue(name: string): string | null {
 }
 
 /**
- * Check if a valid (non-expired) token exists.
+ * Check if the access token is expired (or about to expire in 60s).
+ */
+export function isAccessTokenExpired(): boolean {
+  const token = getToken();
+  if (!token) return true;
+
+  const payload = decodeToken(token);
+  if (!payload) return true;
+
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp <= now + 60;
+}
+
+/**
+ * Check if a valid session exists.
+ * Note: We can't check the HttpOnly refresh cookie from JS,
+ * so this only checks the access token. The middleware checks the refresh cookie.
  */
 export function isAuthenticated(): boolean {
   const token = getToken();
@@ -109,19 +184,13 @@ export function isAuthenticated(): boolean {
   const payload = decodeToken(token);
   if (!payload) return false;
 
-  // Check expiration (exp is in seconds, Date.now() in ms)
   const now = Math.floor(Date.now() / 1000);
-  if (payload.exp <= now) {
-    removeToken();
-    return false;
-  }
-
-  return true;
+  return payload.exp > now;
 }
 
 /**
  * Get decoded user info from the stored JWT token.
- * Returns null if not authenticated or token is invalid.
+ * Returns null if not authenticated or token is invalid/expired.
  */
 export function getUser(): TokenPayload | null {
   const token = getToken();
@@ -130,12 +199,8 @@ export function getUser(): TokenPayload | null {
   const payload = decodeToken(token);
   if (!payload) return null;
 
-  // Check expiration
   const now = Math.floor(Date.now() / 1000);
-  if (payload.exp <= now) {
-    removeToken();
-    return null;
-  }
+  if (payload.exp <= now) return null;
 
   return payload;
 }

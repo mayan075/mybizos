@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 
-const TOKEN_EXPIRY = '7d';
+const ACCESS_TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_DAYS = 30;
 
 export interface JwtPayload {
   userId: string;
@@ -29,13 +30,24 @@ export interface AuthResult {
     industry: string;
   };
   token: string;
+  refreshToken: string;
 }
 
 export function generateToken(payload: JwtPayload, expiresIn?: string): string {
   const secret = config.JWT_SECRET || 'dev-jwt-secret-change-in-production-must-be-32-chars';
   return jwt.sign(payload, secret, {
-    expiresIn: (expiresIn ?? TOKEN_EXPIRY) as unknown as number,
+    expiresIn: (expiresIn ?? ACCESS_TOKEN_EXPIRY) as unknown as number,
   } as jwt.SignOptions);
+}
+
+function generateRefreshToken(): string {
+  return crypto.randomUUID() + '-' + crypto.randomBytes(32).toString('hex');
+}
+
+function getRefreshTokenExpiry(): Date {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
+  return expiresAt;
 }
 
 /**
@@ -135,13 +147,15 @@ export async function register(
     }
 
     const token = generateToken({ userId: newUser.id, orgId: newOrg.id, email: newUser.email, role: 'owner', name: newUser.name, orgName: newOrg.name });
+    const refreshToken = generateRefreshToken();
+    const refreshTokenExpiresAt = getRefreshTokenExpiry();
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await db.insert(sessions).values({ userId: newUser.id, token, expiresAt });
+    await db.insert(sessions).values({ userId: newUser.id, token, refreshToken, refreshTokenExpiresAt, expiresAt });
 
     logger.info('User registered via REAL DATABASE', { userId: newUser.id, orgId: newOrg.id });
-    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner', emailVerified: newUser.emailVerified }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, industry: newOrg.industry }, token };
+    return { user: { id: newUser.id, email: newUser.email, name: newUser.name, role: 'owner', emailVerified: newUser.emailVerified }, org: { id: newOrg.id, name: newOrg.name, slug: newOrg.slug, industry: newOrg.industry }, token, refreshToken };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for registration', {
@@ -186,13 +200,15 @@ export async function login(
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
     const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
+    const refreshToken = generateRefreshToken();
+    const refreshTokenExpiresAt = getRefreshTokenExpiry();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await db.insert(sessions).values({ userId: user.id, token, expiresAt, ipAddress: _ipAddress ?? null, userAgent: _userAgent ?? null });
+    await db.insert(sessions).values({ userId: user.id, token, refreshToken, refreshTokenExpiresAt, expiresAt, ipAddress: _ipAddress ?? null, userAgent: _userAgent ?? null });
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via REAL DATABASE', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token, refreshToken };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Database unavailable for login', {
@@ -347,13 +363,15 @@ export async function loginOrCreateWithGoogle(
     if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
 
     const token = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
+    const refreshToken = generateRefreshToken();
+    const refreshTokenExpiresAt = getRefreshTokenExpiry();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await db.insert(sessions).values({ userId: user.id, token, expiresAt, ipAddress: ipAddress ?? null, userAgent: userAgent ?? null });
+    await db.insert(sessions).values({ userId: user.id, token, refreshToken, refreshTokenExpiresAt, expiresAt, ipAddress: ipAddress ?? null, userAgent: userAgent ?? null });
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
     logger.info('User logged in via Google OAuth', { userId: user.id, orgId: org.id });
-    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: true }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token };
+    return { user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: true }, org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry }, token, refreshToken };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     logger.error('Google OAuth login failed', {
@@ -497,6 +515,131 @@ export async function resendVerificationEmail(userId: string): Promise<void> {
       error: err instanceof Error ? err.message : String(err),
     });
     throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Refresh a session using a valid refresh token.
+ * Issues a new access token + rotates the refresh token (old one invalidated).
+ */
+export async function refreshSession(oldRefreshToken: string): Promise<AuthResult> {
+  try {
+    const { db, users, sessions, organizations, orgMembers } = await import('@hararai/db');
+    const { eq, and, gte } = await import('drizzle-orm');
+
+    // Find session by refresh token that hasn't expired
+    const [session] = await db
+      .select({ id: sessions.id, userId: sessions.userId })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.refreshToken, oldRefreshToken),
+          gte(sessions.refreshTokenExpiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    if (!session) {
+      throw new AuthError('Invalid or expired refresh token', 'REFRESH_TOKEN_EXPIRED', 401);
+    }
+
+    // Fetch user + membership + org
+    const [user] = await db
+      .select({ id: users.id, email: users.email, name: users.name, isActive: users.isActive, emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    if (!user) throw new AuthError('User not found', 'NOT_FOUND', 404);
+    if (!user.isActive) throw new AuthError('Account is deactivated', 'FORBIDDEN', 403);
+
+    const [membership] = await db.select({ orgId: orgMembers.orgId, role: orgMembers.role }).from(orgMembers).where(eq(orgMembers.userId, user.id)).limit(1);
+    if (!membership) throw new AuthError('User has no organization membership', 'FORBIDDEN', 403);
+
+    const [org] = await db.select({ id: organizations.id, name: organizations.name, slug: organizations.slug, industry: organizations.industry }).from(organizations).where(eq(organizations.id, membership.orgId)).limit(1);
+    if (!org) throw new AuthError('Organization not found', 'INTERNAL_ERROR', 500);
+
+    // Issue new access token + rotate refresh token
+    const newAccessToken = generateToken({ userId: user.id, orgId: org.id, email: user.email, role: membership.role, name: user.name, orgName: org.name });
+    const newRefreshToken = generateRefreshToken();
+    const newRefreshTokenExpiresAt = getRefreshTokenExpiry();
+
+    // Update the session with new tokens
+    await db.update(sessions).set({
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      refreshTokenExpiresAt: newRefreshTokenExpiresAt,
+    }).where(eq(sessions.id, session.id));
+
+    logger.info('Session refreshed', { userId: user.id, sessionId: session.id });
+    return {
+      user: { id: user.id, email: user.email, name: user.name, role: membership.role, emailVerified: user.emailVerified },
+      org: { id: org.id, name: org.name, slug: org.slug, industry: org.industry },
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    logger.error('Session refresh failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw new AuthError('Service temporarily unavailable. Please try again.', 'SERVICE_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Revoke all sessions for a user (e.g., "log out everywhere").
+ * Keeps the current session if currentSessionToken is provided.
+ */
+export async function revokeAllSessions(userId: string, keepSessionToken?: string): Promise<number> {
+  try {
+    const { db, sessions } = await import('@hararai/db');
+    const { eq, and, ne } = await import('drizzle-orm');
+
+    const condition = keepSessionToken
+      ? and(eq(sessions.userId, userId), ne(sessions.token, keepSessionToken))
+      : eq(sessions.userId, userId);
+
+    const result = await db.delete(sessions).where(condition).returning({ id: sessions.id });
+    const count = result.length;
+    logger.info('Revoked sessions for user', { userId, count, keptCurrent: Boolean(keepSessionToken) });
+    return count;
+  } catch (err) {
+    logger.error('Failed to revoke sessions', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw new AuthError('Service temporarily unavailable.', 'SERVICE_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Delete sessions whose refresh tokens have expired.
+ * Call this periodically (e.g., once per hour) to keep the table clean.
+ */
+export async function cleanupExpiredSessions(): Promise<number> {
+  try {
+    const { db, sessions } = await import('@hararai/db');
+    const { lt, isNull, or } = await import('drizzle-orm');
+
+    const result = await db.delete(sessions).where(
+      or(
+        // Refresh token expired
+        lt(sessions.refreshTokenExpiresAt, new Date()),
+        // Legacy sessions without refresh token that have expired
+        isNull(sessions.refreshToken),
+      ),
+    ).returning({ id: sessions.id });
+
+    const count = result.length;
+    if (count > 0) {
+      logger.info('Cleaned up expired sessions', { count });
+    }
+    return count;
+  } catch (err) {
+    logger.error('Session cleanup failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
   }
 }
 

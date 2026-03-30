@@ -16,7 +16,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { storeToken } from "@/lib/auth";
+import { storeTokens } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { env } from "@/lib/env";
 
@@ -35,6 +35,7 @@ interface LoginResponse {
       vertical: string;
     };
     token: string;
+    refreshToken: string;
   };
 }
 
@@ -71,7 +72,7 @@ export default function LoginPage() {
       password: loginPassword,
     });
 
-    storeToken(response.data.token);
+    await storeTokens(response.data.token, response.data.refreshToken);
     router.push("/dashboard");
   }
 

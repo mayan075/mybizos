@@ -80,13 +80,18 @@ export function middleware(request: NextRequest) {
 
   // Get token from cookie or Authorization header
   const cookieToken = request.cookies.get("hararai_token")?.value;
+  const refreshCookie = request.cookies.get("hararai_refresh_token")?.value;
   const authHeader = request.headers.get("Authorization");
   const bearerToken = authHeader?.startsWith("Bearer ")
     ? authHeader.slice(7)
     : undefined;
 
   const token = cookieToken ?? bearerToken;
-  const hasValidToken = token ? !isTokenExpired(token) : false;
+  const hasValidAccessToken = token ? !isTokenExpired(token) : false;
+  // If access token is expired but refresh token exists, let the page load —
+  // the client-side api-client will handle refreshing transparently.
+  const hasRefreshToken = Boolean(refreshCookie);
+  const hasSession = hasValidAccessToken || hasRefreshToken;
 
   // If route is public (including login/register), always allow access.
   // We do NOT redirect authenticated users away from login/register —
@@ -95,8 +100,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // If route is protected and no valid token, redirect to login
-  if (isProtectedPath(pathname) && !hasValidToken) {
+  // If route is protected and no valid session at all, redirect to login
+  if (isProtectedPath(pathname) && !hasSession) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);

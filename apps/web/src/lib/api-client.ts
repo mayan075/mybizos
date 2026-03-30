@@ -4,7 +4,7 @@
  * error handling, auth headers, and response parsing.
  */
 
-import { getAuthHeaders, removeToken } from "./auth";
+import { getAuthHeaders, removeToken, isAccessTokenExpired, refreshAccessToken } from "./auth";
 import { env } from "./env";
 
 const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
@@ -46,21 +46,37 @@ async function request<T>(
     url += `?${searchParams.toString()}`;
   }
 
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...init.headers,
-    },
-  });
+  // Preemptive refresh: if access token is expired/about to expire, refresh first
+  if (isAccessTokenExpired()) {
+    await refreshAccessToken();
+  }
 
-  // Handle 401: clear token and redirect to login
+  const doFetch = () =>
+    fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+        ...init.headers,
+      },
+    });
+
+  let response = await doFetch();
+
+  // Handle 401: try refreshing the token once before giving up
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      // Retry the request with the fresh token
+      response = await doFetch();
+    }
+  }
+
+  // If still 401 after refresh attempt, redirect to login
   if (response.status === 401) {
     removeToken();
     if (typeof window !== "undefined") {
       const currentPath = window.location.pathname;
-      // Don't redirect if already on login/register
       if (currentPath !== "/login" && currentPath !== "/register") {
         window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
       }
