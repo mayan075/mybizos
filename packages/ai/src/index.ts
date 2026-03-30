@@ -9,6 +9,7 @@ export { LeadScoringEngine, type ScoringFactors, type ScoringResult } from "./ag
 
 // Prompts
 export { getPhoneAgentPrompt, getSmsAgentPrompt } from "./prompts/system-prompts.js";
+export { getDemoAgentPrompt } from "./prompts/demo-agent-prompt.js";
 
 // Onboarding Agent
 export { ONBOARDING_SYSTEM_PROMPT, ONBOARDING_TOOLS } from "./agents/onboarding-agent.js";

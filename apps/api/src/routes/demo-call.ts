@@ -9,7 +9,7 @@ import { Hono } from 'hono';
 import { generateEphemeralToken, buildEphemeralWsUrl } from '@hararai/integrations';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
-import { getDemoAgentPrompt } from '@hararai/ai/prompts/demo-agent-prompt';
+import { getDemoAgentPrompt } from '@hararai/ai';
 
 const demoCallRoutes = new Hono();
 

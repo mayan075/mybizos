@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+
 import { motion, useScroll, useTransform } from "motion/react";
 import {
   Phone as PhoneIcon,
   CalendarCheck,
   TrendUp,
   Lightning,
-  ArrowRight,
+
   ChartLineUp,
   ChatCircleDots,
   Bell as BellIcon,
   Star as StarIcon,
   CheckCircle,
 } from "@phosphor-icons/react";
-import { MagneticButton } from "@/components/ui/magnetic-button";
+
+import { VoiceDemoWidget } from "@/components/landing/voice-demo-widget";
 
 /* ------------------------------------------------------------------ */
 /*  Count-Up Hook (Intersection Observer)                              */
@@ -418,26 +419,14 @@ export function Hero() {
             </span>
           </motion.div>
 
-          {/* CTAs */}
+          {/* Voice Demo Widget */}
           <motion.div
-            className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            className="mt-12"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 80, damping: 20, delay: 0.3 }}
           >
-            <MagneticButton
-              className="group inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-sky-500 via-teal-500 to-emerald-500 px-8 py-4 text-base font-semibold text-white shadow-2xl shadow-sky-500/20 transition-all hover:shadow-sky-500/30 hover:brightness-110"
-              onClick={() => window.location.href = "/register"}
-            >
-              Start Free Trial
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" weight="bold" />
-            </MagneticButton>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-8 py-4 text-base font-semibold text-white/60 backdrop-blur-sm transition-all hover:bg-white/[0.06] hover:text-white/80"
-            >
-              See a live demo
-            </Link>
+            <VoiceDemoWidget />
           </motion.div>
         </div>
 
