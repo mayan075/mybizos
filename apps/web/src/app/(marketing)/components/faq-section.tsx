@@ -1,30 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, HelpCircle } from "lucide-react";
-import { RevealSection } from "./reveal-section";
+import { motion, AnimatePresence } from "motion/react";
+import { CaretDown, Question } from "@phosphor-icons/react";
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="border-b border-border/30 last:border-b-0">
+    <div className="border-b border-border/20 last:border-b-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-primary"
       >
         <span className="text-[15px] font-medium text-foreground">{question}</span>
-        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/50 transition-all duration-300 ${isOpen ? "rotate-180 bg-indigo-500 border-indigo-500" : "bg-transparent"}`}>
-          <ChevronDown className={`h-3.5 w-3.5 ${isOpen ? "text-white" : "text-muted-foreground"}`} />
-        </div>
+        <motion.div
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
+            isOpen ? "border-sky-500 bg-sky-500" : "border-border/40 bg-transparent"
+          }`}
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+          <CaretDown className={`h-3.5 w-3.5 ${isOpen ? "text-white" : "text-muted-foreground"}`} weight="bold" />
+        </motion.div>
       </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-out ${
-          isOpen ? "max-h-96 pb-5" : "max-h-0"
-        }`}
-      >
-        <p className="text-sm leading-relaxed text-muted-foreground">{answer}</p>
-      </div>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="overflow-hidden"
+          >
+            <p className="pb-5 text-sm leading-relaxed text-muted-foreground">{answer}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -64,28 +76,36 @@ export function FAQSection() {
   return (
     <section id="faq" className="scroll-mt-16 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <RevealSection>
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-muted-foreground/15 bg-accent px-4 py-1.5 text-sm font-medium text-muted-foreground">
-              <HelpCircle className="h-3.5 w-3.5" />
-              FAQ
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Got questions?
-            </h2>
-            <p className="mt-5 text-lg text-muted-foreground">
-              Everything you need to know before getting started.
-            </p>
+        <motion.div
+          className="mx-auto max-w-2xl text-center"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-muted-foreground/10 bg-accent px-4 py-1.5 text-sm font-medium text-muted-foreground">
+            <Question className="h-3.5 w-3.5" weight="fill" />
+            FAQ
           </div>
-        </RevealSection>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Got questions?
+          </h2>
+          <p className="mt-5 text-lg text-muted-foreground">
+            Everything you need to know before getting started.
+          </p>
+        </motion.div>
 
-        <RevealSection delay={200}>
-          <div className="mx-auto mt-14 max-w-2xl rounded-3xl border border-border/40 bg-card px-6 shadow-xl shadow-black/5 sm:px-8">
-            {faqs.map((faq) => (
-              <FAQItem key={faq.question} {...faq} />
-            ))}
-          </div>
-        </RevealSection>
+        <motion.div
+          className="mx-auto mt-14 max-w-2xl rounded-3xl border border-border/30 bg-card px-6 shadow-lg sm:px-8"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ type: "spring", stiffness: 80, damping: 20, delay: 0.15 }}
+        >
+          {faqs.map((faq) => (
+            <FAQItem key={faq.question} {...faq} />
+          ))}
+        </motion.div>
       </div>
     </section>
   );
