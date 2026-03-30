@@ -13,7 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tryFetch } from "@/lib/api-client";
+import { apiClient, tryFetch } from "@/lib/api-client";
 import { getOrgId } from "@/lib/hooks/use-api";
 
 type AppointmentStatus = "confirmed" | "pending" | "completed" | "cancelled" | "scheduled";
@@ -70,7 +70,7 @@ export default function AppointmentsPage() {
   useEffect(() => {
     async function load() {
       const orgId = getOrgId();
-      const data = await tryFetch<Appointment[]>(`/orgs/${orgId}/appointments`);
+      const data = await tryFetch(() => apiClient.get<Appointment[]>(`/orgs/${orgId}/appointments`));
       setAppointments(data ?? []);
       setLoading(false);
     }

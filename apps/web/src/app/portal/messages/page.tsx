@@ -37,7 +37,7 @@ export default function MessagesPage() {
   useEffect(() => {
     async function load() {
       const orgId = getOrgId();
-      const data = await tryFetch<Conversation[]>(`/orgs/${orgId}/conversations`);
+      const data = await tryFetch(() => apiClient.get<Conversation[]>(`/orgs/${orgId}/conversations`));
       const convs = data ?? [];
       setConversations(convs);
       if (convs.length > 0 && !selectedConvId) {
@@ -53,9 +53,9 @@ export default function MessagesPage() {
     if (!selectedConvId) return;
     async function loadMessages() {
       const orgId = getOrgId();
-      const data = await tryFetch<Message[]>(
+      const data = await tryFetch(() => apiClient.get<Message[]>(
         `/orgs/${orgId}/conversations/${selectedConvId}/messages`
-      );
+      ));
       setMessages(data ?? []);
     }
     loadMessages();
@@ -73,10 +73,7 @@ export default function MessagesPage() {
     setSending(true);
     try {
       const orgId = getOrgId();
-      await apiClient(`/orgs/${orgId}/conversations/${selectedConvId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ body: text, channel: "sms" }),
-      });
+      await apiClient.post(`/orgs/${orgId}/conversations/${selectedConvId}/messages`, { body: text, channel: "sms" });
 
       // Optimistic add
       setMessages((prev) => [

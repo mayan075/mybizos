@@ -11,7 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tryFetch } from "@/lib/api-client";
+import { apiClient, tryFetch } from "@/lib/api-client";
 import { getOrgId } from "@/lib/hooks/use-api";
 
 type InvoiceStatus = "paid" | "unpaid" | "overdue" | "sent" | "draft";
@@ -65,7 +65,7 @@ export default function InvoicesPage() {
   useEffect(() => {
     async function load() {
       const orgId = getOrgId();
-      const data = await tryFetch<Invoice[]>(`/orgs/${orgId}/invoices`);
+      const data = await tryFetch(() => apiClient.get<Invoice[]>(`/orgs/${orgId}/invoices`));
       setInvoices(data ?? []);
       setLoading(false);
     }
