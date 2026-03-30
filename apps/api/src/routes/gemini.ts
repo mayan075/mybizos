@@ -294,4 +294,88 @@ geminiRoutes.post('/test-session', async (c) => {
   });
 });
 
+// ─── Voice Sample (cached TTS preview) ────────────────────────────────────
+
+import { cacheGet, cacheSet } from '../lib/redis.js';
+
+const SAMPLE_TEXT = 'Hello! I\'m your AI assistant. How can I help you today?';
+const SAMPLE_CACHE_TTL = 60 * 60 * 24; // 24 hours
+
+const voiceSampleSchema = z.object({
+  voiceName: z.string().min(1),
+});
+
+geminiRoutes.get('/voice-sample', async (c) => {
+  const voiceName = c.req.query('voiceName');
+  if (!voiceName) {
+    return c.json({ error: 'voiceName query parameter required', code: 'VALIDATION_ERROR', status: 422 }, 422);
+  }
+
+  const parsed = voiceSampleSchema.safeParse({ voiceName });
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid voiceName', code: 'VALIDATION_ERROR', status: 422 }, 422);
+  }
+
+  const cacheKey = `voice-sample:${parsed.data.voiceName}`;
+
+  // Check cache first
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    return c.json({ audio: cached, mimeType: 'audio/mp3' });
+  }
+
+  // Generate via Gemini REST API (generateContent with audio response)
+  try {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_LIVE_MODEL}:generateContent?key=${config.GOOGLE_AI_API_KEY}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: SAMPLE_TEXT }],
+        }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: parsed.data.voiceName },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => 'Unknown');
+      logger.error('[Gemini] Voice sample generation failed', { status: response.status, error: errorBody });
+      return c.json({ error: 'Failed to generate voice sample', code: 'UPSTREAM_ERROR', status: 502 }, 502);
+    }
+
+    const data = await response.json() as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ inlineData?: { mimeType: string; data: string } }>;
+        };
+      }>;
+    };
+
+    const audioData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    const mimeType = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType ?? 'audio/mp3';
+
+    if (!audioData) {
+      return c.json({ error: 'No audio in response', code: 'UPSTREAM_ERROR', status: 502 }, 502);
+    }
+
+    // Cache the audio for 24 hours
+    await cacheSet(cacheKey, audioData, SAMPLE_CACHE_TTL);
+
+    return c.json({ audio: audioData, mimeType });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('[Gemini] Voice sample error', { error: message });
+    return c.json({ error: 'Voice sample generation failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
+  }
+});
+
 export { geminiRoutes };

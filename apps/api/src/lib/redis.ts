@@ -57,7 +57,14 @@ async function getClient(): Promise<RedisClient | null> {
   if (initAttempted) return redisClient;
   initAttempted = true;
 
-  if (!config.REDIS_URL || config.REDIS_URL === 'placeholder' || !config.REDIS_URL.startsWith('redis')) {
+  const url = config.REDIS_URL;
+  if (
+    !url ||
+    url === 'placeholder' ||
+    url.includes('placeholder') ||
+    url === '' ||
+    !url.startsWith('redis')
+  ) {
     logger.info('Redis not configured — using in-memory cache');
     useMemFallback = true;
     return null;
@@ -65,18 +72,28 @@ async function getClient(): Promise<RedisClient | null> {
 
   try {
     const { default: Redis } = await import('ioredis');
-    const client = new Redis(config.REDIS_URL, {
+    const client = new Redis(url, {
       lazyConnect: true,
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
       connectTimeout: 5000,
+      retryStrategy(times) {
+        // Give up after 3 attempts to avoid log flooding
+        if (times > 3) return null;
+        return Math.min(times * 500, 2000);
+      },
     });
 
     await client.connect();
     await client.ping();
 
+    let errorLogged = false;
     client.on('error', (err: Error) => {
-      logger.error('Redis connection error', { error: err.message });
+      // Log once to avoid flooding
+      if (!errorLogged) {
+        logger.error('Redis connection error', { error: err.message });
+        errorLogged = true;
+      }
     });
 
     redisClient = client;

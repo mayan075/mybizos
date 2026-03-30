@@ -1,7 +1,10 @@
 'use client';
 
-import { Volume2 } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Volume2, Play, Loader2, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/lib/api-client';
+import { getUser } from '@/lib/auth';
 import type { GeminiVoice } from '@hararai/shared';
 
 // ── Voice metadata ───────────────────────────────────────────────────────────
@@ -17,6 +20,13 @@ const VOICE_META: Record<GeminiVoice, { description: string; tone: string }> = {
   Zephyr:  { description: 'Bright & expressive',   tone: 'Lively'       },
 };
 
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface VoiceSampleResponse {
+  audio: string;
+  mimeType: string;
+}
+
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface VoiceCardProps {
@@ -30,6 +40,56 @@ interface VoiceCardProps {
 
 export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProps) {
   const meta = VOICE_META[voice];
+  const [playState, setPlayState] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlay = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation(); // don't trigger onSelect
+
+    // If already playing, stop
+    if (playState === 'playing' && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlayState('idle');
+      return;
+    }
+
+    if (playState === 'loading') return;
+
+    setPlayState('loading');
+    try {
+      const user = getUser();
+      if (!user?.orgId) throw new Error('No org');
+
+      const response = await apiClient.get<VoiceSampleResponse>(
+        `/orgs/${user.orgId}/gemini/voice-sample`,
+        { params: { voiceName: voice } },
+      );
+
+      // Create audio from base64
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(response.audio), (c) => c.charCodeAt(0))],
+        { type: response.mimeType },
+      );
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setPlayState('idle');
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setPlayState('idle');
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      setPlayState('playing');
+    } catch {
+      setPlayState('idle');
+    }
+  }, [playState, voice]);
 
   return (
     <button
@@ -60,6 +120,30 @@ export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProp
         >
           {voice}
         </span>
+
+        {/* Play sample button */}
+        <button
+          type="button"
+          onClick={(e) => void handlePlay(e)}
+          disabled={disabled || playState === 'loading'}
+          className={cn(
+            'ml-auto flex h-5 w-5 items-center justify-center rounded-full transition-all',
+            'hover:bg-zinc-600/50 focus:outline-none',
+            'disabled:opacity-40',
+            playState === 'playing'
+              ? 'text-blue-400'
+              : 'text-zinc-500 hover:text-zinc-300',
+          )}
+          title={playState === 'playing' ? 'Stop sample' : 'Play sample'}
+        >
+          {playState === 'loading' ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : playState === 'playing' ? (
+            <Square className="h-2.5 w-2.5 fill-current" />
+          ) : (
+            <Play className="h-3 w-3 fill-current" />
+          )}
+        </button>
       </div>
       <p className="text-[11px] leading-tight text-zinc-500">{meta.description}</p>
       <span

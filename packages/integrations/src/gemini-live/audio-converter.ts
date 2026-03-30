@@ -64,6 +64,63 @@ function linearToMulaw(sample: number): number {
   return mulawByte;
 }
 
+// ─── Low-Pass Filter (Anti-Alias) ──────────────────────────────────────────
+
+/**
+ * Pre-computed FIR low-pass filter kernel for 24kHz → 8kHz downsampling.
+ *
+ * Cutoff at 4kHz (Nyquist of 8kHz target) with a Hamming-windowed sinc.
+ * 13 taps gives a good balance between quality and CPU cost on a real-time
+ * audio path.  The kernel is normalised so the sum of coefficients = 1.
+ */
+const LP_KERNEL = (() => {
+  const N = 13; // filter length (odd → symmetric)
+  const M = (N - 1) / 2; // centre tap index
+  const fc = 4000 / 24000; // normalised cutoff = target_nyquist / source_rate
+  const raw = new Float64Array(N);
+  let sum = 0;
+
+  for (let n = 0; n < N; n++) {
+    const x = n - M;
+    // Windowed-sinc: sinc(2·fc·x) · hamming(n)
+    const sinc = x === 0
+      ? 2 * Math.PI * fc
+      : Math.sin(2 * Math.PI * fc * x) / x;
+    const hamming = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / (N - 1));
+    raw[n] = sinc * hamming;
+    sum += raw[n]!;
+  }
+
+  // Normalise
+  for (let n = 0; n < N; n++) raw[n]! /= sum;
+  return raw;
+})();
+
+const LP_HALF = (LP_KERNEL.length - 1) / 2;
+
+/** Apply the FIR low-pass filter to an array of PCM samples in-place. */
+function applyLowPass(samples: Int16Array): Int16Array {
+  const len = samples.length;
+  const out = new Int16Array(len);
+
+  for (let i = 0; i < len; i++) {
+    let acc = 0;
+    for (let k = 0; k < LP_KERNEL.length; k++) {
+      const idx = i - LP_HALF + k;
+      // Mirror-pad at boundaries
+      const s = idx < 0
+        ? samples[-idx]!
+        : idx >= len
+          ? samples[2 * len - idx - 2]!
+          : samples[idx]!;
+      acc += s * LP_KERNEL[k]!;
+    }
+    out[i] = Math.round(Math.max(-32768, Math.min(32767, acc)));
+  }
+
+  return out;
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
@@ -72,7 +129,6 @@ function linearToMulaw(sample: number): number {
  * Steps:
  * 1. Decode each mu-law byte to a 16-bit PCM sample at 8kHz
  * 2. Upsample from 8kHz to 16kHz using linear interpolation (2x)
- * 3. Apply light smoothing to reduce interpolation artifacts
  */
 export function mulawToLinear16(mulawBuffer: Buffer): Buffer {
   const inputSamples = mulawBuffer.length;
@@ -104,30 +160,27 @@ export function mulawToLinear16(mulawBuffer: Buffer): Buffer {
  * Convert linear PCM 16-bit 24kHz to mu-law 8kHz.
  *
  * Steps:
- * 1. Apply simple low-pass filter (anti-aliasing) before downsampling
- * 2. Downsample from 24kHz to 8kHz by averaging groups of 3 samples
+ * 1. Apply 13-tap FIR low-pass filter (Hamming-windowed sinc, 4kHz cutoff)
+ * 2. Downsample from 24kHz to 8kHz by picking every 3rd sample
  * 3. Encode each sample to mu-law
  */
 export function linear16ToMulaw(pcmBuffer: Buffer): Buffer {
-  // PCM 16-bit = 2 bytes per sample
   const totalSamples = pcmBuffer.length / 2;
   const outputSamples = Math.floor(totalSamples / 3); // 24kHz → 8kHz = 1/3
 
+  // Read all PCM samples into a typed array
+  const raw = new Int16Array(totalSamples);
+  for (let i = 0; i < totalSamples; i++) {
+    raw[i] = pcmBuffer.readInt16LE(i * 2);
+  }
+
+  // Anti-alias: low-pass filter removes frequencies above 4kHz
+  const filtered = applyLowPass(raw);
+
+  // Decimate: pick every 3rd sample from the filtered signal
   const output = Buffer.alloc(outputSamples);
-
   for (let i = 0; i < outputSamples; i++) {
-    const baseIndex = i * 3;
-
-    // Average 3 samples for anti-aliased downsampling instead of just picking one
-    let sum = 0;
-    let count = 0;
-    for (let j = 0; j < 3 && (baseIndex + j) < totalSamples; j++) {
-      sum += pcmBuffer.readInt16LE((baseIndex + j) * 2);
-      count++;
-    }
-    const averaged = Math.round(sum / count);
-
-    output[i] = linearToMulaw(averaged);
+    output[i] = linearToMulaw(filtered[i * 3]!);
   }
 
   return output;

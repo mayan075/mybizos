@@ -37,6 +37,36 @@ function formatElapsed(seconds: number): string {
   return `${m}:${s}`;
 }
 
+/** Convert Float32 audio samples to PCM 16-bit LE and base64-encode. */
+function float32ToPcm16Base64(float32: Float32Array): string {
+  const pcm16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]!));
+    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  const bytes = new Uint8Array(pcm16.buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
+
+/** Decode base64 PCM 16-bit LE back to Float32 for AudioContext playback. */
+function pcm16Base64ToFloat32(base64: string): Float32Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const pcm16 = new Int16Array(bytes.buffer);
+  const float32 = new Float32Array(pcm16.length);
+  for (let i = 0; i < pcm16.length; i++) {
+    float32[i] = pcm16[i]! / (pcm16[i]! < 0 ? 0x8000 : 0x7fff);
+  }
+  return float32;
+}
+
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface TestCallPanelProps {
@@ -54,7 +84,31 @@ export function TestCallPanel({ systemPrompt, voiceName }: TestCallPanelProps) {
   // Refs for cleanup
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // TODO: Add AudioContext and MediaStream refs for full audio streaming implementation
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | ScriptProcessorNode | null>(null);
+  const playbackQueueRef = useRef<Float32Array[]>([]);
+  const isPlayingRef = useRef(false);
+
+  // ── Playback: drain queued audio chunks ─────────────────────────────
+  const drainPlaybackQueue = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx || isPlayingRef.current || playbackQueueRef.current.length === 0) return;
+    isPlayingRef.current = true;
+
+    const chunk = playbackQueueRef.current.shift()!;
+    const buf = ctx.createBuffer(1, chunk.length, 24000);
+    buf.copyToChannel(new Float32Array(chunk), 0);
+
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+    source.connect(ctx.destination);
+    source.onended = () => {
+      isPlayingRef.current = false;
+      drainPlaybackQueue();
+    };
+    source.start();
+  }, []);
 
   // ── Cleanup helper ───────────────────────────────────────────────────
   const cleanup = useCallback(() => {
@@ -66,7 +120,20 @@ export function TestCallPanel({ systemPrompt, voiceName }: TestCallPanelProps) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    // TODO: When full audio is implemented, stop mic stream and close AudioContext here
+    if (workletNodeRef.current) {
+      workletNodeRef.current.disconnect();
+      workletNodeRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((t) => t.stop());
+      micStreamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    playbackQueueRef.current = [];
+    isPlayingRef.current = false;
   }, []);
 
   // Cleanup on unmount
@@ -81,35 +148,137 @@ export function TestCallPanel({ systemPrompt, voiceName }: TestCallPanelProps) {
     setElapsed(0);
 
     try {
+      // 1. Get session token + WS URL from backend
       const response = await apiClient.post<TestSessionResponse>(
         buildPath('/orgs/:orgId/gemini/test-session'),
         { systemPrompt, voiceName },
       );
 
-      // TODO: Full WebSocket audio streaming implementation needed here.
-      // The flow should be:
-      //   1. Open wsRef.current = new WebSocket(response.data.wsUrl)
-      //   2. Get mic access: navigator.mediaDevices.getUserMedia({ audio: true })
-      //   3. Create AudioContext + ScriptProcessorNode to capture PCM chunks
-      //   4. On each audio chunk: ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: 'audio/pcm', data: base64Chunk }] } }))
-      //   5. On ws message: decode audio response and play via AudioContext
-      //   6. Send setup message with response.data.config on ws.open
-      // For v1, we just show the connected state with the timer running.
+      // 2. Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      micStreamRef.current = stream;
 
-      // Simulate WebSocket connection with the returned wsUrl
-      // (actual audio streaming is deferred to full implementation)
-      void response.data.wsUrl; // acknowledged — used in full implementation
+      // 3. Create AudioContext at 16kHz for mic capture
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      audioCtxRef.current = audioCtx;
 
-      setStatus('connected');
+      const micSource = audioCtx.createMediaStreamSource(stream);
 
-      // Start elapsed timer
-      timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
-      }, 1000);
+      // 4. Open WebSocket to Gemini Live
+      const ws = new WebSocket(response.data.wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // Send setup message with session config
+        ws.send(JSON.stringify({
+          setup: {
+            model: response.data.config.model,
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: response.data.config.voiceName,
+                  },
+                },
+              },
+            },
+            systemInstruction: {
+              parts: [{ text: response.data.config.systemPrompt }],
+            },
+          },
+        }));
+
+        setStatus('connected');
+
+        // Start elapsed timer
+        timerRef.current = setInterval(() => {
+          setElapsed((prev) => prev + 1);
+        }, 1000);
+      };
+
+      // 5. Capture mic audio and send to Gemini via ScriptProcessor
+      //    (AudioWorklet is preferable but requires a separate module file;
+      //     ScriptProcessor works reliably for short test calls)
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      workletNodeRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        const base64 = float32ToPcm16Base64(inputData);
+        ws.send(JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [{
+              mimeType: 'audio/pcm;rate=16000',
+              data: base64,
+            }],
+          },
+        }));
+      };
+
+      micSource.connect(processor);
+      processor.connect(audioCtx.destination); // required for processing to run
+
+      // 6. Handle incoming audio from Gemini
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+
+          // Gemini sends audio in serverContent.modelTurn.parts[].inlineData
+          const serverContent = msg['serverContent'] as Record<string, unknown> | undefined;
+          if (!serverContent) return;
+
+          const modelTurn = serverContent['modelTurn'] as Record<string, unknown> | undefined;
+          if (!modelTurn) return;
+
+          const parts = modelTurn['parts'] as Array<Record<string, unknown>> | undefined;
+          if (!parts) return;
+
+          for (const part of parts) {
+            const inlineData = part['inlineData'] as { mimeType: string; data: string } | undefined;
+            if (inlineData?.data) {
+              const float32 = pcm16Base64ToFloat32(inlineData.data);
+              playbackQueueRef.current.push(float32);
+              drainPlaybackQueue();
+            }
+          }
+        } catch {
+          // Non-JSON or unexpected format — ignore
+        }
+      };
+
+      ws.onerror = () => {
+        setErrorMsg('WebSocket connection error');
+        setStatus('error');
+        cleanup();
+      };
+
+      ws.onclose = (e) => {
+        if (status === 'connected' || status === 'connecting') {
+          // Unexpected close
+          if (e.code !== 1000) {
+            setErrorMsg(`Connection closed (code ${e.code})`);
+            setStatus('error');
+          } else {
+            setStatus('idle');
+          }
+          cleanup();
+        }
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start test call';
       setErrorMsg(message);
       setStatus('error');
+      cleanup();
     }
   };
 
