@@ -1,5 +1,6 @@
 import type {
   ActivityType,
+  AgentSettings,
   AiAgentType,
   AppointmentStatus,
   CallOutcome,
@@ -8,6 +9,7 @@ import type {
   DayOfWeek,
   DealStage,
   ContactSource,
+  GeminiVoice,
   MessageDirection,
   MessageSenderType,
   MessageStatus,
@@ -324,6 +326,52 @@ export interface DripSequenceTemplate {
   name: string;
   messages: DripMessage[];
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Agent Builder Constants                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const GEMINI_VOICES: readonly GeminiVoice[] = [
+  'Puck',
+  'Charon',
+  'Kore',
+  'Fenrir',
+  'Aoede',
+  'Leda',
+  'Orus',
+  'Zephyr',
+] as const;
+
+export const DEFAULT_EMERGENCY_KEYWORDS: readonly string[] = [
+  'flooding',
+  'flood',
+  'gas leak',
+  'gas smell',
+  'fire',
+  'carbon monoxide',
+  'co detector',
+  'burst pipe',
+  'sewage',
+  'no heat',
+  'no hot water',
+  'electrical fire',
+  'sparking',
+  'smoke',
+] as const;
+
+export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
+  tone: 'balanced',
+  greeting: '',
+  services: [],
+  emergencyKeywords: [...DEFAULT_EMERGENCY_KEYWORDS],
+  escalationThreshold: 3,
+  promptMode: 'template',
+  customPrompt: '',
+  voiceConfig: {
+    voice: 'Aoede',
+    languageCode: 'en-US',
+  },
+};
 
 /** Drip sequence templates by vertical. */
 export const DRIP_SEQUENCE_TEMPLATES: Partial<Record<Vertical, DripSequenceTemplate[]>> = {

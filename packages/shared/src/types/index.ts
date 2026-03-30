@@ -245,3 +245,41 @@ export interface AiCallLog {
   outcome: CallOutcome;
   createdAt: Date;
 }
+
+// ─── Agent Builder Types ─────────────────────────────────────────────
+
+export type AgentTone = 'professional' | 'friendly' | 'balanced';
+
+export type PromptMode = 'template' | 'custom';
+
+export type GeminiVoice =
+  | 'Puck'
+  | 'Charon'
+  | 'Kore'
+  | 'Fenrir'
+  | 'Aoede'
+  | 'Leda'
+  | 'Orus'
+  | 'Zephyr';
+
+export interface GeminiVoiceConfig {
+  voice: GeminiVoice;
+  languageCode: string;
+}
+
+export interface AgentService {
+  name: string;
+  priceLow: number;
+  priceHigh: number;
+}
+
+export interface AgentSettings {
+  tone: AgentTone;
+  greeting: string;
+  services: AgentService[];
+  emergencyKeywords: string[];
+  escalationThreshold: number;
+  promptMode: PromptMode;
+  customPrompt: string;
+  voiceConfig: GeminiVoiceConfig;
+}
