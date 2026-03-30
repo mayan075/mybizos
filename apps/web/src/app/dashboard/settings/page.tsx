@@ -2221,7 +2221,7 @@ function SettingsContent() {
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         <span className="ml-2 text-xs text-muted-foreground">Loading transactions...</span>
                       </div>
-                    ) : walletTransactions.length === 0 ? (
+                    ) : !Array.isArray(walletTransactions) || walletTransactions.length === 0 ? (
                       <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                         No transactions yet
                       </div>
@@ -2378,7 +2378,7 @@ function SettingsContent() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
-                    {usageRates.map((rate) => (
+                    {(Array.isArray(usageRates) ? usageRates : []).map((rate) => (
                       <div
                         key={rate.label}
                         className="flex items-center justify-between rounded-lg border border-border px-4 py-3"

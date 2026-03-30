@@ -35,7 +35,7 @@ export default function AiAgentsPage() {
       </div>
 
       {/* Agent grid */}
-      <AgentList agents={agents} isLoading={isLoading} />
+      <AgentList agents={Array.isArray(agents) ? agents : []} isLoading={isLoading} />
     </div>
   );
 }

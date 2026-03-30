@@ -111,8 +111,9 @@ function useApiQuery<T>(
           "data" in (result as Record<string, unknown>)
             ? ((result as Record<string, unknown>).data as T)
             : (result as T);
-        setData(unwrapped);
-        setIsLive(true);
+        // Guard: if unwrapped is null/undefined, fall back to mock data
+        setData(unwrapped ?? mockRef.current);
+        setIsLive(unwrapped != null);
       } else {
         // API unavailable — in dev use mock data, in prod show null (empty state)
         if (!IS_PRODUCTION) {
