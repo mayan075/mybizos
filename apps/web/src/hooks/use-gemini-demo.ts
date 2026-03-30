@@ -204,20 +204,19 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
 
       ws.onopen = () => {
         // Send setup message
-        ws.send(
-          JSON.stringify({
-            setup: data.sessionConfig,
-          }),
-        );
+        const setupMsg = { setup: data.sessionConfig };
+        console.log('[GeminiDemo] Sending setup:', JSON.stringify(setupMsg).slice(0, 200));
+        ws.send(JSON.stringify(setupMsg));
       };
 
       // 5. Handle messages from Gemini
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+          console.log('[GeminiDemo] Received:', JSON.stringify(msg).slice(0, 300));
 
           // Setup complete — start capturing audio
-          if ('setupComplete' in msg) {
+          if ('setupComplete' in msg || (msg['type'] === 'SETUP_COMPLETE')) {
             setState('connected');
 
             // Start elapsed timer
@@ -313,13 +312,15 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (err) => {
+        console.error('[GeminiDemo] WebSocket error:', err);
         setError('Connection error. Please try again.');
         setState('error');
         cleanup();
       };
 
       ws.onclose = (e) => {
+        console.log('[GeminiDemo] WebSocket closed:', e.code, e.reason);
         if (stateRef.current === 'connected' || stateRef.current === 'connecting') {
           if (e.code !== 1000) {
             setError(`Connection closed unexpectedly (code ${e.code})`);
