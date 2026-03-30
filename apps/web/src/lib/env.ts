@@ -8,8 +8,12 @@ import { z } from 'zod';
  * Non-prefixed vars are server-only.
  */
 
+const PRODUCTION_API_URL = 'https://api.hararai.com';
+
 const envSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.string().url().default('http://localhost:3001'),
+  NEXT_PUBLIC_API_URL: z.string().url().default(
+    process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : 'http://localhost:3001',
+  ),
   NEXT_PUBLIC_APP_NAME: z.string().default('HararAI'),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().default(''),
 });
