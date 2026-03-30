@@ -13,6 +13,7 @@ import {
   AuthError,
 } from '../services/auth-service.js';
 import { config } from '../config.js';
+import { logger } from '../middleware/logger.js';
 import { rateLimit } from '../middleware/rate-limit.js';
 
 const auth = new Hono();
@@ -255,12 +256,11 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
           undefined,
           'password-reset',
         );
-      } catch {
-        // If email sending fails, still return success to not leak info
-        // Token is still stored so if email eventually arrives it will work
+      } catch (emailErr) {
+        logger.error({ err: emailErr, email: parsed.data.email }, 'Failed to send password reset email');
       }
-    } catch {
-      // DB unavailable — return success anyway (don't reveal system state)
+    } catch (dbErr) {
+      logger.error({ err: dbErr }, 'Database error during password reset flow');
     }
 
     return c.json(successResponse);
