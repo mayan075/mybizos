@@ -30,6 +30,7 @@ import {
   Plug,
   Sun,
   Moon,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/hooks/use-theme";
@@ -87,6 +88,7 @@ const navSections: NavSection[] = [
       { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: null },
       { label: "Activity", href: "/dashboard/activity", icon: Activity, badge: null },
       { label: "Integrations", href: "/dashboard/integrations", icon: Plug, badge: null },
+      { label: "AI Agents", href: "/dashboard/settings/ai-agents", icon: Bot, badge: null },
       { label: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
     ],
   },
