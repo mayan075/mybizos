@@ -326,7 +326,7 @@ geminiRoutes.get('/voice-sample', async (c) => {
 
   // Generate via Gemini REST API (generateContent with audio response)
   try {
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_LIVE_MODEL}:generateContent?key=${config.GOOGLE_AI_API_KEY}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_TTS_MODEL}:generateContent?key=${config.GOOGLE_AI_API_KEY}`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
