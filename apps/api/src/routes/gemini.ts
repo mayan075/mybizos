@@ -383,7 +383,7 @@ geminiRoutes.get('/voice-sample', async (c) => {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => 'Unknown');
-      logger.error('[Gemini] Voice sample generation failed', { status: response.status, error: errorBody });
+      logger.error('[Gemini] Voice sample generation failed', { voiceName: parsed.data.voiceName, status: response.status, error: errorBody });
       return c.json({ error: 'Failed to generate voice sample', code: 'UPSTREAM_ERROR', status: 502 }, 502);
     }
 

@@ -115,8 +115,9 @@ export function VoiceCard({ voice, selected, onSelect, disabled }: VoiceCardProp
     // Check if already cached
     const cached = audioCache.get(voice);
     if (cached?.status === 'error') {
-      setSampleError(true);
-      return;
+      // Clear stale error and retry
+      audioCache.delete(voice);
+      setSampleError(false);
     }
 
     if (cached?.status === 'ready' && cached.objectUrl) {
