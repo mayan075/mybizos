@@ -1,7 +1,7 @@
 "use client";
 
-import { Star } from "lucide-react";
-import { RevealSection } from "./reveal-section";
+import { motion } from "motion/react";
+import { Star } from "@phosphor-icons/react";
 
 export function Testimonials() {
   const testimonials = [
@@ -28,49 +28,57 @@ export function Testimonials() {
   return (
     <section id="testimonials" className="scroll-mt-16 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <RevealSection>
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Trusted by local pros
-            </h2>
-            <p className="mt-5 text-lg text-muted-foreground">
-              Real results from real service businesses.
-            </p>
-          </div>
-        </RevealSection>
+        <motion.div
+          className="mx-auto max-w-2xl text-center"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+        >
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Trusted by local pros
+          </h2>
+          <p className="mt-5 text-lg text-muted-foreground">
+            Real results from real service businesses.
+          </p>
+        </motion.div>
 
         <div className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
           {testimonials.map((t, i) => (
-            <RevealSection key={t.name} delay={i * 120}>
-              <div className="card-hover flex h-full flex-col rounded-2xl border border-border/40 bg-card p-8 shadow-sm">
-                {/* Large decorative quote */}
-                <div className="mb-4 text-5xl font-serif leading-none text-indigo-500/15">&ldquo;</div>
-                {/* Stars with glow */}
-                <div className="mb-5 flex gap-1">
-                  {Array.from({ length: t.stars }).map((_, j) => (
-                    <Star
-                      key={j}
-                      className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.4)]"
-                    />
-                  ))}
+            <motion.div
+              key={i}
+              className="flex h-full flex-col rounded-2xl border border-border/30 bg-card p-8 shadow-sm transition-shadow hover:shadow-md"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ type: "spring", stiffness: 100, damping: 20, delay: i * 0.1 }}
+              whileHover={{ y: -3, transition: { type: "spring", stiffness: 300, damping: 20 } }}
+            >
+              <div className="mb-4 text-5xl font-serif leading-none text-sky-500/10">&ldquo;</div>
+              <div className="mb-5 flex gap-1">
+                {Array.from({ length: t.stars }).map((_, j) => (
+                  <Star
+                    key={j}
+                    className="h-4 w-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.3)]"
+                    weight="fill"
+                  />
+                ))}
+              </div>
+              <p className="flex-1 text-[15px] leading-relaxed text-foreground/75 italic">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="mt-6 flex items-center gap-3">
+                <div className="rounded-full bg-gradient-to-br from-sky-500 to-teal-500 p-0.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-sm font-bold text-sky-600 dark:text-sky-400">
+                    {t.name[0]}
+                  </div>
                 </div>
-                <p className="flex-1 text-[15px] leading-relaxed text-foreground/80 italic">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="mt-6 flex items-center gap-3">
-                  {/* Avatar with gradient ring */}
-                  <div className="rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-sm font-bold text-indigo-600">
-                      {t.name[0]}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.role}</div>
-                  </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{t.name}</div>
+                  <div className="text-xs text-muted-foreground">{t.role}</div>
                 </div>
               </div>
-            </RevealSection>
+            </motion.div>
           ))}
         </div>
       </div>

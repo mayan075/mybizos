@@ -121,6 +121,45 @@ curl -s --max-time 10 https://api.hararai.com/health
 vercel --prod --yes
 ```
 
+## Design System Rules (MUST Follow)
+
+### Typography
+- **Dashboard/Product:** Geist Sans (loaded via `next/font`, variable: `--font-geist-sans`)
+- **Code/Data:** Geist Mono (variable: `--font-geist-mono`)
+- **Never use Inter as the only font** — it's the #1 sign of generic AI design
+
+### Animation Rules
+- **ONLY animate `transform` and `opacity`** — NEVER width, height, top, left, margin, padding
+- Use **spring physics** (not duration-based easing) for all interactive animations
+- Use `will-change` sparingly — add before animation, remove after
+- All scroll-triggered animations use **Intersection Observer** (free, native) or Motion's `whileInView`
+- **Lazy-load all animation libraries** via dynamic import for non-critical paths
+- Use `content-visibility: auto` on below-fold sections
+- **Always respect `prefers-reduced-motion`** — disable animations for users who prefer it
+
+### Component Rules
+- Use **Motion primitives** (`MotionCard`, `FadeIn`, `StaggerList`, `PageTransition`) from `@/components/ui/motion-primitives` for animated UI
+- Use **MagneticButton** from `@/components/ui/magnetic-button` for CTAs on marketing pages only
+- Use **Phosphor Icons** (`@phosphor-icons/react`) with `duotone` weight for primary navigation, `regular` for inline
+- Lucide is still available but Phosphor is preferred for new components
+
+### Design Anti-Patterns — NEVER DO THESE
+- Do NOT nest cards inside cards
+- Do NOT use bounce/elastic easing (use spring physics instead)
+- Do NOT put large icons centered above every heading
+- Do NOT use the "big number + small label + gradient accent" layout for every metric
+- Do NOT use purple/violet gradients as the default accent everywhere
+- Do NOT animate width, height, or layout properties (causes jank)
+- Do NOT use custom cursor on dashboard (only marketing pages)
+- Do NOT add animations that block or delay user interaction
+
+### Available Design Libraries
+- `motion` — LazyMotion provider wraps entire app, use `m` component for animations
+- `lenis` — Smooth scroll provider wraps entire app, respects reduced motion
+- `@phosphor-icons/react` — 6 weight variants (thin, light, regular, bold, fill, duotone)
+- `geist` — Geist Sans + Mono fonts loaded via next/font
+- `shadcn/ui` — Full component library in `@/components/ui/`
+
 ## Current Phase: All Phases Active
 The product has features across all 5 phases. Priority is making existing features WORK properly (not building new ones).
 Focus: Fix bugs, connect to real APIs, remove mock data, production readiness.

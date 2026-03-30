@@ -7,6 +7,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { StorageMigrationRunner } from "@/components/storage-migration-runner";
+import { SmoothScrollProvider } from "@/components/providers/smooth-scroll-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -52,11 +53,14 @@ export default function RootLayout({
         />
       </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background font-sans antialiased`}>
-        <ToastProvider>
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-        </ToastProvider>
+        <div className="noise-overlay" aria-hidden="true" />
+        <SmoothScrollProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
+          </ToastProvider>
+        </SmoothScrollProvider>
         <StorageMigrationRunner />
         <Analytics />
         <SpeedInsights />

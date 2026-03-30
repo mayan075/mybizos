@@ -37,3 +37,4 @@ coverage/
 .vercel
 .env
 apps/api/.env
+.superpowers/
