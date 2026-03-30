@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Mic, Rocket, Check } from 'lucide-react';
+import { ArrowLeft, Building2, Mic, Rocket, Check } from 'lucide-react';
 import {
   INDUSTRY_LABELS,
   GEMINI_VOICES,
@@ -149,6 +149,16 @@ export function GuidedSetup({ businessName, orgIndustry }: GuidedSetupProps) {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
+      {/* Back to AI Agents list */}
+      <button
+        type="button"
+        onClick={() => router.push('/dashboard/settings/ai-agents')}
+        className="mb-6 flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to AI Agents
+      </button>
+
       <StepIndicator current={step} total={3} />
 
       {/* ── Step 1: Business Info ─────────────────────────────────────────── */}

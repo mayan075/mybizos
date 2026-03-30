@@ -246,10 +246,20 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {section.items.map((item) => {
+                // Exact match for dashboard; for other items, match prefix but
+                // ensure a more-specific sibling doesn't steal the highlight
+                // (e.g. /dashboard/settings vs /dashboard/settings/ai-agents).
                 const isActive =
                   item.href === "/dashboard"
                     ? pathname === "/dashboard"
-                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                    : (pathname === item.href || pathname.startsWith(item.href + "/")) &&
+                      // If another nav item is a longer (more specific) prefix match, defer to it
+                      !section.items.some(
+                        (other) =>
+                          other.href !== item.href &&
+                          other.href.startsWith(item.href + "/") &&
+                          (pathname === other.href || pathname.startsWith(other.href + "/")),
+                      );
 
                 return (
                   <Link
