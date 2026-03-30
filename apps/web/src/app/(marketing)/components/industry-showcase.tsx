@@ -2,24 +2,36 @@
 
 import Link from "next/link";
 import {
-  Truck,
   Wrench,
   Flame,
   Zap,
   SprayCan,
-  Trash2,
+  Scissors,
+  Briefcase,
+  Dumbbell,
+  UtensilsCrossed,
+  Car,
+  Camera,
+  Building2,
+  Heart,
   ArrowRight,
 } from "lucide-react";
 import { RevealSection } from "./reveal-section";
 
 export function IndustryShowcase() {
   const industries = [
-    { icon: <Trash2 className="h-7 w-7" />, name: "Rubbish Removals", slug: "rubbish-removal", gradient: "from-green-500 to-emerald-600" },
-    { icon: <Truck className="h-7 w-7" />, name: "Moving Companies", slug: "moving", gradient: "from-blue-500 to-indigo-600" },
     { icon: <Wrench className="h-7 w-7" />, name: "Plumbing", slug: "plumbing", gradient: "from-cyan-500 to-blue-600" },
     { icon: <Flame className="h-7 w-7" />, name: "HVAC", slug: "hvac", gradient: "from-orange-500 to-red-600" },
     { icon: <Zap className="h-7 w-7" />, name: "Electrical", slug: "electrical", gradient: "from-amber-500 to-orange-600" },
     { icon: <SprayCan className="h-7 w-7" />, name: "Cleaning", slug: "cleaning", gradient: "from-violet-500 to-purple-600" },
+    { icon: <Scissors className="h-7 w-7" />, name: "Salon & Spa", slug: "salon-spa", gradient: "from-pink-500 to-rose-600" },
+    { icon: <Heart className="h-7 w-7" />, name: "Dental", slug: "dental", gradient: "from-sky-500 to-blue-600" },
+    { icon: <Dumbbell className="h-7 w-7" />, name: "Fitness", slug: "fitness", gradient: "from-red-500 to-orange-600" },
+    { icon: <UtensilsCrossed className="h-7 w-7" />, name: "Restaurant", slug: "restaurant", gradient: "from-emerald-500 to-green-600" },
+    { icon: <Car className="h-7 w-7" />, name: "Auto Repair", slug: "auto-repair", gradient: "from-slate-500 to-zinc-600" },
+    { icon: <Camera className="h-7 w-7" />, name: "Photography", slug: "photography", gradient: "from-purple-500 to-indigo-600" },
+    { icon: <Briefcase className="h-7 w-7" />, name: "Consulting", slug: "consulting", gradient: "from-blue-500 to-indigo-600" },
+    { icon: <Building2 className="h-7 w-7" />, name: "And More...", slug: "other", gradient: "from-gray-500 to-gray-600" },
   ];
 
   return (
@@ -28,12 +40,12 @@ export function IndustryShowcase() {
         <RevealSection>
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Built for{" "}
-              <span className="text-gradient-blue">YOUR</span>{" "}
+              Works for{" "}
+              <span className="text-gradient-blue">every</span>{" "}
               industry
             </h2>
             <p className="mt-5 text-lg text-muted-foreground">
-              Pre-configured AI scripts, booking flows, and automations tailored to your trade.
+              Pre-configured templates for popular industries — or let AI set up your business from scratch.
             </p>
           </div>
         </RevealSection>
@@ -55,7 +67,7 @@ export function IndustryShowcase() {
         </div>
 
         {/* Desktop: grid */}
-        <div className="mx-auto mt-14 hidden max-w-5xl grid-cols-3 gap-4 sm:grid lg:grid-cols-6">
+        <div className="mx-auto mt-14 hidden max-w-5xl grid-cols-3 gap-4 sm:grid md:grid-cols-4 lg:grid-cols-6">
           {industries.map((ind, i) => (
             <RevealSection key={ind.slug} delay={i * 80}>
               <Link

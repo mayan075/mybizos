@@ -1,8 +1,8 @@
 # HararAI
 
-**AI-native business operating system for local service businesses.**
+**AI-native business operating system for every business.**
 
-HararAI replaces GoHighLevel with a modern, integrated platform that combines CRM, pipeline management, marketing automation, appointment scheduling, and AI-powered phone/SMS agents. The killer feature: an AI phone agent that answers every call 24/7, qualifies leads, quotes price ranges, and books appointments automatically.
+HararAI replaces GoHighLevel with a modern, integrated platform that combines CRM, pipeline management, marketing automation, appointment scheduling, and AI-powered phone/SMS agents. The killer feature: an AI phone agent that answers every call 24/7, qualifies leads, quotes price ranges, and books appointments automatically. Works for any industry — AI-powered onboarding configures the platform for your business in minutes.
 
 **Live Demo:** [https://hararai.com](https://hararai.com)
 
@@ -23,7 +23,7 @@ HararAI replaces GoHighLevel with a modern, integrated platform that combines CR
 - **Review Management** -- Track reviews across Google, Facebook, Yelp. AI-generated responses
 - **AI Lead Scoring** -- Automatic lead quality scoring with detailed factor breakdowns
 - **Multi-Tenancy** -- Full org isolation. Every query is scoped by `org_id`
-- **12+ Business Verticals** -- Pre-configured pipelines, services, and AI prompts for plumbing, HVAC, electrical, moving, cleaning, and more
+- **Any Industry** -- AI-powered onboarding configures pipelines, services, and AI prompts for your business. Pre-built templates for 30+ industries including trades, health & wellness, professional services, and more
 
 ---
 
@@ -44,7 +44,7 @@ cd apps/web && pnpm dev
 cd apps/api && npx tsx src/index.ts
 
 # Open http://localhost:3000
-# Demo login: jim@jimsplumbing.com / demo1234
+# Demo login: demo@hararai.com / demo1234
 ```
 
 No environment variables required for development. The API boots with mock data when no database is configured.

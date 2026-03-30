@@ -44,6 +44,7 @@ import { socialRoutes } from './routes/social.js';
 import { geminiRoutes } from './routes/gemini.js';
 import { bookableServiceRoutes } from './routes/bookable-services.js';
 import { waitlistRoutes } from './routes/waitlist.js';
+import { onboardingChatRoutes } from './routes/onboarding-chat.js';
 import { handleTwilioMediaStream } from './services/media-stream-handler.js';
 import { startScheduler } from './scheduler.js';
 import { orgRateLimit } from './middleware/rate-limit.js';
@@ -130,6 +131,9 @@ app.get('/health', async (c) => {
 
 // Auth (no org prefix)
 app.route('/auth', authRoutes);
+
+// Onboarding AI chat (no org prefix — org doesn't exist yet)
+app.route('/onboarding', onboardingChatRoutes);
 
 // Organization-scoped routes
 app.route('/orgs', orgRoutes);

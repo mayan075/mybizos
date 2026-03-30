@@ -1,7 +1,7 @@
 # HararAI — System Laws for All Agent Sessions
 
 ## Project Overview
-HararAI is an AI-native business operating system for local businesses (starting with home services: HVAC + plumbing). The killer feature is an AI phone agent that answers every call, qualifies leads, and books appointments 24/7.
+HararAI is an AI-native business operating system for every business. The killer feature is an AI phone agent that answers every call, qualifies leads, and books appointments 24/7. The platform uses AI-powered onboarding to configure itself for any industry.
 
 **Repo:** Turborepo monorepo with pnpm workspaces.
 **Master Plan:** See `../.claude/plans/gleaming-popping-tower.md` for the full vision and execution plan.

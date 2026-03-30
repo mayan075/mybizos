@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
-  getServicesForVertical,
+  getServicesForIndustry,
   slugify,
   detectTimezone,
-  VERTICAL_SERVICES,
-  VERTICALS,
+  INDUSTRY_SERVICES,
+  INDUSTRIES,
 } from "../lib/onboarding.js";
 
-// ── getServicesForVertical ──
+// ── getServicesForIndustry ──
 
-describe("getServicesForVertical", () => {
-  it("returns services for known verticals", () => {
-    const knownVerticals = ["plumbing", "hvac", "electrical", "cleaning", "landscaping"];
-    for (const vertical of knownVerticals) {
-      const services = getServicesForVertical(vertical);
+describe("getServicesForIndustry", () => {
+  it("returns services for known industries", () => {
+    const knownIndustries = ["plumbing", "hvac", "electrical", "cleaning", "landscaping"];
+    for (const industry of knownIndustries) {
+      const services = getServicesForIndustry(industry);
       expect(services.length).toBeGreaterThan(0);
       // Each service should have enabled=true and custom=false
       for (const svc of services) {
@@ -28,7 +28,7 @@ describe("getServicesForVertical", () => {
   });
 
   it("returns plumbing services with correct ids", () => {
-    const services = getServicesForVertical("plumbing");
+    const services = getServicesForIndustry("plumbing");
     const ids = services.map((s) => s.id);
     expect(ids).toContain("drain-cleaning");
     expect(ids).toContain("water-heater");
@@ -36,28 +36,28 @@ describe("getServicesForVertical", () => {
   });
 
   it("returns hvac services with correct ids", () => {
-    const services = getServicesForVertical("hvac");
+    const services = getServicesForIndustry("hvac");
     const ids = services.map((s) => s.id);
     expect(ids).toContain("ac-install");
     expect(ids).toContain("ac-repair");
     expect(ids).toContain("furnace-install");
   });
 
-  it("falls back to 'other' for unknown verticals", () => {
-    const services = getServicesForVertical("dentistry_unknown");
-    const otherServices = getServicesForVertical("other");
+  it("falls back to 'other' for unknown industries", () => {
+    const services = getServicesForIndustry("dentistry_unknown");
+    const otherServices = getServicesForIndustry("other");
     expect(services).toEqual(otherServices);
   });
 
-  it("falls back to 'other' for empty string vertical", () => {
-    const services = getServicesForVertical("");
-    const otherServices = getServicesForVertical("other");
+  it("falls back to 'other' for empty string industry", () => {
+    const services = getServicesForIndustry("");
+    const otherServices = getServicesForIndustry("other");
     expect(services).toEqual(otherServices);
   });
 
-  it("returns services for every defined vertical in VERTICAL_SERVICES", () => {
-    for (const key of Object.keys(VERTICAL_SERVICES)) {
-      const services = getServicesForVertical(key);
+  it("returns services for every defined industry in INDUSTRY_SERVICES", () => {
+    for (const key of Object.keys(INDUSTRY_SERVICES)) {
+      const services = getServicesForIndustry(key);
       expect(services.length).toBeGreaterThan(0);
     }
   });

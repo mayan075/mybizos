@@ -199,9 +199,13 @@ export const VERTICAL_TEMPLATES = INDUSTRY_TEMPLATES;
 export function findBestTemplate(industry: string): IndustryTemplate {
   const normalized = industry.toLowerCase().replace(/[\s-]/g, '_');
 
+  // general is always defined in the INDUSTRY_TEMPLATES literal above
+  const fallback = INDUSTRY_TEMPLATES.general!;
+
   // Exact match
-  if (INDUSTRY_TEMPLATES[normalized]) {
-    return INDUSTRY_TEMPLATES[normalized];
+  const exactMatch = INDUSTRY_TEMPLATES[normalized];
+  if (exactMatch) {
+    return exactMatch;
   }
 
   // Partial / fuzzy match
@@ -209,7 +213,7 @@ export function findBestTemplate(industry: string): IndustryTemplate {
   for (const key of keys) {
     if (key === 'general') continue;
     if (normalized.includes(key) || key.includes(normalized)) {
-      return INDUSTRY_TEMPLATES[key];
+      return INDUSTRY_TEMPLATES[key] ?? fallback;
     }
   }
 
@@ -226,9 +230,9 @@ export function findBestTemplate(industry: string): IndustryTemplate {
   };
   for (const [stem, key] of Object.entries(stemMap)) {
     if (normalized.includes(stem)) {
-      return INDUSTRY_TEMPLATES[key];
+      return INDUSTRY_TEMPLATES[key] ?? fallback;
     }
   }
 
-  return INDUSTRY_TEMPLATES.general;
+  return fallback;
 }

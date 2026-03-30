@@ -188,9 +188,9 @@ function DashboardMockup() {
       color: "bg-blue-400",
       borderColor: "border-blue-500/20",
       items: [
-        { name: "Sarah M.", detail: "AC Repair", time: "2m ago" },
-        { name: "James K.", detail: "Furnace Install", time: "18m ago" },
-        { name: "Lisa P.", detail: "Duct Cleaning", time: "1h ago" },
+        { name: "Sarah M.", detail: "Consultation", time: "2m ago" },
+        { name: "James K.", detail: "Deep Clean", time: "18m ago" },
+        { name: "Lisa P.", detail: "Website Redesign", time: "1h ago" },
       ],
     },
     {
@@ -198,8 +198,8 @@ function DashboardMockup() {
       color: "bg-amber-400",
       borderColor: "border-amber-500/20",
       items: [
-        { name: "Mike R.", detail: "Water Heater", time: "$2,400" },
-        { name: "Anna T.", detail: "Pipe Repair", time: "$850" },
+        { name: "Mike R.", detail: "Kitchen Reno", time: "$2,400" },
+        { name: "Anna T.", detail: "Color & Cut", time: "$180" },
       ],
     },
     {
@@ -207,8 +207,8 @@ function DashboardMockup() {
       color: "bg-purple-400",
       borderColor: "border-purple-500/20",
       items: [
-        { name: "Tom B.", detail: "HVAC Tune-up", time: "Tomorrow" },
-        { name: "Karen W.", detail: "AC Install", time: "Mar 28" },
+        { name: "Tom B.", detail: "AC Tune-up", time: "Tomorrow" },
+        { name: "Karen W.", detail: "Tax Review", time: "Mar 28" },
       ],
     },
     {
@@ -280,7 +280,7 @@ function DashboardMockup() {
                     JD
                   </div>
                   <div>
-                    <div className="text-[9px] font-medium text-white/60">Johnson HVAC</div>
+                    <div className="text-[9px] font-medium text-white/60">Johnson & Co</div>
                     <div className="text-[7px] text-white/25">Pro Plan</div>
                   </div>
                 </div>
@@ -421,7 +421,7 @@ export function Hero() {
           {/* Badge */}
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-1.5 text-sm font-medium text-indigo-300 backdrop-blur-sm">
             <Sparkles className="h-3.5 w-3.5" />
-            Built for local service businesses
+            Built for every business
           </div>
 
           {/* Hero headline */}
@@ -502,7 +502,7 @@ export function Hero() {
               </div>
               <div>
                 <div className="text-[13px] font-semibold text-white/95">AI booked an appointment</div>
-                <div className="text-[11px] text-green-400/60">HVAC Install — Tomorrow 2pm</div>
+                <div className="text-[11px] text-green-400/60">Consultation — Tomorrow 2pm</div>
               </div>
             </div>
           </div>
@@ -518,7 +518,7 @@ export function Hero() {
               </div>
               <div>
                 <div className="text-[13px] font-semibold text-white/95">Lead scored 92</div>
-                <div className="text-[11px] text-blue-400/60">High intent — water heater repair</div>
+                <div className="text-[11px] text-blue-400/60">High intent — new customer inquiry</div>
               </div>
             </div>
           </div>

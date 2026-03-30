@@ -101,7 +101,8 @@ ai.post('/ai-agents', async (c) => {
 
   try {
     const { aiService } = await import('../services/ai-service.js');
-    const agent = await aiService.createAgent(orgId, parsed.data);
+    const { vertical, ...rest } = parsed.data;
+    const agent = await aiService.createAgent(orgId, { ...rest, industry: vertical });
     logger.info('AI Agent created', { orgId, agentId: agent.id, type: parsed.data.type });
     return c.json({ data: agent }, 201);
   } catch (err) {
