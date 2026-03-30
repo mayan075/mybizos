@@ -2,7 +2,7 @@
 buildCommand = "pnpm install --frozen-lockfile && pnpm turbo build --filter=@hararai/api"
 
 [deploy]
-startCommand = "cd packages/db && npx drizzle-kit migrate && cd /app/apps/api && npx tsx src/index.ts"
+startCommand = "cd apps/api && npx tsx src/index.ts"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
