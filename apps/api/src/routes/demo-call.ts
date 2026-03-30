@@ -6,7 +6,6 @@
  */
 
 import { Hono } from 'hono';
-import { generateEphemeralToken, buildEphemeralWsUrl } from '@hararai/integrations';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { getDemoAgentPrompt } from '@hararai/ai';
@@ -74,37 +73,36 @@ demoCallRoutes.post('/session', async (c) => {
   }
 
   try {
-    // Generate ephemeral token (server API key never exposed to client)
-    const { token, expiresAt } = await generateEphemeralToken(config.GOOGLE_AI_API_KEY);
+    // Build WebSocket URL with API key
+    // Note: The Gemini Live API requires the key in the WS URL.
+    // This is rate-limited (3 calls/day/IP) and demo-only.
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${config.GOOGLE_AI_API_KEY}`;
 
     // Build session config for the browser
     const sessionConfig = {
       model: `models/${config.GEMINI_LIVE_MODEL}`,
-      responseModalities: ['AUDIO'],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: config.GEMINI_DEFAULT_VOICE },
+          },
+        },
+      },
       systemInstruction: {
         parts: [{ text: getDemoAgentPrompt() }],
       },
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: config.GEMINI_DEFAULT_VOICE },
-        },
-      },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
-      generationConfig: {
-        thinkingConfig: { thinkingLevel: 'MINIMAL' },
-      },
     };
 
     // Record the call for rate limiting
     recordCall(ip);
 
-    logger.info('Demo session created', { ip, expiresAt: new Date(expiresAt).toISOString() });
+    logger.info('Demo session created', { ip });
 
     return c.json({
-      token,
-      expiresAt,
-      wsUrl: buildEphemeralWsUrl(token),
+      wsUrl,
       sessionConfig,
       maxDurationMs: MAX_CALL_DURATION_MS,
     });

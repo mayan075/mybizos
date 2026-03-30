@@ -16,8 +16,6 @@ export type DemoState =
   | 'rate-limited';
 
 interface DemoSessionResponse {
-  token: string;
-  expiresAt: string;
   wsUrl: string;
   sessionConfig: Record<string, unknown>;
   maxDurationMs: number;
