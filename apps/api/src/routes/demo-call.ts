@@ -6,11 +6,32 @@
  */
 
 import { Hono } from 'hono';
+import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { getDemoAgentPrompt } from '@hararai/ai';
+import { generateEphemeralToken, buildEphemeralWsUrl } from '@hararai/integrations';
 
 const demoCallRoutes = new Hono();
+
+// ── Demo Session Store (server-side, API key never exposed) ─────────────────
+
+interface DemoSession {
+  config: Record<string, unknown>;
+  createdAt: number;
+}
+
+export const demoSessions = new Map<string, DemoSession>();
+
+// Cleanup expired demo sessions every 5 minutes
+setInterval(() => {
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  for (const [id, session] of demoSessions) {
+    if (session.createdAt < fiveMinutesAgo) {
+      demoSessions.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 // ── IP Rate Limiting (in-memory) ─────────────────────────────────────────────
 
@@ -73,10 +94,17 @@ demoCallRoutes.post('/session', async (c) => {
   }
 
   try {
-    // Build WebSocket URL with API key
-    // Note: The Gemini Live API requires the key in the WS URL.
-    // This is rate-limited (3 calls/day/IP) and demo-only.
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${config.GOOGLE_AI_API_KEY}`;
+    if (!config.GOOGLE_AI_API_KEY) {
+      logger.error('Demo session failed: GOOGLE_AI_API_KEY not configured');
+      return c.json(
+        { error: 'Voice demo is temporarily unavailable.', code: 'CONFIG_ERROR', status: 503 },
+        503,
+      );
+    }
+
+    // Generate ephemeral token (never exposes the API key to the browser)
+    const { token, expiresAt } = await generateEphemeralToken(config.GOOGLE_AI_API_KEY);
+    const wsUrl = buildEphemeralWsUrl(token);
 
     // Build session config for the browser
     const sessionConfig = {
@@ -105,6 +133,7 @@ demoCallRoutes.post('/session', async (c) => {
       wsUrl,
       sessionConfig,
       maxDurationMs: MAX_CALL_DURATION_MS,
+      expiresAt,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create demo session';

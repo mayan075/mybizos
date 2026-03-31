@@ -202,6 +202,16 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
       const ws = new WebSocket(data.wsUrl);
       wsRef.current = ws;
 
+      // Connection timeout — if setupComplete not received within 15s, bail
+      const connectionTimeout = setTimeout(() => {
+        if (stateRef.current === 'connecting') {
+          console.error('[GeminiDemo] Connection timed out waiting for setupComplete');
+          setError('Connection timed out. Please try again.');
+          setState('error');
+          cleanup();
+        }
+      }, 15_000);
+
       ws.onopen = () => {
         // Send setup message
         const setupMsg = { setup: data.sessionConfig };
@@ -217,6 +227,7 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
 
           // Setup complete — start capturing audio
           if ('setupComplete' in msg || (msg['type'] === 'SETUP_COMPLETE')) {
+            clearTimeout(connectionTimeout);
             setState('connected');
 
             // Start elapsed timer
@@ -314,6 +325,7 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
 
       ws.onerror = (err) => {
         console.error('[GeminiDemo] WebSocket error:', err);
+        clearTimeout(connectionTimeout);
         setError('Connection error. Please try again.');
         setState('error');
         cleanup();
@@ -321,6 +333,7 @@ export function useGeminiDemo(): UseGeminiDemoReturn {
 
       ws.onclose = (e) => {
         console.log('[GeminiDemo] WebSocket closed:', e.code, e.reason);
+        clearTimeout(connectionTimeout);
         if (stateRef.current === 'connected' || stateRef.current === 'connecting') {
           if (e.code !== 1000) {
             setError(`Connection closed unexpectedly (code ${e.code})`);
