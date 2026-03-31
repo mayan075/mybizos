@@ -485,27 +485,36 @@ auth.get('/google/callback', async (c) => {
   try {
     const code = c.req.query('code');
     if (!code) {
-      return c.json({ error: 'Missing authorization code', code: 'BAD_REQUEST', status: 400 }, 400);
+      const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Google sign-in was cancelled or failed.')}`);
     }
 
     // Verify HMAC-signed state parameter to prevent CSRF
     const stateParam = c.req.query('state');
     if (!stateParam) {
-      return c.json({ error: 'Missing state parameter', code: 'FORBIDDEN', status: 403 }, 403);
+      const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Missing state parameter')}`);
     }
-    const [sData, sHmac] = stateParam.split('.');
+    const dotIdx = stateParam.lastIndexOf('.');
+    const sData = dotIdx > 0 ? stateParam.slice(0, dotIdx) : '';
+    const sHmac = dotIdx > 0 ? stateParam.slice(dotIdx + 1) : '';
     if (!sData || !sHmac) {
-      return c.json({ error: 'Invalid state parameter', code: 'FORBIDDEN', status: 403 }, 403);
+      const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Invalid state parameter')}`);
     }
     const expectedHmac = crypto.createHmac('sha256', config.JWT_SECRET).update(sData).digest('base64url');
-    if (!crypto.timingSafeEqual(Buffer.from(sHmac), Buffer.from(expectedHmac))) {
-      return c.json({ error: 'State verification failed — possible CSRF attack', code: 'FORBIDDEN', status: 403 }, 403);
+    const sHmacBuf = Buffer.from(sHmac);
+    const expectedBuf = Buffer.from(expectedHmac);
+    if (sHmacBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sHmacBuf, expectedBuf)) {
+      const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+      return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('State verification failed. Please try again.')}`);
     }
     // Check state is not older than 10 minutes
     try {
       const stateJson = JSON.parse(Buffer.from(sData, 'base64url').toString('utf-8')) as { ts?: number };
       if (stateJson.ts && Date.now() - stateJson.ts > 10 * 60 * 1000) {
-        return c.json({ error: 'State parameter expired', code: 'FORBIDDEN', status: 403 }, 403);
+        const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
+        return c.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Session expired. Please try signing in again.')}`);
       }
     } catch { /* malformed state — already verified HMAC so proceed */ }
 
