@@ -130,6 +130,7 @@ export default function SequencesPage() {
 
     try {
       const path = buildPath(`/orgs/:orgId/sequences/${id}`);
+      if (!path) return;
       await apiClient.patch(path, { status: newStatus });
       toast.success(`Sequence ${newStatus === "active" ? "activated" : "paused"} successfully`);
       refetch();

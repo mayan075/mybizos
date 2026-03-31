@@ -10,6 +10,7 @@ import { FloatingDialer } from "@/components/dialer/floating-dialer";
 import { AIAssistant } from "@/components/ai-assistant/ai-assistant";
 import { ImpersonateBanner } from "@/components/admin/impersonate-banner";
 import { isOnboardingComplete } from "@/lib/onboarding";
+import { getToken, isAccessTokenExpired, refreshAccessToken, removeToken } from "@/lib/auth";
 import { apiClient, ApiRequestError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -79,14 +80,38 @@ export default function DashboardLayout({
     };
   }, [mobileSidebarOpen]);
 
-  // Guard: redirect to onboarding if not completed
+  // Guard: check auth + onboarding before rendering dashboard
   useEffect(() => {
-    if (!isOnboardingComplete()) {
-      router.replace("/onboarding");
-      return;
+    async function checkAuth() {
+      const token = getToken();
+
+      // No token at all — go to login
+      if (!token) {
+        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return;
+      }
+
+      // Token expired — try to refresh
+      if (isAccessTokenExpired()) {
+        const newToken = await refreshAccessToken();
+        if (!newToken) {
+          // Refresh failed — session is gone
+          removeToken();
+          router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+          return;
+        }
+      }
+
+      // Auth OK — check onboarding
+      if (!isOnboardingComplete()) {
+        router.replace("/onboarding");
+        return;
+      }
+
+      setReady(true);
     }
-    setReady(true);
-  }, [router]);
+    checkAuth();
+  }, [router, pathname]);
 
   // Check email verification status
   useEffect(() => {

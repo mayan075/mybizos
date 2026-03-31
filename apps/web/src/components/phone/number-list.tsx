@@ -54,6 +54,7 @@ function LinkToAgentDropdown({ phoneNumber, onLinked }: { phoneNumber: string; o
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     const path = buildPath("/orgs/:orgId/ai-agents");
+    if (!path) return;
     const result = await tryFetch(() => apiClient.get<{ data: AiAgent[] }>(path));
     if (result !== null) {
       const agentList = "data" in result ? result.data : (result as unknown as AiAgent[]);
@@ -86,6 +87,7 @@ function LinkToAgentDropdown({ phoneNumber, onLinked }: { phoneNumber: string; o
   const handleLink = async (agentId: string) => {
     setLinking(true);
     const path = buildPath(`/orgs/:orgId/ai-agents/${agentId}/link-phone`);
+    if (!path) return;
     try {
       const result = await apiClient.post<{ data: { linked: boolean; phoneNumberId: string } }>(path, {
         twilioPhoneNumber: phoneNumber,
@@ -177,6 +179,7 @@ function NumberRow({
   const checkLinkedAgent = useCallback(async () => {
     setCheckingLink(true);
     const path = buildPath("/orgs/:orgId/ai-agents");
+    if (!path) return;
     const result = await tryFetch(() => apiClient.get<{ data: AiAgent[] }>(path));
     if (result !== null) {
       const agentList = "data" in result ? result.data : (result as unknown as AiAgent[]);
@@ -201,6 +204,7 @@ function NumberRow({
   const handleUnlink = async (agentId: string) => {
     setUnlinking(true);
     const path = buildPath(`/orgs/:orgId/ai-agents/${agentId}/unlink-phone`);
+    if (!path) return;
     try {
       await apiClient.delete<{ data: { unlinked: boolean } }>(path);
       toast.success("Phone number unlinked from AI agent");

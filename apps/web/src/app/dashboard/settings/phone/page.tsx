@@ -34,6 +34,7 @@ export default function PhoneSettingsPage() {
 
   const fetchStatus = useCallback(async () => {
     const path = buildPath("/orgs/:orgId/phone-system/status");
+    if (!path) return;
     const result = await tryFetch(() => apiClient.get<PhoneSystemStatus>(path));
 
     if (result !== null) {
@@ -56,6 +57,7 @@ export default function PhoneSettingsPage() {
   const fetchNumbers = useCallback(async () => {
     setNumbersLoading(true);
     const path = buildPath("/orgs/:orgId/phone-system/numbers");
+    if (!path) return;
     try {
       const result = await apiClient.get<{ numbers: PhoneNumber[] }>(path);
       setPhoneNumbers(result.numbers);
@@ -70,6 +72,7 @@ export default function PhoneSettingsPage() {
   const handleDisconnect = useCallback(async () => {
     setDisconnectLoading(true);
     const path = buildPath("/orgs/:orgId/phone-system/disconnect");
+    if (!path) return;
     await tryFetch(() => apiClient.delete<{ success: boolean }>(path));
     setConnectedProvider(null);
     setAccountName(null);
@@ -82,6 +85,7 @@ export default function PhoneSettingsPage() {
   const handleConfigureSave = useCallback(async (numberSid: string, config: NumberConfigPayload) => {
     setSaveLoading(true);
     const path = buildPath(`/orgs/:orgId/phone-system/numbers/${numberSid}/configure`);
+    if (!path) return;
     const result = await tryFetch(() => apiClient.post<{ success: boolean }>(path, config));
     if (result !== null) {
       toast.success("Phone number settings saved!");

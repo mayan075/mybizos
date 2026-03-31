@@ -236,6 +236,7 @@ export default function NewEstimatePage() {
       const { apiClient, tryFetch } = await import("@/lib/api-client");
       const { buildPath } = await import("@/lib/hooks/use-api");
       const sendPath = buildPath(`/orgs/:orgId/estimates/${result.id}/send`);
+      if (!sendPath) return;
       await tryFetch(() => apiClient.post(sendPath, {}));
       toast.success(`Estimate sent to ${draft.customerEmail}`);
       setTimeout(() => router.push("/dashboard/estimates"), 1500);

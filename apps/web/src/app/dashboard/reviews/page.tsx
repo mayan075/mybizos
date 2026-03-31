@@ -157,6 +157,7 @@ export default function ReviewsPage() {
     setGeneratingId(reviewId);
     try {
       const path = buildPath(`/orgs/:orgId/reviews/${reviewId}/generate-response`);
+      if (!path) return;
       const result = await tryFetch(() => apiClient.post<{ response: string }>(path, {}));
       if (result?.response) setAiDraft((prev) => ({ ...prev, [reviewId]: result.response }));
     } catch {

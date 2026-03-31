@@ -58,6 +58,7 @@ function ContactQuickCreate({
 
     try {
       const path = buildPath("/orgs/:orgId/contacts");
+      if (!path) return;
       await tryFetch(() =>
         apiClient.post(path, {
           name: name.trim(),
@@ -169,6 +170,7 @@ export default function InboxPage() {
     const interval = setInterval(async () => {
       try {
         const path = buildPath("/orgs/:orgId/conversations");
+        if (!path) return;
         const result = await tryFetch(() =>
           apiClient.get<MockConversation[]>(path),
         );

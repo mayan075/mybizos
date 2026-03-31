@@ -157,6 +157,7 @@ function CustomizeStagesModal({
     setDeleteError(null);
     try {
       const path = buildPath(`/orgs/:orgId/pipelines/${pipelineId}/stages/${stageId}`);
+      if (!path) return;
       const result = await tryFetch(() => apiClient.delete<{ success: boolean }>(path));
 
       if (result !== null) {

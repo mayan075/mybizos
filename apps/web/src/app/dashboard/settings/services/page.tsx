@@ -150,6 +150,7 @@ export default function BookableServicesPage() {
       setIsSaving(true);
       try {
         const path = buildPath(`/orgs/:orgId/bookable-services/${editingService.id}`);
+        if (!path) return;
         const result = await tryFetch(() => apiClient.patch(path, formData));
         if (result) {
           toast.success(`"${formData.name}" updated.`);
@@ -192,6 +193,7 @@ export default function BookableServicesPage() {
     setIsDeleting(true);
     try {
       const path = buildPath(`/orgs/:orgId/bookable-services/${deletingService.id}`);
+      if (!path) return;
       await tryFetch(() => apiClient.delete(path));
       toast.success(`"${deletingService.name}" deleted.`);
       refetch();
@@ -211,6 +213,7 @@ export default function BookableServicesPage() {
     setTogglingId(service.id);
     try {
       const path = buildPath(`/orgs/:orgId/bookable-services/${service.id}`);
+      if (!path) return;
       const result = await tryFetch(() =>
         apiClient.patch(path, { isActive: !service.isActive }),
       );
@@ -236,6 +239,7 @@ export default function BookableServicesPage() {
   const handleAddMember = useCallback(async (service: BookableService, memberId: string) => {
     try {
       const path = buildPath(`/orgs/:orgId/bookable-services/${service.id}/team/${memberId}`);
+      if (!path) return;
       await tryFetch(() => apiClient.post(path, {}));
       toast.success("Team member added.");
       refetch();
@@ -249,6 +253,7 @@ export default function BookableServicesPage() {
   const handleRemoveMember = useCallback(async (service: BookableService, memberId: string) => {
     try {
       const path = buildPath(`/orgs/:orgId/bookable-services/${service.id}/team/${memberId}`);
+      if (!path) return;
       await tryFetch(() => apiClient.delete(path));
       toast.success("Team member removed.");
       refetch();

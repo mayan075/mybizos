@@ -261,6 +261,7 @@ export default function TeamPage() {
     setInviteLoading(true);
     try {
       const path = buildPath("/orgs/:orgId/invite");
+      if (!path) return;
       await apiClient.post(path, {
         email: inviteEmail.trim(),
         role: inviteRole.toLowerCase(),

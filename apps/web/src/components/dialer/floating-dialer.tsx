@@ -96,6 +96,7 @@ function useCallerNumbers() {
       setLoading(true);
       try {
         const path = buildPath("/orgs/:orgId/phone-system/numbers");
+        if (!path) return;
         const result = await tryFetch(() =>
           apiClient.get<{ numbers: PhoneNumber[] }>(path),
         );

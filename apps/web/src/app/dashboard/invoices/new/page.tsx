@@ -249,6 +249,7 @@ export default function NewInvoicePage() {
       const { apiClient, tryFetch } = await import("@/lib/api-client");
       const { buildPath } = await import("@/lib/hooks/use-api");
       const sendPath = buildPath(`/orgs/:orgId/invoices/${result.id}/send`);
+      if (!sendPath) return;
       await tryFetch(() => apiClient.post(sendPath, {}));
       toast.success(`Invoice sent to ${draft.customerEmail}`);
       setTimeout(() => router.push("/dashboard/invoices"), 1500);

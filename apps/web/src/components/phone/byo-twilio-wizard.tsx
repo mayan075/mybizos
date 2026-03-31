@@ -59,6 +59,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
     setNumbersLoading(true);
     try {
       const path = buildPath("/orgs/:orgId/phone-system/numbers");
+      if (!path) return;
       const result = await apiClient.get<{ numbers: PhoneNumber[] }>(path);
       setPhoneNumbers(result.numbers);
       // Auto-select all numbers by default
@@ -80,6 +81,7 @@ export function BYOTwilioWizard({ onComplete, onBack }: BYOTwilioWizardProps) {
 
     try {
       const path = buildPath("/orgs/:orgId/phone-system/connect");
+      if (!path) return;
       await apiClient.post<{ success: boolean; accountName: string }>(path, {
         accountSid,
         authToken,

@@ -160,10 +160,9 @@ export default function NotificationsPage() {
   const markAsRead = useCallback(
     async (id: string) => {
       try {
-        await apiClient.patch(
-          buildPath(`/orgs/:orgId/notifications/${id}/read`),
-          {},
-        );
+        const path = buildPath(`/orgs/:orgId/notifications/${id}/read`);
+        if (!path) return;
+        await apiClient.patch(path, {});
         refetch();
       } catch {
         // silently ignore — optimistic UI not needed here
