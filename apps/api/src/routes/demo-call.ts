@@ -76,7 +76,7 @@ demoCallRoutes.post('/session', async (c) => {
     // Build WebSocket URL with API key
     // Note: The Gemini Live API requires the key in the WS URL.
     // This is rate-limited (3 calls/day/IP) and demo-only.
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${config.GOOGLE_AI_API_KEY}`;
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${config.GOOGLE_AI_API_KEY}`;
 
     // Build session config for the browser
     const sessionConfig = {
