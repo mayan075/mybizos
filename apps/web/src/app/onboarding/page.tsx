@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { ServicesStep } from "@/components/onboarding/services-step";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { getUser } from "@/lib/auth";
 import { apiClient, tryFetch } from "@/lib/api-client";
@@ -153,7 +154,6 @@ export default function OnboardingPage() {
 
   // Step 3 — Services
   const [services, setServices] = useState<OnboardingService[]>([]);
-  const [newServiceName, setNewServiceName] = useState("");
 
   // Step 4 — Hours
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
@@ -302,49 +302,6 @@ export default function OnboardingPage() {
     tryFetch(() => apiClient.post(`/orgs/${orgId}/onboarding`, data)).catch(() => {
       // API save failed silently — localStorage has the data
     });
-  }
-
-  // -----------------------------------------------------------------------
-  // Service helpers
-  // -----------------------------------------------------------------------
-
-  function toggleService(id: string) {
-    setServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    );
-  }
-
-  function updateServiceName(id: string, name: string) {
-    setServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, name } : s)),
-    );
-  }
-
-  function updateServicePrice(id: string, field: "priceMin" | "priceMax", value: number) {
-    setServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-    );
-  }
-
-  function addCustomService() {
-    if (!newServiceName.trim()) return;
-    const id = `custom-${Date.now()}`;
-    setServices((prev) => [
-      ...prev,
-      {
-        id,
-        name: newServiceName.trim(),
-        enabled: true,
-        priceMin: 0,
-        priceMax: 0,
-        custom: true,
-      },
-    ]);
-    setNewServiceName("");
-  }
-
-  function removeService(id: string) {
-    setServices((prev) => prev.filter((s) => s.id !== id));
   }
 
   // -----------------------------------------------------------------------
@@ -541,117 +498,11 @@ export default function OnboardingPage() {
   }
 
   function renderStep3() {
-    const enabledCount = services.filter((s) => s.enabled).length;
-
     return (
-      <div className="space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-foreground">Your services</h2>
-          <p className="text-muted-foreground">
-            We pre-filled these based on your business type. Toggle, edit, or add your own.
-          </p>
-        </div>
-
-        <p className="text-xs text-muted-foreground text-center">
-          {enabledCount} service{enabledCount !== 1 ? "s" : ""} selected
-        </p>
-
-        {/* Services list */}
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-          {services.map((service) => (
-            <div
-              key={service.id}
-              className={cn(
-                "flex items-center gap-4 rounded-xl border-2 p-4 transition-all",
-                service.enabled
-                  ? "border-primary/20 bg-primary/5"
-                  : "border-border bg-card opacity-60",
-              )}
-            >
-              {/* Toggle */}
-              <button
-                type="button"
-                onClick={() => toggleService(service.id)}
-                className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-all",
-                  service.enabled
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-muted-foreground/30",
-                )}
-              >
-                {service.enabled && <Check className="h-3.5 w-3.5" />}
-              </button>
-
-              {/* Name */}
-              <input
-                type="text"
-                value={service.name}
-                onChange={(e) => updateServiceName(service.id, e.target.value)}
-                className="flex-1 bg-transparent text-sm font-medium text-foreground focus:outline-none"
-              />
-
-              {/* Price range */}
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs text-muted-foreground">$</span>
-                <input
-                  type="number"
-                  value={service.priceMin || ""}
-                  onChange={(e) =>
-                    updateServicePrice(service.id, "priceMin", Number(e.target.value))
-                  }
-                  placeholder="Min"
-                  className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <span className="text-xs text-muted-foreground">-</span>
-                <input
-                  type="number"
-                  value={service.priceMax || ""}
-                  onChange={(e) =>
-                    updateServicePrice(service.id, "priceMax", Number(e.target.value))
-                  }
-                  placeholder="Max"
-                  className="w-16 rounded-lg border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-
-              {/* Remove (custom only) */}
-              {service.custom && (
-                <button
-                  type="button"
-                  onClick={() => removeService(service.id)}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Add custom */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newServiceName}
-            onChange={(e) => setNewServiceName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCustomService()}
-            placeholder="Add a custom service..."
-            className="flex-1 h-11 rounded-xl border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-          />
-          <button
-            type="button"
-            onClick={addCustomService}
-            disabled={!newServiceName.trim()}
-            className={cn(
-              "flex h-11 items-center gap-2 rounded-xl border border-primary bg-primary/10 px-4 text-sm font-medium text-primary transition-all",
-              "hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed",
-            )}
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </button>
-        </div>
-      </div>
+      <ServicesStep
+        services={services}
+        onServicesChange={setServices}
+      />
     );
   }
 

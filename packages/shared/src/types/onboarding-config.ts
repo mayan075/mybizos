@@ -7,6 +7,8 @@ export interface OnboardingServiceConfig {
   name: string;
   priceMin: number;
   priceMax: number;
+  pricingMode?: "fixed" | "range" | "from";
+  pricingUnit?: "job" | "hour" | "sqm" | "unit" | "visit";
   durationMinutes: number;
   description: string;
   isEstimate: boolean; // true = AI suggested this, not user-provided

@@ -1,4 +1,5 @@
-import type { AgentSettings, AgentTone } from '../types/index';
+import type { AgentSettings, AgentTone, AgentService } from '../types/index';
+import { PRICING_UNIT_SUFFIX } from '../types/index';
 import { INDUSTRY_TEMPLATES, findBestTemplate, type IndustryTemplate } from './verticals';
 
 export { INDUSTRY_TEMPLATES, VERTICAL_TEMPLATES, findBestTemplate, type IndustryTemplate, type VerticalTemplate } from './verticals';
@@ -9,12 +10,28 @@ const TONE_MAP: Record<AgentTone, string> = {
   balanced: 'warm and professional',
 };
 
+function formatServicePrice(s: AgentService): string {
+  const mode = s.pricingMode ?? 'range';
+  const unit = s.pricingUnit ?? 'job';
+  const suffix = PRICING_UNIT_SUFFIX[unit] || '';
+  const suffixStr = suffix ? ` ${suffix}` : '';
+
+  if (mode === 'fixed') {
+    return `$${s.priceLow}${suffixStr}`;
+  }
+  if (mode === 'from') {
+    return `from $${s.priceLow}${suffixStr}`;
+  }
+  // range
+  return `$${s.priceLow}\u2013$${s.priceHigh}${suffixStr}`;
+}
+
 function buildServicesBlock(services: AgentSettings['services']): string {
   if (services.length === 0) {
     return '- Ask the customer what service they need and offer to provide a quote';
   }
   return services
-    .map((s) => `- ${s.name}: $${s.priceLow}\u2013$${s.priceHigh}`)
+    .map((s) => `- ${s.name}: ${formatServicePrice(s)}`)
     .join('\n');
 }
 

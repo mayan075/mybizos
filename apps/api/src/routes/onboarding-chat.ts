@@ -159,6 +159,10 @@ onboardingChat.post("/finalize", authMiddleware, async (c) => {
             description: s.description || null,
             durationMinutes: s.durationMinutes || 60,
             bufferMinutes: 15,
+            pricingMode: s.pricingMode || "range",
+            pricingUnit: s.pricingUnit || "job",
+            priceMin: s.priceMin || null,
+            priceMax: s.priceMax || null,
             isActive: true,
           })),
         );

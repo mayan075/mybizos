@@ -17,6 +17,10 @@ const createSchema = z.object({
   durationMinutes: z.number().int().min(5).max(480).optional(),
   bufferMinutes: z.number().int().min(0).max(120).optional(),
   qualifyingQuestions: z.array(z.string().max(500)).max(10).optional(),
+  pricingMode: z.enum(["fixed", "range", "from"]).optional(),
+  pricingUnit: z.enum(["job", "hour", "sqm", "unit", "visit"]).optional(),
+  priceMin: z.number().int().min(0).nullable().optional(),
+  priceMax: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().optional(),
 });
 

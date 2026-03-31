@@ -31,11 +31,11 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Alex',
     defaultEmergencyKeywords: ['flooding', 'flood', 'gas leak', 'gas smell', 'burst pipe', 'sewage', 'no hot water', 'water damage'],
     defaultServices: [
-      { name: 'Drain cleaning', priceLow: 150, priceHigh: 350 },
-      { name: 'Water heater repair', priceLow: 200, priceHigh: 500 },
-      { name: 'Leak repair', priceLow: 150, priceHigh: 400 },
-      { name: 'Toilet repair', priceLow: 100, priceHigh: 300 },
-      { name: 'Faucet installation', priceLow: 150, priceHigh: 350 },
+      { name: 'Drain cleaning', priceLow: 150, priceHigh: 350, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Water heater repair', priceLow: 200, priceHigh: 500, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Leak repair', priceLow: 150, priceHigh: 400, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Toilet repair', priceLow: 100, priceHigh: 300, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Faucet installation', priceLow: 150, priceHigh: 350, pricingMode: 'range', pricingUnit: 'job' },
     ],
     knowledge: `PLUMBING KNOWLEDGE:
 - Common services: drain cleaning, water heater repair/replacement, leak repair, toilet repair, faucet installation, sewer line inspection, garbage disposal
@@ -50,11 +50,11 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Jordan',
     defaultEmergencyKeywords: ['no heat', 'no cooling', 'no AC', 'gas smell', 'gas leak', 'carbon monoxide', 'co detector', 'smoke', 'burning smell'],
     defaultServices: [
-      { name: 'AC repair', priceLow: 150, priceHigh: 600 },
-      { name: 'AC tune-up', priceLow: 80, priceHigh: 150 },
-      { name: 'Furnace repair', priceLow: 150, priceHigh: 500 },
-      { name: 'Duct cleaning', priceLow: 300, priceHigh: 600 },
-      { name: 'System replacement', priceLow: 5000, priceHigh: 15000 },
+      { name: 'AC repair', priceLow: 150, priceHigh: 600, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'AC tune-up', priceLow: 80, priceHigh: 150, pricingMode: 'fixed', pricingUnit: 'job' },
+      { name: 'Furnace repair', priceLow: 150, priceHigh: 500, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Duct cleaning', priceLow: 300, priceHigh: 600, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'System replacement', priceLow: 5000, priceHigh: 15000, pricingMode: 'from', pricingUnit: 'job' },
     ],
     knowledge: `HVAC KNOWLEDGE:
 - Common services: AC repair, AC tune-up, furnace repair, furnace tune-up, full system replacement, duct cleaning, thermostat installation
@@ -67,11 +67,11 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Sam',
     defaultEmergencyKeywords: ['hazardous', 'asbestos', 'chemical', 'biohazard'],
     defaultServices: [
-      { name: 'General rubbish removal', priceLow: 150, priceHigh: 400 },
-      { name: 'Green waste removal', priceLow: 100, priceHigh: 300 },
-      { name: 'Furniture removal', priceLow: 100, priceHigh: 350 },
-      { name: 'Construction waste', priceLow: 200, priceHigh: 500 },
-      { name: 'House cleanout', priceLow: 500, priceHigh: 2000 },
+      { name: 'General rubbish removal', priceLow: 150, priceHigh: 400, pricingMode: 'range', pricingUnit: 'unit' },
+      { name: 'Green waste removal', priceLow: 100, priceHigh: 300, pricingMode: 'range', pricingUnit: 'unit' },
+      { name: 'Furniture removal', priceLow: 100, priceHigh: 350, pricingMode: 'range', pricingUnit: 'unit' },
+      { name: 'Construction waste', priceLow: 200, priceHigh: 500, pricingMode: 'range', pricingUnit: 'unit' },
+      { name: 'House cleanout', priceLow: 500, priceHigh: 2000, pricingMode: 'from', pricingUnit: 'job' },
     ],
     knowledge: `RUBBISH REMOVAL KNOWLEDGE:
 - Common services: general rubbish, green waste, furniture, construction waste, full house cleanouts, deceased estate clearance
@@ -85,11 +85,11 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Morgan',
     defaultEmergencyKeywords: ['electrical fire', 'sparking', 'smoke', 'burning smell', 'power outage', 'exposed wires', 'shock'],
     defaultServices: [
-      { name: 'Outlet/switch repair', priceLow: 100, priceHigh: 250 },
-      { name: 'Lighting installation', priceLow: 150, priceHigh: 400 },
-      { name: 'Panel upgrade', priceLow: 1500, priceHigh: 3500 },
-      { name: 'Ceiling fan install', priceLow: 200, priceHigh: 450 },
-      { name: 'EV charger install', priceLow: 500, priceHigh: 1500 },
+      { name: 'Outlet/switch repair', priceLow: 100, priceHigh: 250, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Lighting installation', priceLow: 150, priceHigh: 400, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Panel upgrade', priceLow: 1500, priceHigh: 3500, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Ceiling fan install', priceLow: 200, priceHigh: 450, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'EV charger install', priceLow: 500, priceHigh: 1500, pricingMode: 'range', pricingUnit: 'job' },
     ],
     knowledge: `ELECTRICAL KNOWLEDGE:
 - Common services: outlet/switch repair, panel upgrades, lighting installation, ceiling fan install, smoke detector install, whole-home rewiring, EV charger install
@@ -112,10 +112,10 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Taylor',
     defaultEmergencyKeywords: [],
     defaultServices: [
-      { name: 'Local move (1-2 bedroom)', priceLow: 300, priceHigh: 800 },
-      { name: 'Local move (3-4 bedroom)', priceLow: 600, priceHigh: 1500 },
-      { name: 'Packing service', priceLow: 200, priceHigh: 600 },
-      { name: 'Furniture assembly', priceLow: 100, priceHigh: 300 },
+      { name: 'Local move (1-2 bedroom)', priceLow: 300, priceHigh: 800, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Local move (3-4 bedroom)', priceLow: 600, priceHigh: 1500, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Packing service', priceLow: 200, priceHigh: 600, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Furniture assembly', priceLow: 100, priceHigh: 300, pricingMode: 'range', pricingUnit: 'job' },
     ],
     knowledge: `MOVING COMPANY KNOWLEDGE:
 - Common services: local moves, interstate moves, packing, furniture assembly/disassembly, storage
@@ -127,10 +127,10 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Riley',
     defaultEmergencyKeywords: ['fallen tree', 'tree on house', 'flooding', 'storm damage'],
     defaultServices: [
-      { name: 'Lawn mowing', priceLow: 40, priceHigh: 120 },
-      { name: 'Garden maintenance', priceLow: 80, priceHigh: 250 },
-      { name: 'Tree trimming', priceLow: 200, priceHigh: 800 },
-      { name: 'Landscaping design', priceLow: 500, priceHigh: 3000 },
+      { name: 'Lawn mowing', priceLow: 40, priceHigh: 120, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'Garden maintenance', priceLow: 80, priceHigh: 250, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'Tree trimming', priceLow: 200, priceHigh: 800, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Landscaping design', priceLow: 500, priceHigh: 3000, pricingMode: 'from', pricingUnit: 'job' },
     ],
     knowledge: `LANDSCAPING KNOWLEDGE:
 - Common services: lawn mowing, garden maintenance, tree trimming/removal, landscaping design, irrigation, retaining walls, turf laying
@@ -142,10 +142,10 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Casey',
     defaultEmergencyKeywords: ['snake', 'wasp nest', 'bee swarm', 'termite damage', 'rodent infestation'],
     defaultServices: [
-      { name: 'General pest treatment', priceLow: 100, priceHigh: 300 },
-      { name: 'Termite inspection', priceLow: 200, priceHigh: 400 },
-      { name: 'Rodent control', priceLow: 150, priceHigh: 400 },
-      { name: 'Termite barrier', priceLow: 1500, priceHigh: 4000 },
+      { name: 'General pest treatment', priceLow: 100, priceHigh: 300, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'Termite inspection', priceLow: 200, priceHigh: 400, pricingMode: 'fixed', pricingUnit: 'job' },
+      { name: 'Rodent control', priceLow: 150, priceHigh: 400, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'Termite barrier', priceLow: 1500, priceHigh: 4000, pricingMode: 'from', pricingUnit: 'job' },
     ],
     knowledge: `PEST CONTROL KNOWLEDGE:
 - Common services: general pest treatment, termite inspection/treatment, rodent control, ant/cockroach treatment, wasp/bee removal, possum removal
@@ -157,10 +157,10 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Avery',
     defaultEmergencyKeywords: ['biohazard', 'sewage', 'mold', 'fire damage'],
     defaultServices: [
-      { name: 'Regular house clean', priceLow: 100, priceHigh: 250 },
-      { name: 'Deep clean', priceLow: 200, priceHigh: 500 },
-      { name: 'End of lease clean', priceLow: 250, priceHigh: 600 },
-      { name: 'Carpet cleaning', priceLow: 100, priceHigh: 350 },
+      { name: 'Regular house clean', priceLow: 100, priceHigh: 250, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'Deep clean', priceLow: 200, priceHigh: 500, pricingMode: 'range', pricingUnit: 'visit' },
+      { name: 'End of lease clean', priceLow: 250, priceHigh: 600, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Carpet cleaning', priceLow: 3, priceHigh: 5, pricingMode: 'range', pricingUnit: 'sqm' },
     ],
     knowledge: `CLEANING KNOWLEDGE:
 - Common services: regular house cleaning, deep cleaning, end of lease cleaning, carpet/upholstery cleaning, window cleaning, office cleaning
@@ -172,11 +172,11 @@ export const INDUSTRY_TEMPLATES: Record<string, IndustryTemplate> = {
     defaultAgentName: 'Blake',
     defaultEmergencyKeywords: ['roof leak', 'storm damage', 'tree on roof', 'missing tiles', 'water coming in'],
     defaultServices: [
-      { name: 'Roof inspection', priceLow: 150, priceHigh: 350 },
-      { name: 'Leak repair', priceLow: 200, priceHigh: 600 },
-      { name: 'Tile replacement', priceLow: 300, priceHigh: 800 },
-      { name: 'Full roof replacement', priceLow: 5000, priceHigh: 20000 },
-      { name: 'Gutter cleaning', priceLow: 100, priceHigh: 300 },
+      { name: 'Roof inspection', priceLow: 150, priceHigh: 350, pricingMode: 'fixed', pricingUnit: 'job' },
+      { name: 'Leak repair', priceLow: 200, priceHigh: 600, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Tile replacement', priceLow: 300, priceHigh: 800, pricingMode: 'range', pricingUnit: 'job' },
+      { name: 'Full roof replacement', priceLow: 5000, priceHigh: 20000, pricingMode: 'from', pricingUnit: 'job' },
+      { name: 'Gutter cleaning', priceLow: 100, priceHigh: 300, pricingMode: 'range', pricingUnit: 'visit' },
     ],
     knowledge: `ROOFING KNOWLEDGE:
 - Common services: roof inspections, leak repair, tile/shingle replacement, full roof replacement, gutter cleaning/installation, flashing repair

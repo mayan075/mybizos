@@ -22,7 +22,9 @@ describe("getServicesForIndustry", () => {
         expect(svc.id).toBeTruthy();
         expect(svc.name).toBeTruthy();
         expect(svc.priceMin).toBeGreaterThanOrEqual(0);
-        expect(svc.priceMax).toBeGreaterThan(0);
+        expect(svc.priceMax).toBeGreaterThanOrEqual(0);
+        expect(["fixed", "range", "from"]).toContain(svc.pricingMode);
+        expect(["job", "hour", "sqm", "unit", "visit"]).toContain(svc.pricingUnit);
       }
     }
   });

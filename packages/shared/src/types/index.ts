@@ -268,10 +268,38 @@ export interface GeminiVoiceConfig {
   languageCode: string;
 }
 
+// ─── Pricing Types ──────────────────────────────────────────────────
+export type PricingMode = "fixed" | "range" | "from";
+export type PricingUnit = "job" | "hour" | "sqm" | "unit" | "visit";
+
+export const PRICING_MODE_LABELS: Record<PricingMode, string> = {
+  fixed: "Fixed",
+  range: "Range",
+  from: "From",
+};
+
+export const PRICING_UNIT_LABELS: Record<PricingUnit, string> = {
+  job: "per job",
+  hour: "per hour",
+  sqm: "per m²",
+  unit: "per unit",
+  visit: "per visit",
+};
+
+export const PRICING_UNIT_SUFFIX: Record<PricingUnit, string> = {
+  job: "",
+  hour: "/hr",
+  sqm: "/m²",
+  unit: "/unit",
+  visit: "/visit",
+};
+
 export interface AgentService {
   name: string;
   priceLow: number;
   priceHigh: number;
+  pricingMode?: PricingMode;
+  pricingUnit?: PricingUnit;
 }
 
 export interface AgentSettings {

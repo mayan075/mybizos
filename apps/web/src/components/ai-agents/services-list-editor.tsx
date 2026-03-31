@@ -2,7 +2,8 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AgentService } from '@hararai/shared';
+import type { AgentService, PricingMode, PricingUnit } from '@hararai/shared';
+import { PRICING_MODE_LABELS, PRICING_UNIT_LABELS } from '@hararai/shared';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -12,12 +13,29 @@ interface ServicesListEditorProps {
   disabled?: boolean;
 }
 
+const PRICING_MODES: PricingMode[] = ['fixed', 'range', 'from'];
+const PRICING_UNITS: PricingUnit[] = ['job', 'hour', 'sqm', 'unit', 'visit'];
+
+const selectClass = cn(
+  'rounded-lg border bg-zinc-800/50 px-2 py-2 text-sm text-zinc-100',
+  'border-zinc-700',
+  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+  'disabled:opacity-50 disabled:cursor-not-allowed',
+);
+
+const inputClass = cn(
+  'w-full rounded-lg border bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100',
+  'border-zinc-700 placeholder:text-zinc-600',
+  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+  'disabled:opacity-50 disabled:cursor-not-allowed',
+);
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ServicesListEditor({ services: rawServices, onChange, disabled }: ServicesListEditorProps) {
   const services = Array.isArray(rawServices) ? rawServices : [];
   const handleAdd = () => {
-    onChange([...services, { name: '', priceLow: 0, priceHigh: 0 }]);
+    onChange([...services, { name: '', priceLow: 0, priceHigh: 0, pricingMode: 'range', pricingUnit: 'job' }]);
   };
 
   const handleDelete = (index: number) => {
@@ -69,17 +87,19 @@ export function ServicesListEditor({ services: rawServices, onChange, disabled }
       {services.length > 0 && (
         <div className="space-y-2">
           {/* Column headers */}
-          <div className="grid grid-cols-[1fr_80px_80px_36px] gap-2 px-1">
+          <div className="grid grid-cols-[1fr_90px_80px_80px_70px_36px] gap-2 px-1">
             <span className="text-[11px] text-zinc-500">Service name</span>
+            <span className="text-[11px] text-zinc-500">Type</span>
             <span className="text-[11px] text-zinc-500">Price low</span>
             <span className="text-[11px] text-zinc-500">Price high</span>
+            <span className="text-[11px] text-zinc-500">Unit</span>
             <span />
           </div>
 
           {services.map((service, index) => (
             <div
               key={index}
-              className="grid grid-cols-[1fr_80px_80px_36px] gap-2 items-center"
+              className="grid grid-cols-[1fr_90px_80px_80px_70px_36px] gap-2 items-center"
             >
               {/* Name */}
               <input
@@ -88,13 +108,20 @@ export function ServicesListEditor({ services: rawServices, onChange, disabled }
                 onChange={(e) => handleChange(index, 'name', e.target.value)}
                 disabled={disabled}
                 placeholder="e.g. Drain cleaning"
-                className={cn(
-                  'w-full rounded-lg border bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100',
-                  'border-zinc-700 placeholder:text-zinc-600',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                )}
+                className={inputClass}
               />
+
+              {/* Pricing mode */}
+              <select
+                value={service.pricingMode ?? 'range'}
+                onChange={(e) => handleChange(index, 'pricingMode', e.target.value)}
+                disabled={disabled}
+                className={selectClass}
+              >
+                {PRICING_MODES.map((mode) => (
+                  <option key={mode} value={mode}>{PRICING_MODE_LABELS[mode]}</option>
+                ))}
+              </select>
 
               {/* Price low */}
               <input
@@ -104,12 +131,7 @@ export function ServicesListEditor({ services: rawServices, onChange, disabled }
                 disabled={disabled}
                 min={0}
                 placeholder="0"
-                className={cn(
-                  'w-full rounded-lg border bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100',
-                  'border-zinc-700 placeholder:text-zinc-600',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                )}
+                className={inputClass}
               />
 
               {/* Price high */}
@@ -117,16 +139,23 @@ export function ServicesListEditor({ services: rawServices, onChange, disabled }
                 type="number"
                 value={service.priceHigh}
                 onChange={(e) => handleChange(index, 'priceHigh', Number(e.target.value))}
-                disabled={disabled}
+                disabled={disabled || (service.pricingMode ?? 'range') !== 'range'}
                 min={0}
-                placeholder="0"
-                className={cn(
-                  'w-full rounded-lg border bg-zinc-800/50 px-3 py-2 text-sm text-zinc-100',
-                  'border-zinc-700 placeholder:text-zinc-600',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                )}
+                placeholder={(service.pricingMode ?? 'range') !== 'range' ? '—' : '0'}
+                className={cn(inputClass, (service.pricingMode ?? 'range') !== 'range' && 'opacity-40')}
               />
+
+              {/* Pricing unit */}
+              <select
+                value={service.pricingUnit ?? 'job'}
+                onChange={(e) => handleChange(index, 'pricingUnit', e.target.value)}
+                disabled={disabled}
+                className={selectClass}
+              >
+                {PRICING_UNITS.map((unit) => (
+                  <option key={unit} value={unit}>{PRICING_UNIT_LABELS[unit]}</option>
+                ))}
+              </select>
 
               {/* Delete */}
               <button
