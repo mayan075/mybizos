@@ -207,7 +207,8 @@ admin.get('/organizations', async (c) => {
     });
   } catch (err) {
     logger.error('Failed to fetch organizations', { err });
-    return c.json({ error: 'Failed to fetch organizations', code: 'INTERNAL_ERROR', status: 500 }, 500);
+    const detail = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Failed to fetch organizations: ${detail}`, code: 'INTERNAL_ERROR', status: 500 }, 500);
   }
 });
 
@@ -489,7 +490,8 @@ admin.get('/users', async (c) => {
     });
   } catch (err) {
     logger.error('Failed to fetch users', { err });
-    return c.json({ error: 'Failed to fetch users', code: 'INTERNAL_ERROR', status: 500 }, 500);
+    const detail = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Failed to fetch users: ${detail}`, code: 'INTERNAL_ERROR', status: 500 }, 500);
   }
 });
 
@@ -764,7 +766,8 @@ admin.get('/audit-logs', async (c) => {
     });
   } catch (err) {
     logger.error('Failed to fetch audit logs', { err });
-    return c.json({ error: 'Failed to fetch audit logs', code: 'INTERNAL_ERROR', status: 500 }, 500);
+    const detail = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Failed to fetch audit logs: ${detail}`, code: 'INTERNAL_ERROR', status: 500 }, 500);
   }
 });
 
