@@ -177,14 +177,14 @@ admin.get('/organizations', async (c) => {
         suspendedAt: organizations.suspendedAt,
         suspendedReason: organizations.suspendedReason,
         createdAt: organizations.createdAt,
-        memberCount: sql<number>`(SELECT count(*)::int FROM org_members WHERE org_members.org_id = ${organizations.id})`,
-        contactCount: sql<number>`(SELECT count(*)::int FROM contacts WHERE contacts.org_id = ${organizations.id})`,
-        dealCount: sql<number>`(SELECT count(*)::int FROM deals WHERE deals.org_id = ${organizations.id})`,
+        memberCount: sql<number>`(SELECT count(*)::int FROM org_members WHERE org_members.org_id = "organizations"."id")`,
+        contactCount: sql<number>`(SELECT count(*)::int FROM contacts WHERE contacts.org_id = "organizations"."id")`,
+        dealCount: sql<number>`(SELECT count(*)::int FROM deals WHERE deals.org_id = "organizations"."id")`,
         lastMemberLogin: sql<string | null>`(
           SELECT MAX(u.last_login_at)::text
           FROM org_members om
           JOIN users u ON u.id = om.user_id
-          WHERE om.org_id = ${organizations.id}
+          WHERE om.org_id = "organizations"."id"
         )`,
       })
       .from(organizations)
