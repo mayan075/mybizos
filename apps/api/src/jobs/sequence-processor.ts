@@ -517,7 +517,7 @@ export async function runSequenceProcessor(): Promise<{
       await db
         .update(sequenceEnrollments)
         .set({
-          status: 'failed',
+          status: 'cancelled',
           completedAt: new Date(),
           nextStepAt: null,
         })

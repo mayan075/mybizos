@@ -79,9 +79,22 @@ onboardingChat.post("/chat", chatLimiter, async (c) => {
       );
     }
 
-    const currentConfig: OnboardingConfig = parsed.data.config
-      ? { ...createEmptyOnboardingConfig(), ...parsed.data.config }
-      : createEmptyOnboardingConfig();
+    const currentConfig: OnboardingConfig = {
+      ...createEmptyOnboardingConfig(),
+      ...parsed.data.config,
+      services: (parsed.data.config?.services ?? []).map((s) => ({
+        name: s.name,
+        description: s.description ?? "",
+        durationMinutes: s.durationMinutes ?? 60,
+        pricingMode: (s.pricingMode ?? "range") as OnboardingServiceConfig["pricingMode"],
+        pricingUnit: (s.pricingUnit ?? "job") as OnboardingServiceConfig["pricingUnit"],
+        priceMin: s.priceMin ?? 0,
+        priceMax: s.priceMax ?? 0,
+        isEstimate: true,
+      })),
+      hours: parsed.data.config?.hours as OnboardingConfig["hours"],
+      aiAgent: parsed.data.config?.aiAgent as OnboardingConfig["aiAgent"],
+    };
 
     const result = await processOnboardingChat(
       parsed.data.history,
