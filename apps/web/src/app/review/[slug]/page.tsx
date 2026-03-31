@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 /*  Helpers                                                                   */
 /* -------------------------------------------------------------------------- */
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 function slugToBusinessName(slug: string): string {
   return slug
     .split("-")
@@ -155,22 +157,30 @@ function HighRatingView({
 /* -------------------------------------------------------------------------- */
 
 function LowRatingView({
+  slug,
   rating,
 }: {
+  slug: string;
   rating: number;
 }) {
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!feedback.trim()) return;
     setSubmitting(true);
-    // Simulate brief delay then show confirmation
-    setTimeout(() => {
-      setSubmitting(false);
-      setSubmitted(true);
-    }, 500);
+    try {
+      await fetch(`${API_URL}/public/reviews/${slug}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, feedback }),
+      });
+    } catch {
+      // Best-effort — still show confirmation to user
+    }
+    setSubmitting(false);
+    setSubmitted(true);
   };
 
   if (submitted) {
@@ -287,7 +297,7 @@ export default function ReviewPage() {
               />
             )}
             {rating >= 1 && rating <= 3 && (
-              <LowRatingView rating={rating} />
+              <LowRatingView slug={slug} rating={rating} />
             )}
           </div>
         </div>

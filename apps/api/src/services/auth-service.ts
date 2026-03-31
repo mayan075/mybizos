@@ -13,6 +13,8 @@ export interface JwtPayload {
   role: 'owner' | 'admin' | 'manager' | 'member';
   name?: string;
   orgName?: string;
+  impersonated?: boolean;
+  impersonatedBy?: string;
 }
 
 export interface AuthResult {

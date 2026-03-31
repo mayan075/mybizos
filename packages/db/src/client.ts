@@ -11,6 +11,19 @@ import * as communicationsSchema from "./schema/communications.js";
 import * as schedulingSchema from "./schema/scheduling.js";
 import * as aiSchema from "./schema/ai.js";
 import * as auditLogSchema from "./schema/audit-log.js";
+import * as campaignsSchema from "./schema/campaigns.js";
+import * as reviewsSchema from "./schema/reviews.js";
+import * as sequencesSchema from "./schema/sequences.js";
+import * as formsSchema from "./schema/forms.js";
+import * as callHistorySchema from "./schema/call-history.js";
+import * as invoicesSchema from "./schema/invoices.js";
+import * as notificationsSchema from "./schema/notifications.js";
+import * as socialSchema from "./schema/social.js";
+import * as walletSchema from "./schema/wallet.js";
+import * as platformSettingsSchema from "./schema/platform-settings.js";
+import * as bookableServicesSchema from "./schema/bookable-services.js";
+import * as waitlistSchema from "./schema/waitlist.js";
+import * as googleCalendarSchema from "./schema/google-calendar.js";
 
 const schema = {
   ...authSchema,
@@ -22,6 +35,19 @@ const schema = {
   ...schedulingSchema,
   ...aiSchema,
   ...auditLogSchema,
+  ...campaignsSchema,
+  ...reviewsSchema,
+  ...sequencesSchema,
+  ...formsSchema,
+  ...callHistorySchema,
+  ...invoicesSchema,
+  ...notificationsSchema,
+  ...socialSchema,
+  ...walletSchema,
+  ...platformSettingsSchema,
+  ...bookableServicesSchema,
+  ...waitlistSchema,
+  ...googleCalendarSchema,
 };
 
 const connectionString = process.env["DATABASE_URL"] ?? "";

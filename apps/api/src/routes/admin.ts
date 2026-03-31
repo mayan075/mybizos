@@ -374,7 +374,8 @@ admin.post('/organizations/:orgId/impersonate', async (c) => {
       return c.json({ error: 'No owner found for this organization', code: 'NOT_FOUND', status: 404 }, 404);
     }
 
-    // Generate a 1-hour token for the org owner
+    // Generate a 1-hour impersonation token with audit claims
+    const adminUser = c.get('user');
     const token = generateToken(
       {
         userId: ownerMembership.userId,
@@ -383,11 +384,12 @@ admin.post('/organizations/:orgId/impersonate', async (c) => {
         role: 'owner',
         name: ownerMembership.userName,
         orgName: org.name,
+        impersonated: true,
+        impersonatedBy: adminUser.email,
       },
       '1h',
     );
 
-    const adminUser = c.get('user');
     logger.info('Admin impersonating org', {
       adminEmail: adminUser.email,
       orgId,

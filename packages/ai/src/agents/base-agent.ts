@@ -51,6 +51,7 @@ export abstract class BaseAgent {
    * Process an incoming message and produce a response with actions.
    */
   async process(context: AgentContext, userMessage: string): Promise<AgentResult> {
+    this.misunderstandingCount = 0;
     const actions: AgentAction[] = [];
 
     // Check for emergency keywords

@@ -461,9 +461,13 @@ auth.get('/google', (c) => {
 
   const redirectUri = `${config.APP_URL}/auth/google/callback`;
   const scope = encodeURIComponent('openid email profile');
-  const state = crypto.randomUUID();
+  // Sign the state parameter with HMAC to prevent CSRF / state forgery
+  const statePayload = JSON.stringify({ nonce: crypto.randomUUID(), ts: Date.now() });
+  const stateData = Buffer.from(statePayload).toString('base64url');
+  const stateHmac = crypto.createHmac('sha256', config.JWT_SECRET).update(stateData).digest('base64url');
+  const state = `${stateData}.${stateHmac}`;
 
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${state}&access_type=offline&prompt=consent`;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}&access_type=offline&prompt=consent`;
 
   return c.redirect(url);
 });
@@ -477,6 +481,27 @@ auth.get('/google/callback', async (c) => {
     if (!code) {
       return c.json({ error: 'Missing authorization code', code: 'BAD_REQUEST', status: 400 }, 400);
     }
+
+    // Verify HMAC-signed state parameter to prevent CSRF
+    const stateParam = c.req.query('state');
+    if (!stateParam) {
+      return c.json({ error: 'Missing state parameter', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+    const [sData, sHmac] = stateParam.split('.');
+    if (!sData || !sHmac) {
+      return c.json({ error: 'Invalid state parameter', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+    const expectedHmac = crypto.createHmac('sha256', config.JWT_SECRET).update(sData).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(sHmac), Buffer.from(expectedHmac))) {
+      return c.json({ error: 'State verification failed — possible CSRF attack', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+    // Check state is not older than 10 minutes
+    try {
+      const stateJson = JSON.parse(Buffer.from(sData, 'base64url').toString('utf-8')) as { ts?: number };
+      if (stateJson.ts && Date.now() - stateJson.ts > 10 * 60 * 1000) {
+        return c.json({ error: 'State parameter expired', code: 'FORBIDDEN', status: 403 }, 403);
+      }
+    } catch { /* malformed state — already verified HMAC so proceed */ }
 
     const redirectUri = `${config.APP_URL}/auth/google/callback`;
 
@@ -520,9 +545,10 @@ auth.get('/google/callback', async (c) => {
       userAgent,
     );
 
-    // Redirect to frontend with token + refresh token
+    // Redirect to frontend with tokens in URL fragment (not query params).
+    // Fragments are never sent to servers in Referer headers or access logs.
     const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';
-    return c.redirect(`${frontendUrl}/auth/callback?token=${result.token}&refreshToken=${result.refreshToken}`);
+    return c.redirect(`${frontendUrl}/auth/callback#token=${result.token}&refreshToken=${result.refreshToken}`);
   } catch (err) {
     if (err instanceof AuthError) {
       const frontendUrl = config.CORS_ORIGIN || 'http://localhost:3000';

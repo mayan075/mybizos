@@ -141,13 +141,11 @@ export function requirePlatformAdmin(): MiddlewareHandler {
       .filter(Boolean);
 
     if (adminEmails.length === 0) {
-      // If no admin emails configured, fall back to owner role check
-      if (user.role !== 'owner') {
-        return c.json(
-          { error: 'Platform admin access required', code: 'FORBIDDEN', status: 403 },
-          403,
-        );
-      }
+      // No admin emails configured — deny all access (fail closed)
+      return c.json(
+        { error: 'Platform admin access required', code: 'FORBIDDEN', status: 403 },
+        403,
+      );
     } else if (!adminEmails.includes(user.email.toLowerCase())) {
       return c.json(
         { error: 'Platform admin access required', code: 'FORBIDDEN', status: 403 },

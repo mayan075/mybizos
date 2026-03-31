@@ -534,7 +534,7 @@ export async function revokeTokens(
 
   try {
     if (provider === "facebook" || provider === "instagram") {
-      await fetch(`${cfg.revokeUrl}?access_token=${accessToken}`, {
+      await fetch(`${cfg.revokeUrl}?${new URLSearchParams({ access_token: accessToken }).toString()}`, {
         method: "DELETE",
       });
     } else if (provider === "stripe") {

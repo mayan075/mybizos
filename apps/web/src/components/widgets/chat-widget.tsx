@@ -84,6 +84,7 @@ export function ChatWidget({
   const [responseCounter, setResponseCounter] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize with welcome message
   useEffect(() => {
@@ -111,6 +112,15 @@ export function ChatWidget({
     }
   }, [isOpen, isMinimized]);
 
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (responseTimeoutRef.current) {
+        clearTimeout(responseTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text) return;
@@ -131,7 +141,7 @@ export function ChatWidget({
     const currentCounter = responseCounter;
     setResponseCounter((c) => c + 1);
 
-    setTimeout(() => {
+    responseTimeoutRef.current = setTimeout(() => {
       const aiResponse = getAIResponse(text, currentCounter);
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
@@ -141,6 +151,7 @@ export function ChatWidget({
       };
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
+      responseTimeoutRef.current = null;
     }, delay);
   }, [input, responseCounter]);
 

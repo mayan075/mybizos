@@ -108,11 +108,12 @@ export class GeminiLiveSession extends EventEmitter {
 
       this.ws.on('close', (code: number, reason: Buffer) => {
         clearTimeout(timeout);
+        const wasConnected = this.connected;
         this.connected = false;
         this.stopPingInterval();
         this.usage.endedAt = new Date();
         (this as EventEmitter).emit('close', code, reason.toString());
-        if (!this.connected) reject(new Error(`WebSocket closed: ${code}`));
+        if (!wasConnected) reject(new Error(`WebSocket closed: ${code}`));
       });
     });
   }

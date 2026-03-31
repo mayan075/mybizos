@@ -5,14 +5,31 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { storeTokens } from "@/lib/auth";
 
+/**
+ * Parse key=value pairs from a URL fragment (hash) string.
+ * Tokens are passed in the fragment (not query params) so they never
+ * appear in server logs, Referer headers, or browser history APIs.
+ */
+function parseFragment(hash: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+  for (const pair of raw.split("&")) {
+    const [key, ...rest] = pair.split("=");
+    if (key) params[key] = decodeURIComponent(rest.join("="));
+  }
+  return params;
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const refreshToken = searchParams.get("refreshToken");
+    // Read tokens from URL fragment (preferred, secure) or fall back to query params (legacy)
+    const fragment = parseFragment(window.location.hash);
+    const token = fragment.token || searchParams.get("token");
+    const refreshToken = fragment.refreshToken || searchParams.get("refreshToken");
     const errorMsg = searchParams.get("error");
 
     // Immediately scrub tokens from browser history/URL bar

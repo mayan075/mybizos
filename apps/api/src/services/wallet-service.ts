@@ -301,6 +301,8 @@ export const walletService = {
 
       const rechargeAmountCents = Math.round(Number(wallet.autoRechargeAmount) * 100);
 
+      // Use idempotency key to prevent double-charging on concurrent auto-recharges
+      const idempotencyKey = `auto-recharge-${orgId}-${wallet.id}-${Math.floor(Date.now() / 60000)}`;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: rechargeAmountCents,
         currency: wallet.currency.toLowerCase(),
@@ -310,6 +312,8 @@ export const walletService = {
           enabled: true,
           allow_redirects: 'never',
         },
+      }, {
+        idempotencyKey,
       });
 
       // Credit the wallet on success

@@ -22,7 +22,7 @@ export function storeToken(token: string): void {
 
   const payload = decodeToken(token);
   const maxAge = payload ? payload.exp - Math.floor(Date.now() / 1000) : 15 * 60;
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${maxAge}; SameSite=Lax; Secure`;
 }
 
 /**
@@ -66,7 +66,7 @@ export function getToken(): string | null {
 export function removeToken(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax; Secure`;
 
   // Clear the HttpOnly refresh cookie via server route (fire-and-forget)
   fetch('/api/auth/session', { method: 'DELETE' }).catch(() => {});
@@ -109,7 +109,7 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
         storeToken(token);
       } else if (type === 'LOGGED_OUT') {
         localStorage.removeItem(TOKEN_KEY);
-        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax; Secure`;
         window.location.href = '/login';
       }
     };
@@ -151,7 +151,7 @@ async function doRefresh(): Promise<string | null> {
       // Refresh token is invalid/expired — clear access token too
       if (typeof window !== 'undefined') {
         localStorage.removeItem(TOKEN_KEY);
-        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+        document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax; Secure`;
       }
       return null;
     }

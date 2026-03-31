@@ -23,6 +23,27 @@ export const contactSourceEnum = pgEnum("contact_source", [
   "import",
 ]);
 
+export const companies = pgTable(
+  "companies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    website: text("website"),
+    address: text("address"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("companies_org_id_idx").on(table.orgId),
+    index("companies_name_idx").on(table.orgId, table.name),
+  ],
+);
+
 export const contacts = pgTable(
   "contacts",
   {
@@ -55,26 +76,5 @@ export const contacts = pgTable(
     index("contacts_ai_score_idx").on(table.orgId, table.aiScore),
     index("contacts_source_idx").on(table.orgId, table.source),
     index("contacts_created_at_idx").on(table.orgId, table.createdAt),
-  ],
-);
-
-export const companies = pgTable(
-  "companies",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    orgId: uuid("org_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    phone: text("phone"),
-    email: text("email"),
-    website: text("website"),
-    address: text("address"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("companies_org_id_idx").on(table.orgId),
-    index("companies_name_idx").on(table.orgId, table.name),
   ],
 );

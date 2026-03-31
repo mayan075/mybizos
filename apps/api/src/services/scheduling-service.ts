@@ -10,7 +10,7 @@ import {
   users,
   googleCalendarBusyBlocks,
 } from '@hararai/db';
-import { eq, and, gte, lte, or, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, or, desc, asc, sql, inArray } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
 import { sequenceTriggerService } from './sequence-trigger-service.js';
@@ -364,6 +364,21 @@ export const schedulingService = {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
 
+    // Conflict check: prevent double-booking for the same time slot
+    const conflicts = await db
+      .select({ id: appointments.id })
+      .from(appointments)
+      .where(and(
+        withOrgScope(appointments.orgId, org.id),
+        sql`${appointments.startTime} < ${endTime}`,
+        sql`${appointments.endTime} > ${startTime}`,
+        sql`${appointments.status} NOT IN ('cancelled', 'no_show')`,
+      ));
+
+    if (conflicts.length > 0) {
+      throw Errors.conflict('Time slot conflicts with an existing appointment');
+    }
+
     const [appointment] = await db
       .insert(appointments)
       .values({
@@ -445,7 +460,49 @@ export const schedulingService = {
       teamMemberName: string;
     }[] = [];
 
-    // 4. For each team member, for each date
+    // 4. Bulk-fetch availability rules and appointments for ALL team members/dates
+    const teamMemberIds = teamMembers.map((m) => m.userId);
+    const rangeStart = new Date(`${dates[0]}T00:00:00Z`);
+    const rangeEnd = new Date(`${dates[dates.length - 1]}T23:59:59Z`);
+
+    const [allRules, allAppointments, allBusyBlocks] = await Promise.all([
+      db
+        .select()
+        .from(availabilityRules)
+        .where(and(
+          withOrgScope(availabilityRules.orgId, orgId),
+          inArray(availabilityRules.userId, teamMemberIds),
+          eq(availabilityRules.isActive, true),
+        )),
+      db
+        .select({
+          assignedTo: appointments.assignedTo,
+          startTime: appointments.startTime,
+          endTime: appointments.endTime,
+        })
+        .from(appointments)
+        .where(and(
+          withOrgScope(appointments.orgId, orgId),
+          inArray(appointments.assignedTo, teamMemberIds),
+          gte(appointments.startTime, rangeStart),
+          lte(appointments.startTime, rangeEnd),
+          sql`${appointments.status} NOT IN ('cancelled', 'no_show')`,
+        )),
+      db
+        .select({
+          userId: googleCalendarBusyBlocks.userId,
+          startTime: googleCalendarBusyBlocks.startTime,
+          endTime: googleCalendarBusyBlocks.endTime,
+        })
+        .from(googleCalendarBusyBlocks)
+        .where(and(
+          withOrgScope(googleCalendarBusyBlocks.orgId, orgId),
+          inArray(googleCalendarBusyBlocks.userId, teamMemberIds),
+          gte(googleCalendarBusyBlocks.startTime, rangeStart),
+          lte(googleCalendarBusyBlocks.startTime, rangeEnd),
+        )),
+    ]);
+
     for (const member of teamMembers) {
       for (const date of dates) {
         const dateObj = new Date(`${date}T00:00:00Z`);
@@ -453,58 +510,28 @@ export const schedulingService = {
 
         if (!dayOfWeek) continue;
 
-        // Get availability rules for this team member on this day
-        const rules = await db
-          .select()
-          .from(availabilityRules)
-          .where(and(
-            withOrgScope(availabilityRules.orgId, orgId),
-            eq(availabilityRules.userId, member.userId),
-            eq(availabilityRules.dayOfWeek, dayOfWeek),
-            eq(availabilityRules.isActive, true),
-          ));
+        const rules = allRules.filter(
+          (r) => r.userId === member.userId && r.dayOfWeek === dayOfWeek,
+        );
 
         if (rules.length === 0) continue;
 
         const dayStart = new Date(`${date}T00:00:00Z`);
         const dayEnd = new Date(`${date}T23:59:59Z`);
 
-        // Get existing appointments (non-cancelled, non-no_show)
-        const existingAppointments = await db
-          .select({
-            startTime: appointments.startTime,
-            endTime: appointments.endTime,
-          })
-          .from(appointments)
-          .where(and(
-            withOrgScope(appointments.orgId, orgId),
-            eq(appointments.assignedTo, member.userId),
-            gte(appointments.startTime, dayStart),
-            lte(appointments.startTime, dayEnd),
-            sql`${appointments.status} NOT IN ('cancelled', 'no_show')`,
-          ));
+        const existingAppointments = allAppointments.filter(
+          (a) => a.assignedTo === member.userId && a.startTime >= dayStart && a.startTime <= dayEnd,
+        );
 
-        // Get Google Calendar busy blocks
-        const busyBlocks = await db
-          .select({
-            startTime: googleCalendarBusyBlocks.startTime,
-            endTime: googleCalendarBusyBlocks.endTime,
-          })
-          .from(googleCalendarBusyBlocks)
-          .where(and(
-            withOrgScope(googleCalendarBusyBlocks.orgId, orgId),
-            eq(googleCalendarBusyBlocks.userId, member.userId),
-            gte(googleCalendarBusyBlocks.startTime, dayStart),
-            lte(googleCalendarBusyBlocks.startTime, dayEnd),
-          ));
+        const busyBlocks = allBusyBlocks.filter(
+          (b) => b.userId === member.userId && b.startTime >= dayStart && b.startTime <= dayEnd,
+        );
 
-        // Combine into busy times array
         const busyTimes = [
           ...existingAppointments,
           ...busyBlocks,
         ];
 
-        // Generate time slots based on service duration + buffer
         for (const rule of rules) {
           const [startH, startM] = rule.startTime.split(':').map(Number) as [number, number];
           const [endH, endM] = rule.endTime.split(':').map(Number) as [number, number];

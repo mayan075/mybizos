@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ResendConfig {
@@ -122,10 +126,13 @@ export class ResendProvider {
       to: messages[idx]?.to ?? "",
     }));
 
+    const totalFailed = results.filter(r => !r.messageId).length;
+    const totalSent = results.length - totalFailed;
+
     return {
       results,
-      totalSent: results.length,
-      totalFailed: messages.length - results.length,
+      totalSent,
+      totalFailed,
     };
   }
 
@@ -164,6 +171,7 @@ function emailLayout(
 ): string {
   const year = new Date().getFullYear();
   const unsub = unsubscribeUrl ?? "{{unsubscribe_url}}";
+  const safeName = escapeHtml(businessName);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -171,7 +179,7 @@ function emailLayout(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${businessName}</title>
+  <title>${safeName}</title>
   <!--[if mso]>
   <noscript>
     <xml>
@@ -212,7 +220,7 @@ function emailLayout(
   </style>
 </head>
 <body>
-  <span class="preheader">${preheader}</span>
+  <span class="preheader">${escapeHtml(preheader)}</span>
   <table class="email-wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0">
     <tr>
       <td align="center" style="padding: 24px 12px;">
@@ -221,14 +229,14 @@ function emailLayout(
             <td>
               <div class="email-body">
                 <div class="email-header">
-                  <h1>${businessName}</h1>
+                  <h1>${safeName}</h1>
                 </div>
                 <div class="email-inner">
                   ${bodyContent}
                 </div>
               </div>
               <div class="email-footer">
-                <p>&copy; ${year} ${businessName}. All rights reserved.</p>
+                <p>&copy; ${year} ${safeName}. All rights reserved.</p>
                 <p>
                   <a href="${unsub}">Unsubscribe</a> &middot;
                   <a href="{{preferences_url}}">Email Preferences</a>
@@ -255,38 +263,45 @@ export function appointmentConfirmationHtml(
   time: string,
   address: string,
 ): string {
+  const safeContact = escapeHtml(contactName);
+  const safeBiz = escapeHtml(businessName);
+  const safeService = escapeHtml(service);
+  const safeDate = escapeHtml(date);
+  const safeTime = escapeHtml(time);
+  const safeAddress = escapeHtml(address);
+
   const body = `
     <h2>Appointment Confirmed</h2>
-    <p>Hi ${contactName},</p>
-    <p>Great news! Your appointment with <strong>${businessName}</strong> has been confirmed. Here are the details:</p>
+    <p>Hi ${safeContact},</p>
+    <p>Great news! Your appointment with <strong>${safeBiz}</strong> has been confirmed. Here are the details:</p>
     <div class="detail-card">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569; width: 90px;">Service:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${service}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeService}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Date:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${date}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeDate}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Time:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${time}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeTime}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Address:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${address}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeAddress}</td>
         </tr>
       </table>
     </div>
     <p>Please make sure someone is available at the address during the scheduled time. Our technician will arrive within the appointment window.</p>
     <p>Need to reschedule or cancel? Reply to this email or give us a call.</p>
-    <p>Thank you for choosing ${businessName}!</p>
+    <p>Thank you for choosing ${safeBiz}!</p>
   `;
 
   return emailLayout(
     businessName,
-    `Your appointment with ${businessName} is confirmed for ${date} at ${time}.`,
+    `Your appointment with ${safeBiz} is confirmed for ${safeDate} at ${safeTime}.`,
     body,
   );
 }
@@ -301,35 +316,41 @@ export function appointmentReminderHtml(
   date: string,
   time: string,
 ): string {
+  const safeContact = escapeHtml(contactName);
+  const safeBiz = escapeHtml(businessName);
+  const safeService = escapeHtml(service);
+  const safeDate = escapeHtml(date);
+  const safeTime = escapeHtml(time);
+
   const body = `
     <h2>Appointment Reminder</h2>
-    <p>Hi ${contactName},</p>
-    <p>This is a friendly reminder that you have an upcoming appointment with <strong>${businessName}</strong>:</p>
+    <p>Hi ${safeContact},</p>
+    <p>This is a friendly reminder that you have an upcoming appointment with <strong>${safeBiz}</strong>:</p>
     <div class="detail-card">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569; width: 90px;">Service:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${service}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeService}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Date:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${date}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeDate}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Time:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${time}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeTime}</td>
         </tr>
       </table>
     </div>
     <p>Please ensure someone 18 or older is present at the service location during the appointment window.</p>
     <p>If you need to reschedule, please let us know as soon as possible so we can accommodate your needs.</p>
     <p>We look forward to seeing you!</p>
-    <p>Best regards,<br><strong>${businessName}</strong></p>
+    <p>Best regards,<br><strong>${safeBiz}</strong></p>
   `;
 
   return emailLayout(
     businessName,
-    `Reminder: Your ${service} appointment is coming up on ${date} at ${time}.`,
+    `Reminder: Your ${safeService} appointment is coming up on ${safeDate} at ${safeTime}.`,
     body,
   );
 }
@@ -343,22 +364,27 @@ export function reviewRequestHtml(
   reviewUrl: string,
   feedbackUrl: string,
 ): string {
+  const safeContact = escapeHtml(contactName);
+  const safeBiz = escapeHtml(businessName);
+  const safeReviewUrl = escapeHtml(reviewUrl);
+  const safeFeedbackUrl = escapeHtml(feedbackUrl);
+
   const body = `
     <h2>How did we do?</h2>
-    <p>Hi ${contactName},</p>
-    <p>Thank you for choosing <strong>${businessName}</strong>! We hope you had a great experience with our service.</p>
+    <p>Hi ${safeContact},</p>
+    <p>Thank you for choosing <strong>${safeBiz}</strong>! We hope you had a great experience with our service.</p>
     <p>Your feedback helps us improve and helps other homeowners find reliable service providers. Would you take a moment to share your experience?</p>
     <div class="cta-wrapper">
-      <a href="${reviewUrl}" class="cta-button" style="color: #ffffff;">Leave a Review</a>
+      <a href="${safeReviewUrl}" class="cta-button" style="color: #ffffff;">Leave a Review</a>
     </div>
     <p style="text-align: center; color: #64748b; font-size: 13px;">It only takes about 30 seconds!</p>
-    <p>If something wasn't right, we want to make it better. Please <a href="${feedbackUrl}" style="color: #1a56db;">share your concerns with us directly</a> so we can address them right away.</p>
-    <p>Thank you for your trust in ${businessName}.</p>
+    <p>If something wasn't right, we want to make it better. Please <a href="${safeFeedbackUrl}" style="color: #1a56db;">share your concerns with us directly</a> so we can address them right away.</p>
+    <p>Thank you for your trust in ${safeBiz}.</p>
   `;
 
   return emailLayout(
     businessName,
-    `${contactName}, how was your experience with ${businessName}? We'd love your feedback.`,
+    `${safeContact}, how was your experience with ${safeBiz}? We'd love your feedback.`,
     body,
   );
 }
@@ -373,34 +399,40 @@ export function invoiceSentHtml(
   dueDate: string,
   paymentLink: string,
 ): string {
+  const safeContact = escapeHtml(contactName);
+  const safeBiz = escapeHtml(businessName);
+  const safeAmount = escapeHtml(amount);
+  const safeDueDate = escapeHtml(dueDate);
+  const safePaymentLink = escapeHtml(paymentLink);
+
   const body = `
-    <h2>Invoice from ${businessName}</h2>
-    <p>Hi ${contactName},</p>
+    <h2>Invoice from ${safeBiz}</h2>
+    <p>Hi ${safeContact},</p>
     <p>Please find your invoice details below:</p>
     <div class="detail-card">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569; width: 110px;">Amount Due:</td>
-          <td style="padding: 6px 0; color: #1a1a1a; font-size: 18px; font-weight: 700;">${amount}</td>
+          <td style="padding: 6px 0; color: #1a1a1a; font-size: 18px; font-weight: 700;">${safeAmount}</td>
         </tr>
         <tr>
           <td style="padding: 6px 0; font-weight: 600; color: #475569;">Due Date:</td>
-          <td style="padding: 6px 0; color: #1a1a1a;">${dueDate}</td>
+          <td style="padding: 6px 0; color: #1a1a1a;">${safeDueDate}</td>
         </tr>
       </table>
     </div>
     <div class="cta-wrapper">
-      <a href="${paymentLink}" class="cta-button" style="color: #ffffff;">Pay Now</a>
+      <a href="${safePaymentLink}" class="cta-button" style="color: #ffffff;">Pay Now</a>
     </div>
     <p style="text-align: center; color: #64748b; font-size: 13px;">Secure payment powered by Stripe</p>
     <p>If you have any questions about this invoice, please don't hesitate to reply to this email or give us a call.</p>
     <p>Thank you for your business!</p>
-    <p>Best regards,<br><strong>${businessName}</strong></p>
+    <p>Best regards,<br><strong>${safeBiz}</strong></p>
   `;
 
   return emailLayout(
     businessName,
-    `You have a new invoice for ${amount} from ${businessName}, due ${dueDate}.`,
+    `You have a new invoice for ${safeAmount} from ${safeBiz}, due ${safeDueDate}.`,
     body,
   );
 }
@@ -461,10 +493,13 @@ export function welcomeHtml(
   businessName: string,
   userName: string,
 ): string {
+  const safeBiz = escapeHtml(businessName);
+  const safeUser = escapeHtml(userName);
+
   const body = `
-    <h2>Welcome to ${businessName}!</h2>
-    <p>Hi ${userName},</p>
-    <p>Thank you for choosing <strong>${businessName}</strong> for your home service needs. We're excited to have you as a customer!</p>
+    <h2>Welcome to ${safeBiz}!</h2>
+    <p>Hi ${safeUser},</p>
+    <p>Thank you for choosing <strong>${safeBiz}</strong> for your home service needs. We're excited to have you as a customer!</p>
     <p>Here's what you can expect from us:</p>
     <div class="detail-card">
       <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
@@ -497,12 +532,12 @@ export function welcomeHtml(
     </div>
     <p>Need service? Simply give us a call or reply to this email. Our AI assistant is available around the clock to help you schedule appointments.</p>
     <p>We look forward to serving you!</p>
-    <p>Best regards,<br><strong>The ${businessName} Team</strong></p>
+    <p>Best regards,<br><strong>The ${safeBiz} Team</strong></p>
   `;
 
   return emailLayout(
     businessName,
-    `Welcome to ${businessName}! We're excited to have you as a customer.`,
+    `Welcome to ${safeBiz}! We're excited to have you as a customer.`,
     body,
   );
 }

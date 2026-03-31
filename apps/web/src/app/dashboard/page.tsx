@@ -228,12 +228,8 @@ function DashboardSkeleton() {
 
 function GettingStartedBanner() {
   const router = useRouter();
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(() => isGettingStartedBannerDismissed());
   const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setDismissed(isGettingStartedBannerDismissed());
-  }, []);
 
   const handleDismiss = useCallback(() => {
     dismissGettingStartedBanner();

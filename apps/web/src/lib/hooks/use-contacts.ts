@@ -43,7 +43,7 @@ function useContacts(options: UseContactsOptions = {}) {
       );
     }
     return list;
-  }, [result.data, result.isLive, options.search]);
+  }, [result.data, result.isLive, options.search, options.tags]);
 
   return { ...result, data: filtered };
 }

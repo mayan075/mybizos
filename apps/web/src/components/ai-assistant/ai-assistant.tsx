@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import {
   X,
   Minus,
@@ -125,32 +126,15 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const pathname = usePathname();
+
   /* ---------------------------------------- */
   /*  Track current page                       */
   /* ---------------------------------------- */
   useEffect(() => {
-    function updateContext() {
-      const pathname = window.location.pathname;
-      const ctx = getPageContext(pathname);
-      setPageContext(ctx);
-    }
-
-    updateContext();
-
-    // Listen for client-side navigation
-    const observer = new MutationObserver(updateContext);
-    observer.observe(document.querySelector("head") ?? document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    window.addEventListener("popstate", updateContext);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("popstate", updateContext);
-    };
-  }, []);
+    const ctx = getPageContext(pathname);
+    setPageContext(ctx);
+  }, [pathname]);
 
   /* ---------------------------------------- */
   /*  Load suggestions from API on open        */

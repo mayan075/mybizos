@@ -6,7 +6,7 @@ import {
   activities,
   withOrgScope,
 } from '@hararai/db';
-import { eq, and, desc, count, sql, ilike } from 'drizzle-orm';
+import { eq, and, desc, count, sql, ilike, inArray } from 'drizzle-orm';
 import { Errors } from '../middleware/error-handler.js';
 import { logger } from '../middleware/logger.js';
 import { contactService } from './contact-service.js';
@@ -74,7 +74,7 @@ export const formService = {
         .where(
           and(
             withOrgScope(formSubmissions.orgId, orgId),
-            sql`${formSubmissions.formId} IN ${formIds}`,
+            inArray(formSubmissions.formId, formIds),
           ),
         )
         .groupBy(formSubmissions.formId);

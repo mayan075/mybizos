@@ -8,13 +8,10 @@ import {
   MessageSquare,
   ArrowRight,
   Clock,
-  Gift,
-  Star,
   Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { apiClient, tryFetch } from "@/lib/api-client";
-import { getOrgId } from "@/lib/hooks/use-api";
 import { getUser } from "@/lib/auth";
 
 interface Appointment {
@@ -95,7 +92,12 @@ export default function PortalDashboard() {
 
     async function load() {
       try {
-        const orgId = getOrgId();
+        const user = getUser();
+        const orgId = user?.orgId;
+        if (!orgId) {
+          setLoading(false);
+          return;
+        }
         const [aptsRes, invsRes] = await Promise.all([
           tryFetch(() =>
             apiClient.get<{ data: Appointment[] }>(
@@ -166,36 +168,6 @@ export default function PortalDashboard() {
             </Link>
           );
         })}
-      </div>
-
-      {/* Loyalty Points */}
-      <div className="flex items-center gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-          <Gift className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-foreground">
-              Loyalty Rewards
-            </p>
-            <div className="flex items-center gap-0.5">
-              {[1, 2, 3, 4].map((i) => (
-                <Star
-                  key={i}
-                  className="h-3 w-3 fill-amber-400 text-amber-400"
-                />
-              ))}
-              <Star className="h-3 w-3 text-amber-300" />
-            </div>
-          </div>
-          <p className="mt-0.5 text-sm text-foreground/80">
-            You have{" "}
-            <span className="font-bold text-amber-700">450 points</span> —{" "}
-            <span className="font-semibold text-green-700">
-              $45 off your next service!
-            </span>
-          </p>
-        </div>
       </div>
 
       {/* Upcoming Appointments */}

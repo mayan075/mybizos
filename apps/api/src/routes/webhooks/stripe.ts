@@ -56,6 +56,21 @@ stripeWebhooks.post('/', async (c) => {
         if (session.metadata?.type === 'wallet_topup') {
           try {
             const { walletService } = await import('../../services/wallet-service.js');
+            const { walletTransactions } = await import('@hararai/db');
+
+            // Idempotency check: skip if this payment intent was already credited
+            const paymentIntentId = session.payment_intent as string;
+            if (paymentIntentId) {
+              const [existing] = await db
+                .select({ id: walletTransactions.id })
+                .from(walletTransactions)
+                .where(eq(walletTransactions.stripePaymentIntentId, paymentIntentId));
+              if (existing) {
+                logger.info('Wallet top-up already credited (idempotency check)', { orgId, paymentIntentId });
+                break;
+              }
+            }
+
             const amountDollars = (session.amount_total ?? 0) / 100;
 
             await walletService.credit(orgId, {
@@ -86,9 +101,9 @@ stripeWebhooks.post('/', async (c) => {
           break;
         }
 
-        // Determine plan from price: starter ($49/4900 cents) vs pro ($99/9900 cents)
-        const amountCents = session.amount_total ?? 0;
-        const plan = amountCents <= 5000 ? 'starter' : 'pro';
+        // Determine plan from checkout metadata (preferred) or fallback to amount
+        const plan = session.metadata?.plan
+          || ((session.amount_total ?? 0) <= 5000 ? 'starter' : 'pro');
 
         const settings = (org.settings ?? {}) as Record<string, unknown>;
         const updatedSettings = {
@@ -121,10 +136,21 @@ stripeWebhooks.post('/', async (c) => {
 
         if (targetOrg) {
           const settings = (targetOrg.settings ?? {}) as Record<string, unknown>;
+
+          // Determine plan from the subscription's items
+          const sub = event.data.object as { id: string; status: string; cancel_at_period_end: boolean; metadata?: Record<string, string>; items?: { data: Array<{ price?: { unit_amount?: number; product?: string } }> } };
+          let plan = settings.plan as string | undefined;
+          const firstItem = sub.items?.data?.[0];
+          if (firstItem?.price?.unit_amount !== undefined) {
+            const amountCents = firstItem.price.unit_amount;
+            plan = amountCents <= 5000 ? 'starter' : 'pro';
+          }
+
           const updatedSettings = {
             ...settings,
             subscriptionStatus: subscription.status,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            ...(plan ? { plan } : {}),
           };
           await db
             .update(organizations)

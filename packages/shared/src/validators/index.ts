@@ -156,7 +156,7 @@ export const pipelineStageSchema = z.object({
   pipelineId: z.string().uuid(),
   orgId: z.string().uuid(),
   name: z.string().min(1).max(255),
-  slug: dealStageSchema,
+  slug: z.string(),
   position: z.number().int().min(0),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   createdAt: z.coerce.date(),

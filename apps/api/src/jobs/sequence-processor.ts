@@ -513,30 +513,15 @@ export async function runSequenceProcessor(): Promise<{
         error: err instanceof Error ? err.message : String(err),
       });
 
-      // On error: skip to the next step so we don't block the sequence
-      const nextStepIndex = enrollment.currentStep + 1;
-      const nextStep = steps[nextStepIndex];
-
-      if (nextStep) {
-        await db
-          .update(sequenceEnrollments)
-          .set({
-            currentStep: nextStepIndex,
-            nextStepAt: new Date(),
-          })
-          .where(eq(sequenceEnrollments.id, enrollment.id));
-      } else {
-        await db
-          .update(sequenceEnrollments)
-          .set({
-            currentStep: nextStepIndex,
-            status: 'completed',
-            completedAt: new Date(),
-            nextStepAt: null,
-          })
-          .where(eq(sequenceEnrollments.id, enrollment.id));
-        completed++;
-      }
+      // On error: mark enrollment as failed instead of silently advancing
+      await db
+        .update(sequenceEnrollments)
+        .set({
+          status: 'failed',
+          completedAt: new Date(),
+          nextStepAt: null,
+        })
+        .where(eq(sequenceEnrollments.id, enrollment.id));
     }
   }
 

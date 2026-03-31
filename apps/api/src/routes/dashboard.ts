@@ -224,7 +224,7 @@ dashboard.get('/activity', async (c) => {
 
   try {
     const { db, activities, contacts, withOrgScope } = await import('@hararai/db');
-    const { eq, sql } = await import('drizzle-orm');
+    const { eq, and, sql } = await import('drizzle-orm');
 
     const rows = await db
       .select({
@@ -237,7 +237,7 @@ dashboard.get('/activity', async (c) => {
         contactLastName: contacts.lastName,
       })
       .from(activities)
-      .leftJoin(contacts, eq(activities.contactId, contacts.id))
+      .leftJoin(contacts, and(eq(activities.contactId, contacts.id), eq(contacts.orgId, activities.orgId)))
       .where(withOrgScope(activities.orgId, orgId))
       .orderBy(sql`${activities.createdAt} DESC`)
       .limit(10);

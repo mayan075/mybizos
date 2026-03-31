@@ -4,6 +4,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -89,5 +90,6 @@ export const accounts = pgTable(
   },
   (table) => [
     index("accounts_user_id_idx").on(table.userId),
+    uniqueIndex("accounts_provider_account_unique_idx").on(table.provider, table.providerAccountId),
   ],
 );

@@ -6,9 +6,6 @@
  * without exposing the API key.
  */
 
-const EPHEMERAL_TOKEN_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-live-preview:generateContent';
-
 export interface EphemeralTokenResult {
   /** Short-lived access token for client-side WebSocket connection */
   token: string;
@@ -19,39 +16,19 @@ export interface EphemeralTokenResult {
 /**
  * Generate an ephemeral token for client-to-server Gemini Live connections.
  *
- * @param apiKey - Server-side Google AI API key (never sent to the client)
- * @returns Short-lived token safe for browser use
+ * Google does not provide a public ephemeral token API for Gemini Live.
+ * Client-side connections must be proxied through the server (which holds
+ * the API key) rather than connecting directly from the browser.
+ *
+ * @param _apiKey - Unused. Kept for API compatibility.
+ * @throws Always throws — server-side proxying is required instead.
  */
-export async function generateEphemeralToken(apiKey: string): Promise<EphemeralTokenResult> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'models/gemini-3.1-flash-live-preview',
-        // Ephemeral token request — Google issues a short-lived bearer token
-        generationConfig: {},
-      }),
-    },
+export async function generateEphemeralToken(_apiKey: string): Promise<EphemeralTokenResult> {
+  throw new Error(
+    'Google does not provide an ephemeral token API for Gemini Live. ' +
+    'Client connections must be proxied through the server using GeminiLiveSession. ' +
+    'See the /demo/session endpoint for the server-proxy pattern.',
   );
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => 'Unknown error');
-    throw new Error(`Failed to generate ephemeral token (${response.status}): ${errorBody}`);
-  }
-
-  const data = await response.json() as { name: string; expireTime: string };
-
-  // The token is the resource name, expiration comes from the response
-  const expiresAt = data.expireTime
-    ? new Date(data.expireTime).getTime()
-    : Date.now() + 5 * 60 * 1000; // Default 5 minutes
-
-  return {
-    token: data.name,
-    expiresAt,
-  };
 }
 
 /**

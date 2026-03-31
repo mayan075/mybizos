@@ -32,20 +32,18 @@ interface UseApiMutationResult<TInput, TOutput> {
 // Helpers
 // --------------------------------------------------------
 
-function getOrgId(): string {
+function getOrgId(): string | null {
   const user = getUser();
   if (!user?.orgId) {
-    // No authenticated org — redirect to login instead of leaking data
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
-    throw new Error("No authenticated organization");
+    return null;
   }
   return user.orgId;
 }
 
-function buildPath(template: string): string {
-  return template.replace(":orgId", getOrgId());
+function buildPath(template: string): string | null {
+  const orgId = getOrgId();
+  if (!orgId) return null;
+  return template.replace(":orgId", orgId);
 }
 
 // --------------------------------------------------------
@@ -90,8 +88,17 @@ function useApiQuery<T>(
     setIsLoading(true);
     setError(null);
 
+    const path = buildPath(endpoint);
+    if (!path) {
+      // No org — redirect to login
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const path = buildPath(endpoint);
       // Add 5-second timeout to prevent hanging
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
@@ -170,6 +177,11 @@ function useApiMutation<TInput, TOutput = TInput>(
       setError(null);
 
       const path = buildPath(endpoint);
+      if (!path) {
+        setError("No authenticated organization");
+        setIsLoading(false);
+        return null;
+      }
 
       try {
         let result: TOutput | null = null;

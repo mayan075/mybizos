@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getOnboardingData } from "@/lib/onboarding";
+import { getUser } from "@/lib/auth";
 
 const navItems = [
   { label: "Dashboard", href: "/portal", icon: LayoutDashboard },
@@ -39,6 +40,9 @@ export default function PortalLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const onboarding = useMemo(() => getOnboardingData(), []);
   const businessName = onboarding?.businessName ?? "Your Business";
+  const user = useMemo(() => getUser(), []);
+  const displayName = user?.name ?? "";
+  const displayInitial = displayName ? displayName.charAt(0).toUpperCase() : "?";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -85,9 +89,11 @@ export default function PortalLayout({
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 sm:flex">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                S
+                {displayInitial}
               </div>
-              <span className="text-sm font-medium text-foreground/80">Sarah</span>
+              {displayName && (
+                <span className="text-sm font-medium text-foreground/80">{displayName}</span>
+              )}
             </div>
             <button
               type="button"

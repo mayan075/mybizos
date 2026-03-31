@@ -164,11 +164,11 @@ contacts.delete('/:id', async (c) => {
     const contactId = c.req.param('id');
     await contactService.softDelete(orgId, contactId);
     logger.info('Contact deleted from REAL DATABASE', { orgId, contactId });
+    return c.json({ data: { message: 'Contact archived successfully' } });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-  return c.json({ data: { message: 'Contact archived successfully' } });
 });
 
 export { contacts as contactRoutes };

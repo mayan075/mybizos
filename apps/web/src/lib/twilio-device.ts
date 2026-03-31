@@ -63,17 +63,17 @@ const API_BASE = env.NEXT_PUBLIC_API_URL;
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-function getOrgId(): string {
-  if (typeof window === 'undefined') return 'org_01';
+function getOrgId(): string | null {
+  if (typeof window === 'undefined') return null;
   try {
     const token = localStorage.getItem('hararai_token');
-    if (!token) return 'org_01';
+    if (!token) return null;
     const parts = token.split('.');
-    if (parts.length !== 3 || !parts[1]) return 'org_01';
+    if (parts.length !== 3 || !parts[1]) return null;
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return payload.orgId ?? 'org_01';
+    return payload.orgId ?? null;
   } catch {
-    return 'org_01';
+    return null;
   }
 }
 
@@ -93,6 +93,11 @@ function setState(partial: Partial<TwilioCallState>): void {
 
 async function fetchToken(): Promise<string | null> {
   const orgId = getOrgId();
+  if (!orgId) {
+    setState({ needsSetup: true, error: null });
+    return null;
+  }
+
   const authToken = getAuthToken();
 
   console.info('[TwilioDevice] fetchToken: orgId=' + orgId + ', hasAuth=' + !!authToken + ', apiBase=' + API_BASE);
@@ -158,6 +163,11 @@ function scheduleTokenRefresh(): void {
 
 export async function runVoiceSetup(): Promise<{ success: boolean; error?: string }> {
   const orgId = getOrgId();
+  if (!orgId) {
+    setState({ needsSetup: true, error: null });
+    return { success: false, error: 'No organization found. Please log in.' };
+  }
+
   const authToken = getAuthToken();
 
   const headers: Record<string, string> = {

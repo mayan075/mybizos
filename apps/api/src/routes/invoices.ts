@@ -110,10 +110,11 @@ invoiceRoutes.post('/', async (c) => {
     const { db, invoices, withOrgScope } = await import('@hararai/db');
     const { count, and } = await import('drizzle-orm');
 
-    // Generate invoice number
-    const [countResult] = await db.select({ value: count() }).from(invoices).where(withOrgScope(invoices.orgId, orgId));
-    const num = (countResult?.value ?? 0) + 1;
-    const invoiceNumber = `INV-${String(num).padStart(4, '0')}`;
+    // Generate invoice number using timestamp + random suffix to avoid race conditions
+    const now = new Date();
+    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const invoiceNumber = `INV-${datePart}-${randomPart}`;
 
     // Calculate totals
     const subtotal = parsed.lineItems.reduce((sum, item) => sum + item.amount, 0);

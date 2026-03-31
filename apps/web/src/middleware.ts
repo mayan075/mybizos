@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server";
  * without auth because we are in demo mode (no DB for auth yet).
  *
  * In production with a real auth backend, this would enforce:
- * - Protected routes (/dashboard/*) redirect to /login if no valid token.
+ * - Protected routes (/dashboard/*, /portal/*) redirect to /login if no valid token.
  * - Public routes (/login, /register, /book/*, /review/*) are always accessible.
  */
 
@@ -21,7 +21,7 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function isProtectedPath(pathname: string): boolean {
-  return pathname.startsWith("/dashboard");
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/portal");
 }
 
 /**

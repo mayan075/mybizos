@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   numeric,
   pgEnum,
@@ -9,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ export const walletAccounts = pgTable(
   },
   (table) => [
     uniqueIndex("wallet_accounts_org_id_idx").on(table.orgId),
+    check("wallet_balance_check", sql`${table.balance} >= 0`),
   ],
 );
 

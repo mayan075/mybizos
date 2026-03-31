@@ -38,6 +38,7 @@ export default function EmbedFormPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchForm() {
@@ -55,7 +56,7 @@ export default function EmbedFormPage() {
         // Initialize values
         const initial: Record<string, string> = {};
         for (const field of formData.fields) {
-          initial[field.label] = "";
+          initial[field.id] = "";
         }
         setValues(initial);
       } catch {
@@ -72,12 +73,13 @@ export default function EmbedFormPage() {
 
     // Validate required fields
     for (const field of form.fields) {
-      if (field.required && !values[field.label]?.trim()) {
+      if (field.required && !values[field.id]?.trim()) {
         return;
       }
     }
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await fetch(`${API_URL}/public/forms/${formId}/submit`, {
         method: "POST",
@@ -94,11 +96,14 @@ export default function EmbedFormPage() {
         } else {
           setSubmitted(true);
         }
+      } else {
+        setSubmitError("Something went wrong. Please try again.");
       }
     } catch {
-      // Submission failed silently
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   if (loading) {
@@ -135,9 +140,9 @@ export default function EmbedFormPage() {
   }
 
   function renderField(field: FormField) {
-    const value = values[field.label] || "";
+    const value = values[field.id] || "";
     const onChange = (val: string) =>
-      setValues((prev) => ({ ...prev, [field.label]: val }));
+      setValues((prev) => ({ ...prev, [field.id]: val }));
 
     const inputClass =
       "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors";
@@ -231,6 +236,10 @@ export default function EmbedFormPage() {
             {renderField(field)}
           </div>
         ))}
+
+        {submitError && (
+          <p className="text-sm text-destructive">{submitError}</p>
+        )}
 
         <button
           type="submit"

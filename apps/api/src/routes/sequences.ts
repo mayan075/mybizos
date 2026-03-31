@@ -141,11 +141,11 @@ sequences.delete('/:id', async (c) => {
     const { sequenceService } = await import('../services/sequence-service.js');
     const orgId = c.get('orgId');
     await sequenceService.delete(orgId, c.req.param('id'));
+    return c.json({ data: { message: 'Sequence deleted successfully' } });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
-  return c.json({ data: { message: 'Sequence deleted successfully' } });
 });
 
 sequences.post('/:id/activate', async (c) => {
