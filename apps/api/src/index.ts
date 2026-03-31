@@ -276,8 +276,17 @@ async function handleDemoLiveProxy(clientWs: import('ws').WebSocket, req: import
     geminiWs.close();
   }, MAX_DURATION);
 
+  // Queue browser messages until Gemini WS is open, then flush & relay
+  let geminiReady = false;
+  const pendingMessages: (Buffer | string)[] = [];
+
   geminiWs.on('open', () => {
-    geminiWs.send(JSON.stringify({ setup: session.config }));
+    geminiReady = true;
+    // Flush any messages the browser sent while we were connecting to Gemini
+    for (const msg of pendingMessages) {
+      geminiWs.send(msg);
+    }
+    pendingMessages.length = 0;
   });
 
   geminiWs.on('message', (data: Buffer | string) => {
@@ -285,7 +294,11 @@ async function handleDemoLiveProxy(clientWs: import('ws').WebSocket, req: import
   });
 
   clientWs.on('message', (data: Buffer | string) => {
-    if (geminiWs.readyState === 1) geminiWs.send(data);
+    if (geminiReady && geminiWs.readyState === 1) {
+      geminiWs.send(data);
+    } else {
+      pendingMessages.push(data);
+    }
   });
 
   const cleanup = () => {
