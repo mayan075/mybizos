@@ -118,7 +118,7 @@ export default function AdminAuditLogsPage() {
   const [page, setPage] = useState(0);
   const pageSize = 30;
 
-  const { data, loading } = useAdminAuditLogs({
+  const { data, loading, error, refetch } = useAdminAuditLogs({
     action: action || undefined,
     limit: pageSize,
     offset: page * pageSize,
@@ -214,7 +214,21 @@ export default function AdminAuditLogsPage() {
           </tbody>
         </table>
 
-        {!loading && data.logs.length === 0 && (
+        {!loading && error && (
+          <div className="py-12 text-center">
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              Failed to load audit logs
+            </p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{error}</p>
+            <button
+              onClick={() => refetch()}
+              className="mt-3 rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && data.logs.length === 0 && (
           <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
             No audit logs found
           </p>

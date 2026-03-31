@@ -412,7 +412,7 @@ admin.post('/organizations/:orgId/impersonate', async (c) => {
 admin.get('/users', async (c) => {
   try {
     const { db, users, orgMembers, organizations } = await import('@hararai/db');
-    const { eq, ilike, desc, asc, sql } = await import('drizzle-orm');
+    const { eq, ilike, desc, asc, sql, inArray } = await import('drizzle-orm');
 
     const search = c.req.query('search') ?? '';
     const sortDir = c.req.query('dir') ?? 'desc';
@@ -465,7 +465,7 @@ admin.get('/users', async (c) => {
         })
         .from(orgMembers)
         .innerJoin(organizations, eq(orgMembers.orgId, organizations.id))
-        .where(sql`${orgMembers.userId} IN ${userIds}`);
+        .where(inArray(orgMembers.userId, userIds));
     }
 
     // Attach memberships to users

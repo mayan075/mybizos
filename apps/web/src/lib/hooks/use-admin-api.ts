@@ -179,7 +179,11 @@ function useAdminData<T>(endpoint: string, defaultValue: T) {
     setError(null);
     try {
       const result = await tryFetch(() => apiClient.get<T>(endpoint));
-      if (result) setData(result);
+      if (result) {
+        setData(result);
+      } else {
+        setError("Unable to reach the server");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch");
     } finally {

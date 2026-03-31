@@ -52,7 +52,7 @@ export default function AdminOrganizationsPage() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  const { data, loading, refetch } = useAdminOrgs({
+  const { data, loading, error, refetch } = useAdminOrgs({
     search,
     limit: pageSize,
     offset: page * pageSize,
@@ -230,7 +230,21 @@ export default function AdminOrganizationsPage() {
           </tbody>
         </table>
 
-        {!loading && data.organizations.length === 0 && (
+        {!loading && error && (
+          <div className="py-12 text-center">
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              Failed to load organizations
+            </p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{error}</p>
+            <button
+              onClick={() => refetch()}
+              className="mt-3 rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && data.organizations.length === 0 && (
           <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
             No organizations found
           </p>
