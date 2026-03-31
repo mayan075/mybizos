@@ -1,16 +1,37 @@
 /**
  * Public demo call endpoint — no auth required.
- * Generates an ephemeral Gemini Live token for the landing page voice widget.
+ * Creates a server-side session that the browser connects to via
+ * the WebSocket proxy at /ws/demo-live, keeping the API key server-side.
  *
  * Rate-limited by IP: 3 calls per 24 hours.
  */
 
+import crypto from 'crypto';
 import { Hono } from 'hono';
 import { config } from '../config.js';
 import { logger } from '../middleware/logger.js';
 import { getDemoAgentPrompt } from '@hararai/ai';
 
 const demoCallRoutes = new Hono();
+
+// ── Demo Session Store (server-side, API key never exposed) ─────────────────
+
+interface DemoSession {
+  config: Record<string, unknown>;
+  createdAt: number;
+}
+
+export const demoSessions = new Map<string, DemoSession>();
+
+// Cleanup expired demo sessions every 5 minutes
+setInterval(() => {
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  for (const [id, session] of demoSessions) {
+    if (session.createdAt < fiveMinutesAgo) {
+      demoSessions.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 // ── IP Rate Limiting (in-memory) ─────────────────────────────────────────────
 
@@ -81,12 +102,7 @@ demoCallRoutes.post('/session', async (c) => {
       );
     }
 
-    // Build WebSocket URL with API key
-    // Google does not offer ephemeral tokens for Gemini Live, so the key
-    // must be in the WS URL. This is rate-limited (3 calls/day/IP).
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${config.GOOGLE_AI_API_KEY}`;
-
-    // Build session config for the browser
+    // Build session config (stored server-side, never sent to browser)
     const sessionConfig = {
       model: `models/${config.GEMINI_LIVE_MODEL}`,
       generationConfig: {
@@ -104,10 +120,23 @@ demoCallRoutes.post('/session', async (c) => {
       outputAudioTranscription: {},
     };
 
+    // Store session server-side — browser gets only the session ID
+    const sessionId = crypto.randomUUID();
+    demoSessions.set(sessionId, {
+      config: sessionConfig,
+      createdAt: Date.now(),
+    });
+
     // Record the call for rate limiting
     recordCall(ip);
 
-    logger.info('Demo session created', { ip });
+    logger.info('Demo session created', { ip, sessionId });
+
+    // Return WebSocket proxy URL (API key stays on server)
+    // Derive WS URL from the request Host header so it works in all environments
+    const host = c.req.header('host') ?? new URL(config.APP_URL).host;
+    const protocol = c.req.header('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
+    const wsUrl = `${protocol}://${host}/ws/demo-live?session=${sessionId}`;
 
     return c.json({
       wsUrl,
