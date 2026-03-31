@@ -113,6 +113,7 @@ function useCallerNumbers() {
 
       try {
         const path = buildPath("/orgs/:orgId/phone-system/numbers");
+        if (!path) return;
         const result = await tryFetch(() =>
           apiClient.get<{ numbers: TwilioPhoneNumber[] }>(path),
         );
@@ -693,6 +694,7 @@ async function logCallToApi(params: {
 }) {
   try {
     const path = buildPath("/orgs/:orgId/calls/log");
+    if (!path) return;
     await tryFetch(() =>
       apiClient.post(path, {
         phoneNumber: params.phoneNumber,
