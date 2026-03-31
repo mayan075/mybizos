@@ -133,7 +133,7 @@
    =================================================================== */
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior handled by Lenis on marketing pages; native scroll elsewhere */
 }
 
 /* ---- Scroll Reveal ---- */
