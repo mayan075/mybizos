@@ -35,7 +35,7 @@ setInterval(() => {
 
 // ── IP Rate Limiting (in-memory) ─────────────────────────────────────────────
 
-const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_MAX = 999;
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_CALL_DURATION_MS = 120_000; // 2 minutes
 
