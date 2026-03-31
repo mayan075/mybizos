@@ -63,7 +63,6 @@ contacts.get('/', async (c) => {
     return c.json({
       data: result.contacts,
       pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
-      _source: 'database',
     });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
@@ -78,7 +77,7 @@ contacts.get('/:id', async (c) => {
     const orgId = c.get('orgId');
     const result = await contactService.getById(orgId, contactId);
     logger.info('Contact detail served from REAL DATABASE', { orgId, contactId });
-    return c.json({ data: result, _source: 'database' });
+    return c.json({ data: result });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);

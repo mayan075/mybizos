@@ -58,7 +58,7 @@ authenticatedScheduling.get('/appointments', async (c) => {
     const orgId = c.get('orgId');
     const appointments = await schedulingService.listAppointments(orgId);
     logger.info('Appointments list served from REAL DATABASE', { orgId, count: appointments.length });
-    return c.json({ data: appointments, _source: 'database' });
+    return c.json({ data: appointments });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
@@ -134,7 +134,7 @@ authenticatedScheduling.get('/availability', async (c) => {
     const userId = query.userId ?? '';
     const slots = await schedulingService.getAvailability(orgId, userId, query.date);
     logger.info('Availability served from REAL DATABASE', { orgId, date: query.date, slots: slots.length });
-    return c.json({ data: slots, _source: 'database' });
+    return c.json({ data: slots });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);

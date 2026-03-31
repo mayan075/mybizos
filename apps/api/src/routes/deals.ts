@@ -41,7 +41,7 @@ deals.get('/', async (c) => {
     const orgId = c.get('orgId');
     const result = await dealService.list(orgId);
     logger.info('Deals list served from REAL DATABASE', { orgId, count: result.length });
-    return c.json({ data: result, _source: 'database' });
+    return c.json({ data: result });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);

@@ -110,7 +110,7 @@ organizations.patch('/:orgId', requireRole('owner', 'admin'), async (c) => {
 
     if (updated) {
       logger.info('Organization updated in REAL DATABASE', { orgId });
-      return c.json({ data: updated, _source: 'database' });
+      return c.json({ data: updated });
     }
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
@@ -159,7 +159,7 @@ organizations.get('/:orgId/members', async (c) => {
     }));
 
     logger.info('Members served from REAL DATABASE', { orgId, count: members.length });
-    return c.json({ data: members, _source: 'database' });
+    return c.json({ data: members });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
@@ -320,14 +320,14 @@ organizations.get('/:orgId/settings', async (c) => {
 
     if (org) {
       logger.info('Settings served from REAL DATABASE', { orgId });
-      return c.json({ data: org.settings ?? {}, _source: 'database' });
+      return c.json({ data: org.settings ?? {} });
     }
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
   }
 
-  return c.json({ data: {}, _source: 'database' });
+  return c.json({ data: {} });
 });
 
 /**
@@ -348,7 +348,7 @@ organizations.post('/:orgId/settings', async (c) => {
       .where(withOrgScope(orgsTable.id, orgId));
 
     logger.info('Settings saved to REAL DATABASE', { orgId, keys: Object.keys(parsed) });
-    return c.json({ data: parsed, _source: 'database' });
+    return c.json({ data: parsed });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);

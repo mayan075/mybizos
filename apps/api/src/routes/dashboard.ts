@@ -203,7 +203,7 @@ dashboard.get('/stats', async (c) => {
     });
 
     logger.info('Dashboard stats served from REAL DATABASE', { orgId, totalContacts, activeDeals, upcomingAppointmentCount });
-    return c.json({ stats, upcomingAppointments, _source: 'database' });
+    return c.json({ stats, upcomingAppointments });
 
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });

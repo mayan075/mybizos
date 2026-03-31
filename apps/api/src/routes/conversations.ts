@@ -28,7 +28,7 @@ conversations.get('/', async (c) => {
     const orgId = c.get('orgId');
     const result = await conversationService.list(orgId, filters);
     logger.info('Conversations list served from REAL DATABASE', { orgId, count: result.length });
-    return c.json({ data: result, _source: 'database' });
+    return c.json({ data: result });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
@@ -42,7 +42,7 @@ conversations.get('/:id/messages', async (c) => {
     const orgId = c.get('orgId');
     const messages = await conversationService.getMessages(orgId, conversationId);
     logger.info('Messages served from REAL DATABASE', { orgId, conversationId, count: messages.length });
-    return c.json({ data: messages, _source: 'database' });
+    return c.json({ data: messages });
   } catch (err) {
     logger.error('Database unavailable', { error: err instanceof Error ? err.message : String(err) });
     return c.json({ error: 'Service temporarily unavailable', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
