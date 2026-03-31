@@ -14,29 +14,60 @@ import { z } from "zod";
 import { processOnboardingChat } from "../services/onboarding-ai-service.js";
 import { processOnboardingData } from "../services/onboarding-service.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rate-limit.js";
 import { logger } from "../middleware/logger.js";
 import { createEmptyOnboardingConfig } from "@hararai/shared";
 import type { OnboardingConfig, OnboardingServiceConfig } from "@hararai/shared";
 
 const onboardingChat = new Hono();
 
+// Rate limit unauthenticated chat: 20 messages per minute per IP
+const chatLimiter = rateLimit(20, 60 * 1000);
+
+const onboardingConfigSchema = z.object({
+  businessName: z.string().max(200).optional().default(""),
+  industry: z.string().max(100).optional().default(""),
+  industryCategory: z.string().max(50).optional().default(""),
+  timezone: z.string().max(50).optional().default(""),
+  services: z.array(z.object({
+    name: z.string().max(200),
+    description: z.string().max(1000).optional().nullable(),
+    durationMinutes: z.number().int().min(5).max(480).optional().nullable(),
+    pricingMode: z.string().max(20).optional().nullable(),
+    pricingUnit: z.string().max(20).optional().nullable(),
+    priceMin: z.number().min(0).max(1_000_000).optional().nullable(),
+    priceMax: z.number().min(0).max(1_000_000).optional().nullable(),
+  })).max(50).optional().default([]),
+  hours: z.record(z.string(), z.object({
+    open: z.boolean(),
+    start: z.string().max(10),
+    end: z.string().max(10),
+  })).optional().nullable(),
+  aiAgent: z.object({
+    tone: z.string().max(50).optional(),
+    greeting: z.string().max(500).optional(),
+    emergencyKeywords: z.array(z.string().max(50)).max(20).optional(),
+    knowledgeBase: z.array(z.string().max(2000)).max(20).optional(),
+  }).optional().nullable(),
+}).passthrough();
+
 const chatRequestSchema = z.object({
   message: z.string().min(1).max(5000),
   history: z.array(z.object({
     role: z.enum(["user", "assistant"]),
-    content: z.string(),
-  })).default([]),
-  config: z.any().default(null), // Current OnboardingConfig state from frontend
+    content: z.string().max(10000),
+  })).max(50).default([]),
+  config: onboardingConfigSchema.nullable().default(null),
 });
 
 const finalizeRequestSchema = z.object({
-  config: z.any(), // OnboardingConfig
+  config: onboardingConfigSchema,
 });
 
 /**
  * POST /onboarding/chat — Send a message to the onboarding AI
  */
-onboardingChat.post("/chat", async (c) => {
+onboardingChat.post("/chat", chatLimiter, async (c) => {
   try {
     const body = await c.req.json();
     const parsed = chatRequestSchema.safeParse(body);
@@ -48,7 +79,9 @@ onboardingChat.post("/chat", async (c) => {
       );
     }
 
-    const currentConfig: OnboardingConfig = parsed.data.config || createEmptyOnboardingConfig();
+    const currentConfig: OnboardingConfig = parsed.data.config
+      ? { ...createEmptyOnboardingConfig(), ...parsed.data.config }
+      : createEmptyOnboardingConfig();
 
     const result = await processOnboardingChat(
       parsed.data.history,
@@ -100,7 +133,7 @@ onboardingChat.post("/finalize", authMiddleware, async (c) => {
       );
     }
 
-    const config = parsed.data.config as OnboardingConfig;
+    const config = { ...createEmptyOnboardingConfig(), ...parsed.data.config } as OnboardingConfig;
 
     // Convert OnboardingConfig to the format expected by processOnboardingData
     const onboardingData = {

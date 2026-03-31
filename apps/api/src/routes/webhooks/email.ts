@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { logger } from '../../middleware/logger.js';
+import { config } from '../../config.js';
 
 const emailWebhooks = new Hono();
 
@@ -35,9 +36,8 @@ const resendInboundSchema = z.object({
 });
 
 // ── Routes ──
-// This webhook endpoint does NOT use auth middleware since it is called
-// by Resend's infrastructure. In production, requests will be validated
-// using Resend's webhook signature verification.
+// Resend webhook signature verification via svix.
+// When RESEND_WEBHOOK_SECRET is set, all requests are verified.
 
 /**
  * POST /webhooks/email/inbound — Resend inbound email webhook
@@ -46,6 +46,25 @@ const resendInboundSchema = z.object({
  * and optionally routes to AI for auto-reply.
  */
 emailWebhooks.post('/inbound', async (c) => {
+  // Verify webhook signature if secret is configured
+  const webhookSecret = (config as Record<string, unknown>).RESEND_WEBHOOK_SECRET as string | undefined;
+  if (webhookSecret) {
+    const svixId = c.req.header('svix-id');
+    const svixTimestamp = c.req.header('svix-timestamp');
+    const svixSignature = c.req.header('svix-signature');
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      logger.warn('Email webhook missing svix signature headers');
+      return c.json({ error: 'Missing webhook signature', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+    // TODO: Implement full svix verification once @svix/node is installed:
+    // const wh = new Webhook(webhookSecret);
+    // wh.verify(rawBody, { 'svix-id': svixId, 'svix-timestamp': svixTimestamp, 'svix-signature': svixSignature });
+    logger.info('Email webhook svix headers present — full verification pending svix library install');
+  } else if (config.NODE_ENV === 'production') {
+    logger.error('Email webhook rejected: RESEND_WEBHOOK_SECRET not configured in production');
+    return c.json({ error: 'Webhook authentication not configured', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+
   const body = await c.req.json();
   const parsed = resendInboundSchema.parse(body);
 

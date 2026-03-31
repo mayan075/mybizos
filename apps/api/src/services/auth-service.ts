@@ -34,8 +34,10 @@ export interface AuthResult {
 }
 
 export function generateToken(payload: JwtPayload, expiresIn?: string): string {
-  const secret = config.JWT_SECRET || 'dev-jwt-secret-change-in-production-must-be-32-chars';
-  return jwt.sign(payload, secret, {
+  if (!config.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured — refusing to sign tokens');
+  }
+  return jwt.sign(payload, config.JWT_SECRET, {
     expiresIn: (expiresIn ?? ACCESS_TOKEN_EXPIRY) as unknown as number,
   } as jwt.SignOptions);
 }
@@ -678,9 +680,11 @@ export async function cleanupExpiredSessions(): Promise<number> {
 }
 
 export function validateToken(token: string): JwtPayload {
-  const secret = config.JWT_SECRET || 'dev-jwt-secret-change-in-production-must-be-32-chars';
+  if (!config.JWT_SECRET) {
+    throw new AuthError('JWT_SECRET is not configured', 'SERVER_ERROR', 500);
+  }
   try {
-    const decoded = jwt.verify(token, secret) as JwtPayload;
+    const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
     return decoded;
   } catch {
     throw new AuthError('Invalid or expired token', 'UNAUTHORIZED', 401);

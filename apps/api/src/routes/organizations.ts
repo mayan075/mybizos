@@ -295,7 +295,15 @@ organizations.post('/:orgId/invite', requireRole('owner', 'admin'), async (c) =>
   }
 });
 
-const settingsSchema = z.record(z.string(), z.unknown());
+// SECURITY: Whitelist allowed settings keys to prevent privilege escalation.
+// Billing fields (plan, stripeCustomerId, stripeSubscriptionId) are stored in the
+// same JSONB column and must NEVER be writable via this endpoint.
+const BLOCKED_SETTINGS_KEYS = ['plan', 'stripeCustomerId', 'stripeSubscriptionId', 'stripePaymentMethodId', 'billing', 'subscription', 'role', 'roles', 'permissions'];
+
+const settingsSchema = z.record(z.string(), z.unknown()).refine(
+  (obj) => !Object.keys(obj).some((k) => BLOCKED_SETTINGS_KEYS.includes(k)),
+  { message: 'Cannot modify protected settings fields' },
+);
 
 /**
  * GET /orgs/:orgId/settings — get all organization settings
@@ -350,9 +358,30 @@ organizations.post('/:orgId/settings', async (c) => {
 /**
  * POST /orgs/:orgId/onboarding — persist onboarding data to org settings
  */
+const onboardingBodySchema = z.object({
+  businessName: z.string().min(1).max(200).optional(),
+  industry: z.string().max(100).optional(),
+  industryCategory: z.string().max(50).optional(),
+  timezone: z.string().max(50).optional(),
+  services: z.array(z.object({
+    name: z.string().min(1).max(200),
+    enabled: z.boolean().default(true),
+  })).max(50).optional(),
+  hours: z.record(z.string(), z.object({
+    open: z.boolean(),
+    start: z.string().max(10),
+    end: z.string().max(10),
+  })).optional(),
+}).strict();
+
 organizations.post('/:orgId/onboarding', async (c) => {
   const orgId = c.get('orgId');
-  const body = await c.req.json();
+  const rawBody = await c.req.json();
+  const parseResult = onboardingBodySchema.safeParse(rawBody);
+  if (!parseResult.success) {
+    return c.json({ error: 'Validation failed', code: 'VALIDATION_ERROR', status: 422, details: parseResult.error.issues }, 422);
+  }
+  const body = parseResult.data;
 
   // Try to persist to DB
   try {

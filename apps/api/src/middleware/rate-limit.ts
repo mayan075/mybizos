@@ -77,8 +77,16 @@ export function orgRateLimit(maxAttempts: number, windowMs: number) {
   return async (c: Context, next: Next) => {
     const orgId = c.get('orgId') as string | undefined;
 
-    // If orgId is not set on context, skip org-level limiting
+    // If orgId is not set on context, fall back to IP-based limiting
     if (!orgId) {
+      const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+        || c.req.header('x-real-ip')
+        || 'unknown';
+      const ipKey = `rl:org-fallback:${ip}`;
+      const ipRemaining = await checkLimit(ipKey, maxAttempts, windowMs);
+      if (ipRemaining === -1) {
+        return c.json({ error: 'Rate limit exceeded', code: 'RATE_LIMITED', status: 429 }, 429);
+      }
       await next();
       return;
     }

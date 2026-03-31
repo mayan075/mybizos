@@ -45,7 +45,7 @@ import { geminiRoutes } from './routes/gemini.js';
 import { bookableServiceRoutes } from './routes/bookable-services.js';
 import { waitlistRoutes } from './routes/waitlist.js';
 import { onboardingChatRoutes } from './routes/onboarding-chat.js';
-import { demoCallRoutes } from './routes/demo-call.js';
+import { demoCallRoutes, demoSessions } from './routes/demo-call.js';
 import { handleTwilioMediaStream } from './services/media-stream-handler.js';
 import { startScheduler } from './scheduler.js';
 import { orgRateLimit } from './middleware/rate-limit.js';
@@ -58,10 +58,13 @@ app.use('*', cors({
   origin: (origin) => {
     // Build allowed origins from config
     const allowed: string[] = [
-      'http://localhost:3000',
-      'http://localhost:3002',
       config.CORS_ORIGIN,
     ];
+
+    // Only allow localhost in development
+    if (config.NODE_ENV === 'development') {
+      allowed.push('http://localhost:3000', 'http://localhost:3002');
+    }
 
     // Add explicitly allowed origins from env (e.g., your Vercel deployment URL)
     if (config.ALLOWED_ORIGINS) {
@@ -92,7 +95,9 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('X-Frame-Options', 'DENY');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  c.header('X-XSS-Protection', '1; mode=block');
+  c.header('X-XSS-Protection', '0');
+  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  c.header('Content-Security-Policy', "default-src 'none'");
 });
 
 app.onError(errorHandler);
@@ -236,10 +241,64 @@ server.on('upgrade', (req, socket, head) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
       handleTwilioMediaStream(ws, req);
     });
+  } else if (req.url?.startsWith('/ws/demo-live')) {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      handleDemoLiveProxy(ws, req);
+    });
   } else {
     socket.destroy();
   }
 });
+
+// ── Demo Live WebSocket Proxy ──
+// Proxies browser WebSocket to Gemini Live, keeping the API key server-side.
+async function handleDemoLiveProxy(clientWs: import('ws').WebSocket, req: import('http').IncomingMessage): Promise<void> {
+  const url = new URL(req.url ?? '', `http://${req.headers.host}`);
+  const sessionId = url.searchParams.get('session');
+  const { config: appConfig } = await import('./config.js');
+
+  if (!sessionId || !demoSessions.has(sessionId)) {
+    clientWs.close(1008, 'Invalid or expired session');
+    return;
+  }
+
+  const session = demoSessions.get(sessionId)!;
+  demoSessions.delete(sessionId);
+
+  const geminiUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${appConfig.GOOGLE_AI_API_KEY}`;
+
+  const WebSocketModule = await import('ws');
+  const geminiWs = new WebSocketModule.default(geminiUrl);
+
+  const MAX_DURATION = 120_000;
+  const timeout = setTimeout(() => {
+    clientWs.close(1000, 'Demo time limit reached');
+    geminiWs.close();
+  }, MAX_DURATION);
+
+  geminiWs.on('open', () => {
+    geminiWs.send(JSON.stringify({ setup: session.config }));
+  });
+
+  geminiWs.on('message', (data: Buffer | string) => {
+    if (clientWs.readyState === 1) clientWs.send(data);
+  });
+
+  clientWs.on('message', (data: Buffer | string) => {
+    if (geminiWs.readyState === 1) geminiWs.send(data);
+  });
+
+  const cleanup = () => {
+    clearTimeout(timeout);
+    if (geminiWs.readyState < 2) geminiWs.close();
+    if (clientWs.readyState < 2) clientWs.close();
+  };
+
+  clientWs.on('close', cleanup);
+  clientWs.on('error', cleanup);
+  geminiWs.on('close', cleanup);
+  geminiWs.on('error', cleanup);
+}
 
 server.listen(port, () => {
   logger.info(`HararAI API server running on http://localhost:${port}`);

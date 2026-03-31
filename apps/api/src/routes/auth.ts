@@ -326,7 +326,7 @@ auth.post('/forgot-password', resetLimiter, async (c) => {
 /**
  * POST /auth/reset-password — reset password using a valid token
  */
-auth.post('/reset-password', async (c) => {
+auth.post('/reset-password', resetLimiter, async (c) => {
   try {
     const body = await c.req.json();
     const parsed = resetPasswordSchema.safeParse(body);
@@ -380,6 +380,16 @@ auth.post('/reset-password', async (c) => {
       .update(resetTokensTable)
       .set({ usedAt: new Date() })
       .where(eq(resetTokensTable.id, tokenRow.id));
+
+    // Revoke all existing sessions so a compromised session is invalidated
+    try {
+      await revokeAllSessions(tokenRow.userId);
+    } catch (revokeErr) {
+      logger.warn('Failed to revoke sessions after password reset', {
+        userId: tokenRow.userId,
+        error: revokeErr instanceof Error ? revokeErr.message : String(revokeErr),
+      });
+    }
 
     return c.json({ data: { message: 'Password has been reset successfully.' } });
   } catch (err) {

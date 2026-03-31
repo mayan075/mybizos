@@ -4,7 +4,43 @@ import { config } from '../config.js';
 import { db, organizations } from '@hararai/db';
 import { sql } from 'drizzle-orm';
 
+import type { MiddlewareHandler } from 'hono';
+
 const voiceTwiml = new Hono();
+
+// ── Twilio Signature Verification Middleware ────────────────────────────────
+
+const validateTwilioSignature: MiddlewareHandler = async (c, next) => {
+  if (!config.TWILIO_AUTH_TOKEN) {
+    logger.error('Voice TwiML webhook rejected: TWILIO_AUTH_TOKEN not configured');
+    return c.json({ error: 'Webhook authentication not configured', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+
+  const signature = c.req.header('x-twilio-signature');
+  if (!signature) {
+    logger.warn('Voice TwiML webhook missing x-twilio-signature header');
+    return c.json({ error: 'Missing Twilio signature', code: 'FORBIDDEN', status: 403 }, 403);
+  }
+
+  try {
+    const twilio = await import('twilio');
+    const url = c.req.url;
+    const body = await c.req.parseBody();
+    const params = body as Record<string, string>;
+    const isValid = twilio.validateRequest(config.TWILIO_AUTH_TOKEN, signature, url, params);
+    if (!isValid) {
+      logger.warn('Voice TwiML webhook signature validation failed');
+      return c.json({ error: 'Invalid Twilio signature', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+  } catch (err) {
+    logger.error('Twilio signature validation error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ error: 'Signature validation failed', code: 'FORBIDDEN', status: 403 }, 403);
+  }
+
+  await next();
+};
 
 // ── Helper: XML-escape ─────────────────────────────────────────────────────
 
@@ -100,7 +136,7 @@ async function findCallerIdForOrg(accountSid: string): Promise<string | null> {
 //
 // This is an unauthenticated webhook — Twilio calls it directly.
 
-voiceTwiml.post('/twiml', async (c) => {
+voiceTwiml.post('/twiml', validateTwilioSignature, async (c) => {
   try {
     // Twilio sends form-encoded POST body
     const body = await c.req.text();

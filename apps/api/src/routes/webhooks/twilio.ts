@@ -28,6 +28,42 @@ import { handleAIBookingMessage } from '../../services/ai-booking-handler.js';
 
 const twilioWebhooks = new Hono();
 
+// ── Twilio Signature Verification Middleware ────────────────────────────────
+
+import type { MiddlewareHandler } from 'hono';
+
+const validateTwilioSignature: MiddlewareHandler = async (c, next) => {
+  if (!config.TWILIO_AUTH_TOKEN) {
+    logger.error('Twilio webhook rejected: TWILIO_AUTH_TOKEN not configured');
+    return c.json({ error: 'Webhook authentication not configured', code: 'SERVICE_UNAVAILABLE', status: 503 }, 503);
+  }
+
+  const signature = c.req.header('x-twilio-signature');
+  if (!signature) {
+    logger.warn('Twilio webhook missing x-twilio-signature header');
+    return c.json({ error: 'Missing Twilio signature', code: 'FORBIDDEN', status: 403 }, 403);
+  }
+
+  try {
+    const twilio = await import('twilio');
+    const url = c.req.url;
+    const body = await c.req.parseBody();
+    const params = body as Record<string, string>;
+    const isValid = twilio.validateRequest(config.TWILIO_AUTH_TOKEN, signature, url, params);
+    if (!isValid) {
+      logger.warn('Twilio webhook signature validation failed');
+      return c.json({ error: 'Invalid Twilio signature', code: 'FORBIDDEN', status: 403 }, 403);
+    }
+  } catch (err) {
+    logger.error('Twilio signature validation error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return c.json({ error: 'Signature validation failed', code: 'FORBIDDEN', status: 403 }, 403);
+  }
+
+  await next();
+};
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const MAX_CONVERSATION_TURNS = 10;
@@ -279,7 +315,7 @@ const twilioStatusPayloadSchema = z.object({
 //  POST /voice — Incoming call webhook: bridge to Gemini Live via Media Stream
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.post('/voice', async (c) => {
+twilioWebhooks.post('/voice', validateTwilioSignature, async (c) => {
   const body = await c.req.parseBody();
   const parsed = twilioVoicePayloadSchema.safeParse(body);
 
@@ -331,7 +367,7 @@ twilioWebhooks.post('/voice', async (c) => {
 //  POST /voice/respond — Process caller's speech and get Claude's response
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.post('/voice/respond', async (c) => {
+twilioWebhooks.post('/voice/respond', validateTwilioSignature, async (c) => {
   const body = await c.req.parseBody();
   const parsed = twilioVoicePayloadSchema.safeParse(body);
 
@@ -471,7 +507,7 @@ VOICE CALL RULES:
 //  the TwiML response that Twilio needs quickly.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.post('/sms', async (c) => {
+twilioWebhooks.post('/sms', validateTwilioSignature, async (c) => {
   const body = await c.req.parseBody();
   const parsed = twilioSmsPayloadSchema.safeParse(body);
 
@@ -776,7 +812,7 @@ twilioWebhooks.post('/sms', async (c) => {
 //  POST /status — Call status callback: log and generate summary when complete
 // ═══════════════════════════════════════════════════════════════════════════════
 
-twilioWebhooks.post('/status', async (c) => {
+twilioWebhooks.post('/status', validateTwilioSignature, async (c) => {
   const body = await c.req.parseBody();
   const parsed = twilioStatusPayloadSchema.safeParse(body);
 
@@ -836,6 +872,7 @@ Respond with ONLY valid JSON (no markdown, no code fences):
     });
 
     // Store in call logs (in-memory for quick access)
+    // Strip full transcript to prevent unbounded memory growth
     callLogs.push({
       callSid: CallSid,
       callerPhone: conversation.callerPhone,
@@ -844,12 +881,15 @@ Respond with ONLY valid JSON (no markdown, no code fences):
       endedAt: new Date().toISOString(),
       turnCount: conversation.turnCount,
       summary: summaryText,
-      transcript: [...conversation.messages],
+      transcript: conversation.messages.slice(-4).map((m) => ({
+        role: m.role,
+        content: m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content,
+      })),
     });
 
-    // Keep only the last 100 call logs in memory
-    if (callLogs.length > 100) {
-      callLogs.splice(0, callLogs.length - 100);
+    // Keep only the last 50 call logs in memory
+    if (callLogs.length > 50) {
+      callLogs.splice(0, callLogs.length - 50);
     }
 
     // Persist call as activity in database (fire-and-forget to not block TwiML response)

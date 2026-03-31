@@ -80,21 +80,39 @@ function getRedirectUri(_orgId: string, _provider: OAuthProvider): string {
 }
 
 function generateState(orgId: string, provider: OAuthProvider): string {
-  // In production, use a signed JWT or HMAC. For now, base64 encode.
+  const crypto = require('crypto');
   const payload = JSON.stringify({
     orgId,
     provider,
     ts: Date.now(),
-    nonce: Math.random().toString(36).substring(2),
+    nonce: crypto.randomBytes(16).toString('hex'),
   });
-  return Buffer.from(payload).toString('base64url');
+  const data = Buffer.from(payload).toString('base64url');
+  const hmac = crypto.createHmac('sha256', config.JWT_SECRET).update(data).digest('base64url');
+  return `${data}.${hmac}`;
 }
 
 function parseState(state: string): { orgId: string; provider: OAuthProvider } | null {
   try {
+    const crypto = require('crypto');
+    const [data, hmac] = state.split('.');
+    if (!data || !hmac) return null;
+
+    // Verify HMAC signature to prevent state forgery
+    const expected = crypto.createHmac('sha256', config.JWT_SECRET).update(data).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected))) {
+      return null;
+    }
+
     const payload = JSON.parse(
-      Buffer.from(state, 'base64url').toString('utf-8'),
-    ) as { orgId: string; provider: string };
+      Buffer.from(data, 'base64url').toString('utf-8'),
+    ) as { orgId: string; provider: string; ts: number };
+
+    // Reject state tokens older than 10 minutes
+    if (Date.now() - payload.ts > 10 * 60 * 1000) {
+      return null;
+    }
+
     if (!payload.orgId || !VALID_PROVIDERS.includes(payload.provider as OAuthProvider)) {
       return null;
     }
@@ -218,16 +236,21 @@ integrations.get('/:provider/callback', async (c) => {
     );
   }
 
-  // Validate state parameter
+  // Validate state parameter (REQUIRED to prevent CSRF)
   const stateParam = c.req.query('state');
-  if (stateParam) {
-    const stateData = parseState(stateParam);
-    if (!stateData || stateData.orgId !== orgId || stateData.provider !== provider) {
-      return c.json(
-        { error: 'Invalid state parameter — possible CSRF attack', code: 'FORBIDDEN', status: 403 },
-        403,
-      );
-    }
+  if (!stateParam) {
+    return c.json(
+      { error: 'Missing state parameter — possible CSRF attack', code: 'FORBIDDEN', status: 403 },
+      403,
+    );
+  }
+
+  const stateData = parseState(stateParam);
+  if (!stateData || stateData.orgId !== orgId || stateData.provider !== provider) {
+    return c.json(
+      { error: 'Invalid state parameter — possible CSRF attack', code: 'FORBIDDEN', status: 403 },
+      403,
+    );
   }
 
   const credentials = getCredentials(provider);
